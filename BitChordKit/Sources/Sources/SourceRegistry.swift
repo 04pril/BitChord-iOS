@@ -23,6 +23,7 @@ public final class SourceRegistry {
 
     @ObservationIgnored nonisolated let environment: SourceEnvironment
     @ObservationIgnored private let store: SourceConfigStore?
+    @ObservationIgnored private var confihDefaultSeedV1 = false
     @ObservationIgnored private let factory: @Sendable (SourceConfig, SourceEnvironment) -> MusicSource
     @ObservationIgnored nonisolated private let snapshot = LockedBox(Snapshot())
     /// False when the stored file exists but could not be read (a transient filesystem error, or
@@ -40,7 +41,8 @@ public final class SourceRegistry {
     public init(
         store: SourceConfigStore? = .standard,
         environment: SourceEnvironment,
-        factory: (@Sendable (SourceConfig, SourceEnvironment) -> MusicSource)? = nil
+        factory: (@Sendable (SourceConfig, SourceEnvironment) -> MusicSource)? = nil,
+        defaultAddon: SourceConfig? = nil
     ) {
         self.store = store
         self.environment = environment
@@ -55,12 +57,20 @@ public final class SourceRegistry {
             SourcesLog.w("stored sources unreadable; keeping the file untouched this session", error: error)
             storeIsReadable = false
         }
-        let after = Self.sourcesForInit(loaded.sources, forceJioSaavnOff: !loaded.jioSaavnOptInV1)
+        var after = Self.sourcesForInit(loaded.sources, forceJioSaavnOff: !loaded.jioSaavnOptInV1)
+        if let defaultAddon, !loaded.confihDefaultSeedV1 {
+            let canonical = Self.canonicalUrl(defaultAddon.baseUrl)
+            if !after.contains(where: { Self.canonicalUrl($0.baseUrl) == canonical }) {
+                after.insert(Self.tidied(defaultAddon), at: 0)
+            }
+            loaded.confihDefaultSeedV1 = true
+        }
+        confihDefaultSeedV1 = loaded.confihDefaultSeedV1
         publish(after, persist: false)
         // Written in one go with the marker: a process dying between recording the marker and the
         // disabled source would otherwise let the next launch silently restore the old on state.
-        if storeIsReadable, after != loaded.sources || !loaded.jioSaavnOptInV1 {
-            store?.save(.init(sources: after, jioSaavnOptInV1: true))
+        if storeIsReadable, after != loaded.sources || !loaded.jioSaavnOptInV1 || loaded.confihDefaultSeedV1 {
+            store?.save(.init(sources: after, jioSaavnOptInV1: true, confihDefaultSeedV1: loaded.confihDefaultSeedV1))
         }
     }
 
@@ -194,7 +204,9 @@ public final class SourceRegistry {
         for (id, old) in previous where instances[id] !== old {
             old.release()
         }
-        if persist, storeIsReadable { store?.save(.init(sources: next, jioSaavnOptInV1: true)) }
+        if persist, storeIsReadable {
+            store?.save(.init(sources: next, jioSaavnOptInV1: true, confihDefaultSeedV1: confihDefaultSeedV1))
+        }
     }
 
     // MARK: Identifying a pasted URL
@@ -370,10 +382,13 @@ public struct SourceConfigStore: Sendable {
         public var sources: [SourceConfig]
         /// The one-shot migration marker: existing users must opt in to JioSaavn again.
         public var jioSaavnOptInV1: Bool
+        /// Once the default addon has been offered, a user's removal stays removed.
+        public var confihDefaultSeedV1: Bool
 
-        public init(sources: [SourceConfig] = [], jioSaavnOptInV1: Bool = false) {
+        public init(sources: [SourceConfig] = [], jioSaavnOptInV1: Bool = false, confihDefaultSeedV1: Bool = false) {
             self.sources = sources
             self.jioSaavnOptInV1 = jioSaavnOptInV1
+            self.confihDefaultSeedV1 = confihDefaultSeedV1
         }
 
         /// One entry at a time: an entry naming a kind this build no longer has must not take every
@@ -385,12 +400,14 @@ public struct SourceConfigStore: Sendable {
             if dropped > 0 { SourcesLog.w("dropping \(dropped) unreadable stored source(s)") }
             sources = entries.compactMap(\.value)
             jioSaavnOptInV1 = c.lenientBool("jioSaavnOptInV1") ?? false
+            confihDefaultSeedV1 = c.lenientBool("confihDefaultSeedV1") ?? false
         }
 
         public func encode(to encoder: Encoder) throws {
             var c = encoder.container(keyedBy: AnyCodingKey.self)
             try c.encode(sources, forKey: AnyCodingKey("sources"))
             try c.encode(jioSaavnOptInV1, forKey: AnyCodingKey("jioSaavnOptInV1"))
+            try c.encode(confihDefaultSeedV1, forKey: AnyCodingKey("confihDefaultSeedV1"))
         }
     }
 

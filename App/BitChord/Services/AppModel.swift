@@ -276,6 +276,11 @@ final class AppModel {
             settings: settings,
             youTubeSearch: InnerTubeSongSearch(repository: repository),
             youTubeStreams: youTubeStreams
+        ), defaultAddon: SourceConfig(
+            id: "bitchord-confih-hires-default",
+            kind: .addon,
+            label: "Confih Hi-Res",
+            baseUrl: "https://bitchord.confih.tech"
         ))
         sourceResolver = SourceResolver(registry: sourceRegistry)
 
