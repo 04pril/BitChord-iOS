@@ -1,251 +1,97 @@
-<div align="center">
+# BitChord iOS · 한국어와 앱 내부 프록시
 
-<br/>
+[maanya145/BitChord-iOS](https://github.com/maanya145/BitChord-iOS)를 기반으로 한 개인 포크입니다.
+원래 BitChord의 디자인을 유지하면서 한국어 선택, 가사 출처 표시 설정, 앱 내부 프록시와 재생 위젯 앱 열기 패치를 추가했습니다.
 
-<img src=".github/assets/icon.png" alt="BitChord app icon" width="160" />
+**[IPA 다운로드 / 릴리즈](https://github.com/04pril/BitChord-iOS/releases)** · [원본 README](docs/UPSTREAM-README.md)
 
-# BitChord for iOS
+## 추가한 기능
 
-### A YouTube Music client for iPhone and iPad, ported from BitChord for Android
+- **한국어 선택:** Settings → Language → App language → **한국어**. 홈·검색·보관함·플레이어·설정 등 자주 쓰는 화면의 문구 666개와 프록시·진단 문구를 번역했습니다. 아직 번역하지 않은 화면과 설명은 영어로 표시합니다. 기존 언어도 그대로 선택할 수 있습니다.
+- **가사 출처 줄 표시 설정:** 설정 → 화면 및 플레이어 → **가사 출처와 변경 버튼 표시**. 기본은 꺼짐입니다. 켜면 플레이어의 `Lyrics by … / Change` 줄이 다시 나타납니다. 가사 자체와 가사 서비스 선택 기능은 유지합니다.
+- **프록시:** 설정에서 **계정 및 연동 → 함께 듣기 → 프록시** 순서로 같은 그룹에 표시됩니다. 앱 내부 WireGuard와 외부 HTTP·HTTPS·SOCKS5를 지원합니다.
+- **재생 위젯 앱 열기:** 잠금화면·다이나믹 아일랜드에서 앱이 열리지 않는 경우를 보완하기 위해 실제 설치된 번들 ID를 Now Playing 앱 연결 대상으로 지정합니다. 프록시 화면의 **앱 열기 진단**에서 상태를 확인하거나 이 패치를 끌 수 있습니다.
 
-<br/>
+## 설치
 
-[![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fbitchord.hero154.com%2Fsource.json&query=%24.apps%5B0%5D.versions%5B0%5D.version&label=version&style=for-the-badge&labelColor=0d1117&color=e5404f)](#install)
-[![License](https://img.shields.io/github/license/maanya145/BitChord-iOS?style=for-the-badge&labelColor=0d1117)](LICENSE)
-[![Platform](https://img.shields.io/badge/iOS-17%2B-0d1117?style=for-the-badge)](#requirements)
+1. Releases에서 `BitChord-1.0.2-10-KR-Proxy.ipa`를 받습니다.
+2. Feather 등 서명 도구에서 **본인 인증서로 앱 전체를 재서명**해 설치합니다. 릴리즈 파일의 ad-hoc 서명은 기기에 바로 설치하는 개발자 서명이 아닙니다.
+3. 앱 설정의 Language에서 한국어를 선택합니다. 기기의 언어 설정이 한국어이면 자동으로 선택될 수도 있습니다.
+4. 프록시를 사용할 경우 본인의 WireGuard `.conf`를 가져오거나 외부 프록시 서버 정보를 입력합니다.
+5. 연결 방식을 저장하고 사용을 켠 다음, 앱을 완전히 종료했다가 다시 엽니다. 시스템 VPN을 끈 상태에서 국가 확인과 실제 곡 재생을 확인합니다.
 
-<br/>
+앱의 식별자는 `com.music.bitchord`, 버전은 1.0.2, 빌드 번호는 10입니다. 기존 앱 위에 설치할 때 같은 서명 접근 그룹을 유지해야 Keychain의 로그인·프록시 설정에 계속 접근할 수 있습니다. 달라지면 다시 로그인하거나 프로필을 가져와야 할 수 있습니다.
 
-[Install](#install) · [Features](#features) · [Building from source](#building-from-source) · [Contributing](#contributing) · [Credits](#credits) · [Disclaimer](#disclaimer-and-legal-notice)
+개인 WireGuard 설정, 개인키, 개인 인증서는 소스나 IPA에 포함하지 않습니다. 프록시 개인키·비밀번호는 기기의 Keychain에 저장하며 진단에는 넣지 않습니다. 사용자 자신의 프로필이 필요합니다.
 
-</div>
+## 연결 방식과 범위
 
-> [!IMPORTANT]
-> BitChord is not affiliated with, endorsed by, or connected to YouTube, Google or Apple in any way. Use it at your own discretion.
+```
+BitChord URLSession API / HTTPAudioSource 음악 캐시
+  → 인증된 로컬 SOCKS5·CONNECT
+  → wireguard-go + gVisor 사용자 공간 네트워크
+  → 사용자가 지정한 WireGuard 서버
+```
 
----
+시스템 VPN 프로필이나 Network Extension을 만들지 않습니다. URLSession에 적용한 프록시가 실패하면 직접 연결로 전환하지 않습니다. WireGuard 모드의 음원 호스트 DNS 조회도 터널에서 처리합니다. 서버 Endpoint가 호스트 이름이면 터널을 만들기 전 기기 DNS로 한 번 조회합니다.
 
-## What this is
+이 범위는 **URLSession을 사용하는 요청과 캐시 HTTP 오디오 경로**입니다. 별도 시스템 프로세스가 처리하는 AVFoundation의 직접 HLS/커버 영상, WebKit 로그인 화면, SMB까지 기기 전체 VPN처럼 처리하는 기능은 아닙니다. 이 경로들은 프록시를 우회할 수 있습니다. 국가 확인 성공만으로 실제 음악 재생 성공을 판단하지 마세요.
 
-This repository holds the iOS port of [BitChord](https://github.com/kushagrasinghx/BitChord), the open-source YouTube Music client for Android by [Kushagra Singh](https://github.com/kushagrasinghx). It is a native SwiftUI app for iPhone and iPad that follows the Android app screen for screen, currently tracking BitChord for Android 1.8.
+표준 단일 피어 WireGuard `.conf`를 사용합니다. `AllowedIPs`에 `0.0.0.0/0`, `DNS`에는 숫자 IP가 필요합니다. 변경한 연결 방식은 앱 재시작 후 적용됩니다.
 
-Where iOS cannot do what Android does, the port uses the closest iOS equivalent or leaves the feature out. The [porting notes](docs/PORTING.md) list each feature, the Android source it comes from, and the tests that cover it. The Android app remains the upstream project. Bugs in the iOS app belong here; bugs in the Android app belong [upstream](https://github.com/kushagrasinghx/BitChord/issues).
+## 앱 열기 패치
 
-<!-- Screenshots: no iOS screenshots exist yet. Add them here once taken. -->
+`MRMediaRemoteSetParentApplication`에 실제 번들 ID를 전달합니다. `application-identifier`는 진단용으로 읽을 뿐 수정하지 않습니다. 이 방식은 YTMU에서 사용자 실기기 해결 확인을 받은 패치를 BitChord에 맞춘 것입니다.
 
-## Features
+**BitChord에서의 실제 아이폰 앱 열기와 음악 재생은 아직 사용자 확인 전입니다.** 비공개 MediaRemote API이므로 다른 기기·서명 조합에서 동작이 다를 수 있습니다. API 미지원이나 Objective-C 예외가 발생하면 연결 요청을 건너뛰거나 해당 실행에서 중단합니다. 요청 횟수 자체는 iOS의 승인을 뜻하지 않습니다.
 
-### Playback
+## 직접 빌드
 
-- Search, browse and play the YouTube Music catalogue: Home, Explore, moods and genres, artist, album and playlist pages.
-- Separate streaming quality for Wi-Fi and mobile data, plus a Dolby Atmos option.
-- Optional add-on sources for lossless and Atmos streams, with YouTube Music as the fallback. Sources can be added, tested and reordered.
-- Crossfade from 0 to 12 seconds, and Automix, which plans each transition from the beat grid and vocal activity of both tracks.
-- Loudness normalization, skip silence, stereo widening and a built-in equalizer.
-- A sleep timer: 15, 30, 45 or 60 minutes, or the end of the current track.
-- An on-device song cache with an adjustable size limit.
-- Stats for nerds on the now playing screen: codec, bitrate and the audio pipeline.
-
-### Lyrics
-
-- Synced lyrics with line and word highlighting, gathered from several providers: LRCLIB, Musixmatch, Genius, KuGou, PaxSenix, BetterLyrics, BiniLyrics, LyricsPlus, SimpMusic, Unison, Megalobiz and YouTube Music.
-- Choose and reorder providers, adjust the timing offset, and translate lyrics into another language.
-- Share selected lines as an image card.
-- Lyrics are kept on the device per track.
-
-### Library and offline
-
-- Sign in with a Google account for your YouTube Music library, playlists and history. You can add several accounts and switch between personal and brand profiles.
-- Download tracks for offline play, with metadata and lyrics written into the file.
-- Import your own audio files from the Files app.
-- Play music from SMB and WebDAV shares on your network.
-- Export and import settings and listening history as a JSON file.
-
-### Look and feel
-
-- Animated cover art from Apple Music, Tidal, Spotify and a community index, on the player and on the lock screen.
-- Player colours and background taken from the album artwork.
-- A landscape player layout and iPad support.
-- Five app icons to choose from in Settings.
-- The interface is available in 16 languages.
-
-### Social and integrations
-
-- Listen Together: host a listening party and invite others with a code, a link or a QR code.
-- Replay: listening statistics by period, with a shareable poster.
-- Scrobbling to Last.fm and ListenBrainz.
-- Discord Rich Presence with in-app Discord sign-in, showing the track, artist, progress and audio quality.
-
-### System
-
-- Lock screen and Control Center controls.
-- Three Home Screen widgets, in small and medium sizes.
-- A Share extension that opens YouTube and YouTube Music links in BitChord.
-- App Intents for playback.
-- A CarPlay interface. It needs Apple's CarPlay audio entitlement, which the project does not carry.
-
-## Requirements
-
-- iPhone or iPad running iOS 17 or later.
-- A sideloading tool such as AltStore or SideStore. BitChord is not on the App Store.
-
-## Install
-
-BitChord is distributed as an IPA through a sideloading source.
-
-1. Install AltStore, SideStore or another app that reads AltStore sources.
-2. Add this source:
-
-   ```
-   https://bitchord.hero154.com/source.json
-   ```
-
-3. Install BitChord from the source.
-
-To update, install the new version over the old one. Downloads, library and settings carry over.
-
-## Building from source
-
-### What you need
-
-- A Mac with Xcode 27.
-- An Apple ID if you want to run the app on a device. The simulator needs no signing setup.
-
-### Open the project
+Mac, Xcode 27, Go 1.27.x가 필요합니다. Go와 Swift 패키지 의존성을 받을 수 있는 인터넷 연결이 필요합니다.
 
 ```sh
-git clone https://github.com/maanya145/BitChord-iOS.git bitchord-ios
-cd bitchord-ios
+git clone https://github.com/04pril/BitChord-iOS.git
+cd BitChord-iOS
+scripts/make-ipa.sh
+```
+
+이 명령이 한국어 카탈로그와 iOS WireGuard 엔진을 준비한 뒤 Release 앱과 확장을 빌드·패키징합니다. 결과는 `build/BitChord-1.0.2-10-KR-Proxy.ipa`입니다. 설치 전 본인의 인증서로 재서명하세요.
+
+GitHub Actions의 **Build IPA**에서도 실행할 수 있습니다. 생성한 IPA는 워크플로 아티팩트로 내려받습니다. Go 엔진 없이 Xcode에서 직접 빌드하려면 먼저 다음 명령을 실행합니다.
+
+```sh
+MIN_IOS=17.0 bash WireGuard/build-ios.sh
 open BitChord.xcworkspace
 ```
 
-Open the workspace, not the `.xcodeproj`. It contains the app project and the `BitChordKit` package. Pick the `BitChord` scheme. Xcode resolves the two Swift package dependencies on first open.
+실기기와 시뮬레이터는 서로 다른 Go 아카이브가 필요합니다. 시뮬레이터 빌드 전에는 `SDK_NAME=iphonesimulator bash WireGuard/build-ios.sh`를 실행합니다.
 
-### Signing for a device
+## 검증한 범위
 
-The project uses automatic signing with no team set, and the maintainer's identifiers. To run on your own device:
+- iOS arm64 Release 앱·공유 확장·위젯 확장 빌드와 IPA 서명 무결성 검사.
+- 설정 저장과 백업 등 BitChordCore 테스트 **151개** 통과. 가사 출처 표시 설정의 기본값과 재실행 후 저장도 포함합니다.
+- 앱 열기 패치의 모의 미디어 API 검사 **19개** 통과.
+- WireGuard 엔진의 `go test -race` 통과.
+- 실제 macOS Foundation/Network.framework와 로컬 WireGuard 테스트 피어를 사용해 HTTPS, HTTP 206, 터널 DNS, 연결 실패 시 직접 연결 차단, HTTP·HTTPS·SOCKS5 동작 확인.
+- IPA에 포함된 한국어 문자열·복수형 및 포맷 인자 확인.
 
-1. Select your team under Signing & Capabilities for the `BitChord`, `BitChordWidgetExtension` and `BitChordShareExtension` targets.
-2. Change the bundle identifiers to a prefix you own. The app is `com.music.bitchord`, the widget is `com.music.bitchord.widget` and the Share extension is `com.music.bitchord.share`. The extensions must keep the app's identifier as their prefix.
-3. Change the app group `group.com.music.bitchord` in the three files under `App/Config/*.entitlements` and in `App/Shared/SharedConstants.swift`. The widget and the Share extension read the app's data through this group.
-
-Do not commit these changes in a pull request.
-
-### Optional keys
-
-The app reads two optional build settings, `LASTFM_API_KEY` and `LASTFM_API_SECRET`, into its `Info.plist`. Without them the app builds and runs, but Last.fm sign-in and scrobbling and the genre chart in Replay stay unavailable. To use them, get a key from [Last.fm](https://www.last.fm/api/account/create) and pass both on the command line:
+아이폰 설치, 실제 서비스의 곡 재생, Wi-Fi/셀룰러 전환, 이 BitChord 빌드의 재생 위젯 앱 열기는 별도 실기기 확인이 필요합니다. 첫 릴리즈는 이 범위를 명시한 시험 버전입니다.
 
 ```sh
-xcodebuild -workspace BitChord.xcworkspace -scheme BitChord \
-  -destination 'generic/platform=iOS Simulator' \
-  LASTFM_API_KEY=your_key LASTFM_API_SECRET=your_secret build
+# 엔진 테스트
+(cd WireGuard && go test -race ./...)
+# Apple 네트워크 스택을 통한 터널 테스트 (Mac)
+python3 tests/proxy/run_macos.py
+# 앱 열기 로직: 모의 MediaRemote
+xcrun clang -fobjc-arc -fblocks tests/nowplaying/harness.m -framework Foundation -o /tmp/nowplaying-check
+/tmp/nowplaying-check
 ```
 
-In Xcode, add them as user-defined build settings on the `BitChord` target, and keep them out of commits. No `.xcconfig` file is attached to the project.
+## 출처와 라이선스
 
-The PaxSenix lyrics key is entered in the app under the lyrics sources, not at build time.
+- iOS 앱: [maanya145/BitChord-iOS](https://github.com/maanya145/BitChord-iOS), 기반 커밋 `390b05884987c018b2efffaef535a92d9f3d9999`.
+- 원 프로젝트: [kushagrasinghx/BitChord](https://github.com/kushagrasinghx/BitChord).
+- 앱 내부 프록시 기반: [04pril/ytmu](https://github.com/04pril/ytmu), `dea97f498f2916535fb5ef292e1f461a8f11ca87`의 엔진·설정 코드. 원래 통합의 기반은 [kes158/YTMusicUltimate](https://github.com/kes158/YTMusicUltimate)입니다. BitChord에 맞게 설정과 통신 진단을 조정했습니다.
+- [GPL-3.0](LICENSE), [기존 서드파티 고지](THIRD-PARTY-NOTICES.md), [WireGuard 구성 요소 라이선스](WireGuard/THIRD_PARTY_LICENSES.txt). Automix 등의 기존 AGPL 고지도 유지합니다.
 
-### Command line
-
-The scripts in `scripts/` wrap the common builds. They can be run from any directory.
-
-```sh
-scripts/kit-test.sh                      # BitChordKit tests on the Mac, no simulator
-scripts/kit-test.sh --filter LyricsTests # one module's tests
-scripts/kit-build-ios.sh                 # compile BitChordKit for the iOS Simulator
-scripts/app-build.sh                     # compile the app, extensions and test bundles
-scripts/sim-test.sh                      # run the BitChord test plan on the "iPhone 16" simulator
-scripts/make-ipa.sh                      # build an unsigned Release IPA in build/
-scripts/verify-ipa.sh build/<file>.ipa   # check an IPA's signature and app-group entitlements
-```
-
-The scripts use `/Applications/Xcode.app` unless `DEVELOPER_DIR` is set. `JOBS=n` sets the number of parallel compile jobs. `BITCHORD_SIM_NAME` picks a different simulator for `sim-test.sh`, and extra arguments go to `xcodebuild`, for example `scripts/sim-test.sh -only-testing:BitChordTests`.
-
-Tests that call real services are skipped unless `BITCHORD_LIVE_TESTS=1` is set, so the default run works offline.
-
-## Project layout
-
-```
-BitChord.xcworkspace      open this
-App/
-  BitChord.xcodeproj      app, widget, Share extension and app-hosted test targets
-  BitChord/               the SwiftUI app: screens, navigation, CarPlay, App Intents
-  BitChordWidget/         Home Screen widgets
-  BitChordShare/          Share extension
-  Shared/                 code compiled into the app and both extensions
-  BitChordTests/          app-hosted unit and view model tests
-  BitChordUITests/        UI and end-to-end tests
-  Config/                 Info.plists and entitlements
-  BitChord.xctestplan     the scheme's test plan: BitChordTests and every BitChordKit test target
-  BitChordE2E.xctestplan  the UI tests, some of which need the network
-BitChordKit/              Swift package with all non-UI logic, one module per subsystem
-  Sources/
-    BitChordCore          shared models, settings, HTTP and logging
-    InnerTube             YouTube Music API client, parser and Google sign-in
-    StreamResolution      turns a video id into a playable audio stream
-    Sources               add-on and JioSaavn sources, matching and fallback to YouTube
-    PlaybackQueue         queue, shuffle, autoplay, history and sleep timer
-    PlaybackPolicy        quality choice, upgrades, fallbacks and stats for nerds
-    Playback              the AVPlayer engine, crossfade and system media controls
-    AudioCache            on-disk cache for streamed audio
-    AudioDSP              equalizer, loudness, skip silence and spatial audio
-    Automix               transition planning with the beat and vocal models
-    AutomixAnalyzer       C++ audio analyzer behind a C header
-    Lyrics                lyrics providers, parsing, storage and translation
-    Downloads             offline downloads, tagging and Files imports
-    NetworkLibrary        SMB and WebDAV libraries
-    ListenTogether        Listen Together client and invite links
-    Integrations          Last.fm, ListenBrainz and Discord
-    Replay                listening statistics and backup
-    Canvas                animated cover art lookups
-    Theming               colours taken from artwork
-    BitChordTestSupport   test helpers, never shipped
-  Tests/                  one test target per module
-scripts/                  build, test and packaging scripts
-docs/PORTING.md           feature checklist and porting decisions
-```
-
-The top of `BitChordKit/Package.swift` lists the Android source each module ports. Android paths in code comments are relative to `app/src/main/java/com/music/bitchord/` in the [upstream repository](https://github.com/kushagrasinghx/BitChord).
-
-## Contributing
-
-Contributions are welcome. Read the [contributing guide](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md) before you open a pull request. Pull requests target `main`. For anything larger than a bug fix, open an issue first.
-
-## Credits
-
-### BitChord for Android
-
-This app is a port of [BitChord](https://github.com/kushagrasinghx/BitChord) by [Kushagra Singh](https://github.com/kushagrasinghx), licensed under GPL-3.0. The design, the features and most of the behaviour come from that project, and the Android source is the reference for every module here. If you like the app, support the [upstream project](https://github.com/kushagrasinghx/BitChord).
-
-Thanks also to the [contributors to BitChord for Android](https://github.com/kushagrasinghx/BitChord/graphs/contributors).
-
-### Credited by the Android project
-
-- [binimum](https://github.com/binimum/am-lyrics) for the Apple-style lyrics animation, which the iOS lyrics view ports from Android. binimum also runs the BiniLyrics and LyricsPlus services the app reads lyrics from.
-
-### Third-party code and models
-
-[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) lists every third-party work in this repository or linked into the app, with its licence. In short:
-
-- [AMSMB2](https://github.com/amosavian/AMSMB2), which wraps libsmb2 (LGPL-2.1), for SMB shares.
-- [ONNX Runtime](https://github.com/microsoft/onnxruntime-swift-package-manager) (MIT) to run the Automix models.
-- [Orchard](https://github.com/SFG5453/Orchard) by SFG545. The Automix analyzer and several Automix files are ported from Orchard through BitChord for Android and stay under AGPL-3.0.
-- The Beat This! beat model by CPJKU and the Open-Unmix vocals model by Inria and SigSep.
-- Stream resolution follows NewPipe Extractor, InnerTubeX and zemer-cipher; the Discord integration ports Kizzy; the artwork colours port AndroidX Palette and ColorUtils.
-
-### Services
-
-Lyrics come from LRCLIB, Musixmatch, Genius, KuGou, PaxSenix, BetterLyrics, BiniLyrics, LyricsPlus, SimpMusic, Unison, Megalobiz and YouTube Music. Animated covers come from Apple Music, Tidal, Spotify and a community canvas index. Listen Together uses the BitChord Listen Together backend from the Android project. Thanks to the people who run these services.
-
-## Disclaimer and legal notice
-
-BitChord for iOS is an independent, community-driven third-party audio player and client. It is not associated with Google LLC, YouTube, YouTube Music, Apple Inc. or any of their parent companies.
-
-- **No media hosting.** BitChord does not host, upload or store copyrighted music. It plays files you import, files on your own network shares, and streams from public or user-authenticated APIs.
-- **Fair use and API usage.** This software is made for personal research, education and fair use. You are responsible for making sure your use complies with your local copyright laws and the YouTube Terms of Service.
-- **No guarantee of service.** BitChord does not guarantee that any third-party platform will keep working with it.
-- **Copyleft.** BitChord is free software under GPL-3.0. Anyone may sell or redistribute copies, but every distribution must come with the corresponding source under the same license.
-
-## License
-
-BitChord for iOS is licensed under the [GNU General Public License v3.0](LICENSE). It is a port of BitChord for Android, which is GPL-3.0, so the port carries the same license. The files ported from Orchard remain under the [GNU Affero General Public License v3.0](LICENSES/AGPL-3.0.txt), as their headers state. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the full list.
+Google·YouTube·Apple의 공식 앱이 아닙니다.

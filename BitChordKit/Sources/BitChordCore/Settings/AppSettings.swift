@@ -306,6 +306,11 @@ public final class AppSettings {
         didSet { write(.hideSongStatus, hideSongStatus) }
     }
 
+    /// Shows the lyrics provider caption and inline provider-change button.
+    public var showLyricsProvider: Bool = false {
+        didSet { write(.showLyricsProvider, showLyricsProvider) }
+    }
+
     /// Cover art as a full-bleed banner off the top of the screen rather than a square card.
     public var fullBleedArtwork: Bool = true {
         didSet { write(.fullBleedArtwork, fullBleedArtwork) }
@@ -930,6 +935,7 @@ public final class AppSettings {
         hideVolumeBar = readBool(.hideVolumeBar, default: false)
         showQueueHistory = readBool(.showQueueHistory, default: false)
         hideSongStatus = readBool(.hideSongStatus, default: false)
+        showLyricsProvider = readBool(.showLyricsProvider, default: false)
         fullBleedArtwork = readBool(.fullBleedArtwork, default: true)
         legacyMeshGradient = readBool(.legacyMeshGradient, default: false)
         lastPlayerScreen = readEnum(.lastPlayerScreen, default: .main)

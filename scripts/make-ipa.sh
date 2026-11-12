@@ -8,6 +8,9 @@ set -euo pipefail
 export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}
 cd "$(dirname "$0")/.."
 
+python3 scripts/apply-korean.py
+MIN_IOS=17.0 SDK_NAME=iphoneos bash WireGuard/build-ios.sh
+
 DERIVED=.derived-release
 xcodebuild build -workspace BitChord.xcworkspace -scheme BitChord -configuration Release \
   -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" -jobs "${JOBS:-3}" -quiet \
@@ -35,7 +38,7 @@ codesign --force --sign - --timestamp=none --entitlements App/Config/BitChordSha
 codesign --force --sign - --timestamp=none --entitlements App/Config/BitChord.entitlements "$STAGED"
 
 mkdir -p build
-OUT="build/BitChord-$VERSION-$BUILD.ipa"
+OUT="build/BitChord-$VERSION-$BUILD-KR-Proxy.ipa"
 rm -f "$OUT"
 (cd "$STAGE" && zip -qry - Payload) > "$OUT"
 echo "$OUT ($(du -h "$OUT" | cut -f1))"

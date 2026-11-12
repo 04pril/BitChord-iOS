@@ -16,6 +16,15 @@ final class AppSettingsTests: XCTestCase {
         AppSettings(defaults: defaults, credentials: credentials)
     }
 
+    func testLyricsProviderPreferenceSurvivesRecreation() {
+        let first = makeSettings()
+        XCTAssertFalse(first.showLyricsProvider)
+        first.showLyricsProvider = true
+        XCTAssertTrue(makeSettings().showLyricsProvider)
+        first.showLyricsProvider = false
+        XCTAssertFalse(makeSettings().showLyricsProvider)
+    }
+
     // MARK: Defaults
 
     func testAFreshInstallHasAndroidsDefaults() {

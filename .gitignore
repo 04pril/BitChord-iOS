@@ -38,3 +38,9 @@ CLAUDE.md
 opencode.json
 .codex/
 .cursor/
+
+WireGuard/build/
+.deps/
+release/
+*.p12
+*.mobileprovision

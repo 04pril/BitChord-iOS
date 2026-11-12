@@ -12,7 +12,7 @@ enum LanguageBundle {
     static let overrideKey = "app_language_override"
 
     /// Every localization the app ships, in the order the language picker lists them.
-    static let supported = ["en", "de", "es", "fr", "he", "hi", "id", "it", "ja", "pl", "pt", "ru", "th", "tr", "vi", "zh-Hans"]
+    static let supported = ["en", "ko", "de", "es", "fr", "he", "hi", "id", "it", "ja", "pl", "pt", "ru", "th", "tr", "vi", "zh-Hans"]
 
     static var override: String? {
         get { UserDefaults.standard.string(forKey: overrideKey) }

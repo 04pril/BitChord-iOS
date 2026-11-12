@@ -69,7 +69,7 @@ final class SettingsBackupTests: XCTestCase {
     }
 }
 
-/// PORTING §2.11 "App language": sixteen languages; Hebrew mirrors the layout.
+/// PORTING §2.11 "App language": languages including Korean; Hebrew mirrors the layout.
 @MainActor
 final class AppLanguageTests: XCTestCase {
     override func tearDown() {
@@ -77,9 +77,9 @@ final class AppLanguageTests: XCTestCase {
         super.tearDown()
     }
 
-    func testTheSixteenLanguagesInAndroidsOrderAllShip() {
+    func testLanguagesIncludingKoreanAllShip() {
         XCTAssertEqual(AppLanguage.all.map(\.code),
-                       ["en", "es", "fr", "de", "pl", "pt", "id", "hi", "ja", "ru", "zh-Hans", "he", "it", "tr", "th", "vi"])
+                       ["en", "ko", "es", "fr", "de", "pl", "pt", "id", "hi", "ja", "ru", "zh-Hans", "he", "it", "tr", "th", "vi"])
         XCTAssertEqual(Set(AppLanguage.all.map(\.code)), Set(LanguageBundle.supported))
     }
 
@@ -87,8 +87,8 @@ final class AppLanguageTests: XCTestCase {
         XCTAssertEqual(AppLanguage.current(override: "ja", preferred: ["de-DE"]).code, "ja")
         XCTAssertEqual(AppLanguage.current(override: nil, preferred: ["pt-BR", "en"]).code, "pt")
         XCTAssertEqual(AppLanguage.current(override: nil, preferred: ["zh-Hans-CN"]).code, "zh-Hans")
-        XCTAssertEqual(AppLanguage.current(override: nil, preferred: ["zh-Hant-TW", "ko"]).code, "en")
-        XCTAssertEqual(AppLanguage.current(override: nil, preferred: ["ko-KR"]).code, "en")
+        XCTAssertEqual(AppLanguage.current(override: nil, preferred: ["zh-Hant-TW", "ko"]).code, "ko")
+        XCTAssertEqual(AppLanguage.current(override: nil, preferred: ["ko-KR"]).code, "ko")
     }
 
     /// The done criterion: switching to Hebrew mirrors the layout right to left.
@@ -104,7 +104,7 @@ final class AppLanguageTests: XCTestCase {
     }
 
     func testThePickerAndTheScreenRenderRightToLeft() {
-        settingsHostAndLayOut(AppLanguagePicker(selected: AppLanguage.all[11], onSelect: { _ in })
+        settingsHostAndLayOut(AppLanguagePicker(selected: AppLanguage.all.first { $0.code == "he" }!, onSelect: { _ in })
             .environment(\.layoutDirection, .rightToLeft))
         let app = makeSettingsTestApp(settings: makeSettingsTestSettings())
         LanguageBundle.override = "he"

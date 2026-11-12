@@ -1,0 +1,186 @@
+{
+  "NP_UNKNOWN": {
+    "en": "Signed App ID unavailable: match unverified",
+    "ko": "서명 App ID를 읽지 못함: 일치 여부 미확인"
+  },
+  "NP_MATCH": {
+    "en": "Signed App ID matches the bundle ID",
+    "ko": "서명 App ID와 번들 ID가 일치함"
+  },
+  "NP_MISMATCH": {
+    "en": "Signed App ID mismatch: check the signer/profile. This patch cannot change signing permissions.",
+    "ko": "서명 App ID 불일치: 서명 도구/프로파일 확인 필요. 이 dylib는 서명 권한을 바꾸지 못함."
+  },
+  "NP_ENABLED": {
+    "en": "On",
+    "ko": "켜짐"
+  },
+  "NP_DISABLED": {
+    "en": "Off",
+    "ko": "꺼짐"
+  },
+  "NP_UNREADABLE": {
+    "en": "Unavailable",
+    "ko": "읽기 불가"
+  },
+  "NP_FAILED": {
+    "en": "Exception: disabled for this launch",
+    "ko": "예외 발생: 이번 실행에서는 중단됨"
+  },
+  "NP_AVAILABLE": {
+    "en": "Available",
+    "ko": "사용 가능"
+  },
+  "NP_UNAVAILABLE": {
+    "en": "Unavailable (not applied)",
+    "ko": "사용 불가 (적용 안 됨)"
+  },
+  "NP_TITLE": {
+    "en": "Now Playing → Open app",
+    "ko": "재생 위젯 → 앱 열기"
+  },
+  "NP_COPY": {
+    "en": "Copy diagnostics",
+    "ko": "진단 복사"
+  },
+  "NP_OFF": {
+    "en": "Turn patch off",
+    "ko": "패치 끄기"
+  },
+  "NP_ON": {
+    "en": "Turn patch on",
+    "ko": "패치 켜기"
+  },
+  "NP_CLOSE": {
+    "en": "Close",
+    "ko": "닫기"
+  },
+  "NP_DIAGNOSTICS": {
+    "en": "App-opening diagnostics",
+    "ko": "앱 열기 진단"
+  },
+  "NP_REPORT_FORMAT": {
+    "en": "BitChord Now Playing patch (verify on your device)\nPatch: %@\nApp version: %@\nInstalled bundle ID: %@\nSigned App ID: %@\n%@\nMetadata published: %lu\nMediaRemote API: %@\nAssociation requests: %lu\n\nRequest counts do not confirm iOS approval or successful app opening.\nPlay a track and test the Lock Screen and Dynamic Island.",
+    "ko": "BitChord 앱 열기 패치 (기기에서 확인 필요)\n패치: %@\n앱 버전: %@\n실제 번들 ID: %@\n서명 App ID: %@\n%@\n재생 정보 전달: %lu회\nMediaRemote API: %@\n앱 연결 요청: %lu회\n\n요청 횟수는 iOS의 승인이나 탭 동작 성공을 뜻하지 않습니다.\n곡을 재생한 뒤 잠금화면과 다이나믹 아일랜드를 눌러 확인하세요."
+  },
+  "WG_ADDRESS": {
+    "en": "Address",
+    "ko": "주소"
+  },
+  "WG_COUNTRY_FAILED": {
+    "en": "Country check failed.",
+    "ko": "국가를 확인하지 못했습니다."
+  },
+  "WG_COUNTRY_RESULT": {
+    "en": "Country: %@\nExit IP: %@\n\nThis only proves the tunnel works. Now play a song, skip to the next one and try lock-screen playback.",
+    "ko": "국가: %@\n출구 IP: %@\n\n터널 연결 확인 결과입니다. 실제 곡 재생, 다음 곡, 잠금화면 재생도 확인하세요."
+  },
+  "WG_DNS_BY_PROXY": {
+    "en": "DNS: resolved by the proxy server",
+    "ko": "DNS: 프록시 서버에서 조회"
+  },
+  "WG_DNS_TUNNEL": {
+    "en": "Queried through the tunnel",
+    "ko": "터널 안에서 조회함"
+  },
+  "WG_ENABLE": {
+    "en": "Use this connection in the app",
+    "ko": "앱에서 이 연결 사용"
+  },
+  "WG_ENDPOINT": {
+    "en": "Endpoint",
+    "ko": "접속 서버"
+  },
+  "WG_ENDPOINT_DNS": {
+    "en": "Host name: looked up once by the device's DNS to reach the server",
+    "ko": "서버에 연결할 때 기기의 DNS로 호스트 이름을 한 번 조회합니다"
+  },
+  "WG_FOOTER_CHECKS": {
+    "en": "A successful country check does not mean music will play. Also test playback, next track and lock-screen playback, then copy the diagnostics right after any playback error.",
+    "ko": "국가 확인 후 실제 곡 재생도 확인하세요. 재생 오류가 나면 바로 진단을 복사해주세요."
+  },
+  "WG_HANDSHAKE_AGO": {
+    "en": "handshake %lld s ago",
+    "ko": "%lld초 전에 연결 확인"
+  },
+  "WG_HANDSHAKE_NONE": {
+    "en": "no handshake yet",
+    "ko": "아직 연결 확인 전"
+  },
+  "WG_IMPORT_PASTEBOARD": {
+    "en": "Import from clipboard",
+    "ko": "클립보드에서 가져오기"
+  },
+  "WG_LATER": {
+    "en": "Later",
+    "ko": "나중에"
+  },
+  "WG_NO": {
+    "en": "no",
+    "ko": "아니요"
+  },
+  "WG_NOT_ACTIVE": {
+    "en": "Turn it on, then fully close and reopen the app. Turn off any system VPN before checking.",
+    "ko": "사용을 켠 뒤 앱을 완전히 종료하고 다시 열어주세요. 확인할 때는 시스템 VPN을 꺼주세요."
+  },
+  "WG_NOT_ACTIVE_TITLE": {
+    "en": "Tunnel is not active",
+    "ko": "연결이 적용되지 않았습니다"
+  },
+  "WG_NO_SERVER": {
+    "en": "Enter the proxy server and tap \"Save this connection type\" first.",
+    "ko": "서버 정보를 입력한 뒤 연결 방식을 저장하세요."
+  },
+  "WG_NO_SERVER_TITLE": {
+    "en": "No proxy server",
+    "ko": "서버 정보 없음"
+  },
+  "WG_OPTIONS": {
+    "en": "Options",
+    "ko": "연결 방식"
+  },
+  "WG_REIMPORT_FILE": {
+    "en": "Replace from .conf file",
+    "ko": ".conf 파일 다시 가져오기"
+  },
+  "WG_RESTART_NEEDED": {
+    "en": "Restart the app to apply the change",
+    "ko": "앱을 다시 열면 적용됩니다"
+  },
+  "WG_SAVED": {
+    "en": "Saved",
+    "ko": "저장됨"
+  },
+  "WG_SAVED_ENABLE": {
+    "en": "Turn on \"Use this connection in the app\", then restart the app.",
+    "ko": "사용을 켠 뒤 앱을 다시 열어주세요."
+  },
+  "WG_SAVE_FAILED": {
+    "en": "Could not save",
+    "ko": "저장하지 못했습니다"
+  },
+  "WG_SCANNING": {
+    "en": "Scanning…",
+    "ko": "확인 중…"
+  },
+  "WG_SERVER": {
+    "en": "Server",
+    "ko": "서버"
+  },
+  "WG_STATE_PROXY": {
+    "en": "%@ proxy applied",
+    "ko": "%@ 프록시 적용됨"
+  },
+  "WG_STATUS": {
+    "en": "Status",
+    "ko": "연결 상태"
+  },
+  "WG_UNSUPPORTED_TITLE": {
+    "en": "Not supported",
+    "ko": "지원되지 않음"
+  },
+  "WG_YES": {
+    "en": "yes",
+    "ko": "예"
+  }
+}

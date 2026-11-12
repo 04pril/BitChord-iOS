@@ -22,6 +22,7 @@ struct SettingsScreen: View {
     @Environment(AppRouter.self) private var router
     @Environment(PlayerController.self) private var player
 
+    @State private var openingProxy = false
     @State private var query = ""
     @State private var metered: Bool?
     @State private var picking: QualityTarget?
@@ -92,6 +93,7 @@ struct SettingsScreen: View {
         .background { SearchFieldRedraw() }
         .navigationTitle(L10n.settings)
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(isPresented: $openingProxy) { ProxySettingsScreen() }
         .navigationDestination(isPresented: $openingSpotifyCanvas) { SpotifyCanvasSetupScreen() }
         .task {
             for await status in app.network.statusUpdates() {
@@ -173,6 +175,9 @@ struct SettingsScreen: View {
                         badge: party.inParty && party.members.count > 1 ? "\(party.members.count)" : nil) {
                 router.open(.listenTogether)
             }
+
+        case .proxy:
+            SettingsRow(symbol: "network", title: L10n.tr("proxy_title"), subtitle: L10n.tr("proxy_subtitle")) { openingProxy = true }
 
         case .source:
             SettingsRow(symbol: "puzzlepiece.extension.fill", title: L10n.source, subtitle: L10n.sourcesSubtitle) {
@@ -299,6 +304,9 @@ struct SettingsScreen: View {
         case .lyricsBlur:
             SettingsToggleRow(symbol: "aqi.medium", title: L10n.blurUnfocusedLyrics,
                               subtitle: L10n.blurUnfocusedLyricsSubtitle, isOn: $settings.lyricsBlur)
+        case .showLyricsProvider:
+            SettingsToggleRow(symbol: "text.bubble", title: L10n.tr("show_lyrics_provider"),
+                              subtitle: L10n.tr("show_lyrics_provider_subtitle"), isOn: $settings.showLyricsProvider)
         case .lyricsSources:
             let names = LyricsSource.allCases.filter { settings.lyricsSources.contains($0) }.map(\.label)
             SettingsRow(symbol: "globe", title: L10n.lyricsSources,

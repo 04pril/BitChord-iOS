@@ -17,6 +17,7 @@ struct AppLanguage: Hashable, Identifiable {
     /// catalog, `zh-Hans` on iOS.
     static let all: [AppLanguage] = [
         AppLanguage(code: "en", name: { L10n.english }),
+        AppLanguage(code: "ko", name: { "한국어" }),
         AppLanguage(code: "es", name: { L10n.spanish }),
         AppLanguage(code: "fr", name: { L10n.french }),
         AppLanguage(code: "de", name: { L10n.german }),

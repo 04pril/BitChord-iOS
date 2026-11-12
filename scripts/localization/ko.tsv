@@ -1,0 +1,668 @@
+about_album	앨범 정보
+about_artist	아티스트 정보
+account_integrations	계정 및 연동
+account_profiles_help	Google 계정에 개인 프로필과 브랜드 프로필이 있으면 각각의 보관함, 좋아요, 기록을 따로 사용할 수 있습니다.
+account_scrobbling	계정 및 감상 기록 연동
+accounts	계정
+activity	활동
+activity_listening	음악 감상
+activity_playing	플레이 중
+activity_watching	시청 중
+add_account	계정 추가
+add_addon	추가 음원 서비스 연결
+add_module_source	모듈 소스 추가
+add_to_library	보관함에 추가
+add_to_playlist	플레이리스트에 추가
+add_to_queue	재생 대기 목록에 추가
+advanced_options	고급 및 실험실
+add_to_playlists_count	플레이리스트 %1$lld개에 추가
+added_to_playlists_notice	플레이리스트 %1$lld개에 추가했습니다
+addon_url_description	서비스의 기본 주소나 manifest.json 주소를 붙여넣으세요.
+after_this_song	이 곡이 끝나면
+album	앨범
+albums	앨범
+all_audio_folders	모든 음악 폴더
+all_songs_downloaded	%1$lld곡 모두 다운로드했습니다
+all_time	전체 기간
+already_downloaded	이미 다운로드한 곡
+always_on	항상 사용
+analysis_complete	분석 완료
+analysis_in_progress	분석 중…
+analysis_refining	분석 결과 다듬는 중…
+animated_cover_art	움직이는 앨범 커버
+animated_cover_art_subtitle	지원되는 앨범에서는 정지 이미지 대신 짧은 영상을 보여줍니다
+animated_cover_cellular	모바일 데이터로도 커버 영상 재생
+api_token	API 토큰
+app_icon	앱 아이콘
+app_icon_default	기본
+app_icon_monochrome	단색
+app_language	앱 언어
+app_language_description	BitChord에서 사용할 언어를 선택하세요
+appearance	화면 및 플레이어
+artist	아티스트
+artists	아티스트
+audio_files_on_device	기기에 저장된 음악
+audio_output	오디오 출력
+audio_pipeline	오디오 처리 정보
+audio_pipeline_subtitle	음원부터 출력까지 오디오 처리 과정을 확인합니다
+audio_quality	음질
+auto_liked	좋아요 표시한 곡
+auto_quick_picks	빠른 선곡
+auto_recents	최근 감상
+automix	자동 믹스
+automix_disabled_subtitle	곡 사이의 박자와 분위기를 맞춰 자연스럽게 이어줍니다
+automix_enabled_subtitle	박자와 보컬 구간을 분석해 다음 곡으로 자연스럽게 이어갑니다
+automix_mode_balanced	균형
+automix_mode_balanced_subtitle	배터리 사용량과 분석 속도의 균형을 맞춥니다
+automix_mode_efficient	배터리 절약
+automix_mode_efficient_subtitle	배터리 사용량을 줄여 분석합니다
+automix_mode_performance	빠른 분석
+automix_mode_performance_subtitle	더 많은 처리 자원을 사용해 빠르게 분석합니다
+automix_performance	자동 믹스 분석 성능
+automix_performance_subtitle	분석 속도와 배터리 사용량을 조절합니다
+autoplay	자동 재생
+autoplay_off	자동 재생 꺼짐
+autoplay_on	자동 재생 켜짐
+back	뒤로
+beta	베타
+bit_depth	%1$lld비트
+blocking	대기 중
+blur_unfocused_lyrics	주변 가사 흐리게
+blur_unfocused_lyrics_subtitle	현재 부르는 가사가 더 잘 보이도록 표시합니다
+brand_account	브랜드 계정
+buttons	버튼
+cancel	취소
+cancel_all	모두 취소
+change_lyrics_provider	변경
+checking	확인 중…
+chinese	중국어
+choose_a_channel	채널 선택
+choose_file	파일 선택
+choose_lyrics_provider	가사 제공 서비스 선택
+choose_profile	프로필 선택
+clear	지우기
+clear_image_cache	이미지 캐시 비우기
+clear_image_cache_subtitle	저장된 커버 이미지를 지웁니다. 필요할 때 다시 불러옵니다.
+clear_name	이름 지우기
+clear_search	검색어 지우기
+clear_song_cache	음악 캐시 비우기
+clear_song_cache_subtitle	임시로 저장된 음악을 지웁니다. 다운로드한 곡은 유지됩니다.
+close	닫기
+close_lyrics	가사 닫기
+close_replay	감상 기록 닫기
+close_search	검색 닫기
+connect_account_first	먼저 계정을 연결하세요
+connected	연결됨
+connected_presence_off	연결됨 · 활동 표시 꺼짐
+convert_to_audio	오디오로 전환
+convert_to_video	동영상으로 전환
+converting_to_audio	오디오로 전환 중…
+copy_code	코드 복사
+copy_log	진단 복사
+couldnt_draw_picture	이미지를 만들지 못했습니다
+couldnt_find	%1$@을(를) 찾지 못했습니다
+couldnt_load_tracks	곡을 불러오지 못했습니다
+couldnt_open_link	링크를 열지 못했습니다
+create_playlist	플레이리스트 만들기
+crossfade	크로스페이드
+crossfade_subtitle	곡이 끝나기 전에 다음 곡을 겹쳐 재생합니다
+current_account	현재 계정
+current_profile	현재 프로필
+customize_card	카드 꾸미기
+dark	다크 모드
+data_saver	데이터 절약
+decrease_lyrics_offset	가사 더 빠르게
+default_youtube_profile	기본 YouTube 프로필
+delete	삭제
+delete_download	다운로드 삭제
+delete_playlist	플레이리스트 삭제
+direct_source_stream	우선 음원으로 재생 시작
+direct_source_stream_always	항상
+direct_source_stream_always_subtitle	우선순위가 높은 음원을 최대 12초 동안 찾습니다. 없으면 YouTube로 재생합니다.
+direct_source_stream_off_subtitle	YouTube로 바로 재생한 뒤 더 좋은 음원이 있으면 전환합니다.
+direct_source_stream_queue_only	대기 목록의 곡만
+direct_source_stream_queue_only_subtitle	다음 곡은 미리 찾은 우선 음원으로 시작하고, 직접 선택한 곡은 YouTube로 바로 재생합니다.
+direct_source_stream_subtitle	우선순위가 높은 음원으로 시작하고, 없으면 YouTube로 재생합니다
+disconnect	연결 해제
+discord	Discord
+discord_account	Discord 계정
+discord_show_audio_quality	활동에 음질 표시
+discord_show_audio_quality_subtitle	Discord 활동에 현재 재생 음질도 표시합니다
+discord_token	Discord 토큰
+dislike	싫어요
+dolby_atmos	Dolby Atmos
+dolby_atmos_subtitle	지원되는 음원을 Dolby Atmos로 재생합니다
+dolby_atmos_unavailable	이 기기에서는 Dolby Atmos를 재생할 수 없습니다
+done	완료
+dont_repeat_songs	추천 곡 반복 줄이기
+dont_repeat_songs_subtitle	이미 들은 곡이 추천에 반복해서 나오는 것을 줄입니다
+download	다운로드
+download_all	모두 다운로드
+download_now	지금 다운로드
+download_quality	다운로드 음질
+download_wifi_only	Wi-Fi에서만 다운로드
+downloaded	다운로드됨
+downloaded_playlist	다운로드한 플레이리스트
+downloaded_playlist_empty	다운로드한 곡이 없습니다
+downloaded_songs	다운로드한 곡
+downloading	다운로드 중…
+downloads	다운로드
+downloads_finished	다운로드 완료
+drag_to_reorder	길게 눌러 순서 변경
+enable	켜기
+enable_anyway	그래도 켜기
+enable_jiosaavn	JioSaavn 사용
+enabled	켜짐
+english	영어
+enter_token_instead	토큰으로 연결
+enter_token_to_enable	토큰을 입력해 연결하세요
+eq_preset_acoustic	어쿠스틱
+eq_preset_bass_boost	저음 강조
+eq_preset_bass_cut	저음 줄이기
+eq_preset_classical	클래식
+eq_preset_custom	사용자 설정
+eq_preset_electronic	일렉트로닉
+eq_preset_flat	기본
+eq_preset_hip_hop	힙합
+eq_preset_jazz	재즈
+eq_preset_late_night	늦은 밤
+eq_preset_loudness	작은 소리 보강
+eq_preset_rock	록
+eq_preset_small_speakers	소형 스피커
+eq_preset_spoken_word	음성
+eq_preset_treble_boost	고음 강조
+eq_preset_treble_cut	고음 줄이기
+eq_preset_vocal	보컬
+equalizer	이퀄라이저
+equalizer_balance	좌우 균형
+equalizer_balance_left	왼쪽
+equalizer_balance_right	오른쪽
+equalizer_bands	주파수 대역
+equalizer_broad	넓게
+equalizer_contour	음색 조절
+equalizer_dynamic	다이내믹
+equalizer_focused	세밀하게
+equalizer_manual	직접 조절
+equalizer_preset	프리셋
+equalizer_reset	초기화
+equalizer_subtitle	취향에 맞게 음색을 조절합니다
+equalizer_tilt	저음·고음 균형
+equalizer_tone	음색
+explore	둘러보기
+export_data	데이터 내보내기
+export_data_subtitle	설정과 감상 기록을 파일로 저장합니다
+failed	실패
+filter_non_music_audio	음악이 아닌 소리 제외
+filter_non_music_audio_subtitle	음성이나 효과음 등 음악이 아닌 항목을 걸러냅니다
+first_button	첫 번째 버튼
+french	프랑스어
+full_screen_cover_art	화면을 채우는 앨범 커버
+full_screen_cover_art_subtitle	앨범 커버를 플레이어 위쪽에 크게 표시합니다
+german	독일어
+got_it	확인
+grid_view	격자로 보기
+hebrew	히브리어
+hi_res_lossless	고해상도 무손실
+hide_song_status	재생 출처 숨기기
+hide_song_status_subtitle	플레이어 위쪽의 재생 출처 설명을 숨깁니다
+hide_volume_bar	음량 막대 숨기기
+hide_volume_bar_subtitle	플레이어의 음량 조절 막대를 숨깁니다
+keep_diagnostic_log	진단 기록 저장
+keep_diagnostic_log_subtitle	문제 확인을 위해 앱 동작 기록을 기기에 저장합니다
+previously_played	이전에 재생한 곡
+share_diagnostic_log	진단 기록 공유
+share_diagnostic_log_subtitle	문제 확인을 위한 진단 파일을 내보냅니다
+show_queue_history	이전 재생 목록 표시
+show_queue_history_subtitle	대기 목록에 이전에 재생한 곡도 표시합니다
+high	높음
+high_quality	고음질
+high_quality_upgrading	더 좋은 음질로 전환 중…
+hindi	힌디어
+history	재생 기록
+history_empty	아직 재생 기록이 없습니다
+history_sign_in_required	계정의 재생 기록을 보려면 로그인하세요
+home	홈
+image_cache_cleared	이미지 캐시를 비웠습니다
+import_backup_title	백업 가져오기
+import_backup_warning	현재 기기의 설정과 감상 기록이 백업 내용으로 바뀝니다. 계속할까요?
+import_data	데이터 가져오기
+import_data_subtitle	백업한 설정과 감상 기록을 복원합니다
+in_use	사용 중
+increase_lyrics_offset	가사 더 느리게
+indonesian	인도네시아어
+install_now	지금 설치
+instrumental	연주 구간
+integrate_spotify_canvas	Spotify Canvas 연동
+italian	이탈리아어
+japanese	일본어
+language	언어
+lastfm_login	Last.fm 로그인
+later	나중에
+lead_with_song	곡 중심으로 표시
+legacy_mesh_gradient	기존 배경 효과
+legacy_mesh_gradient_subtitle	이전 버전의 그라데이션 배경을 사용합니다
+less	접기
+library	보관함
+library_empty	보관함이 비어 있습니다
+library_sign_in_description	로그인하면 계정의 보관함을 불러올 수 있습니다
+light	라이트 모드
+like	좋아요
+list_view	목록으로 보기
+listen_as	감상할 프로필
+listen_now	지금 듣기
+listen_together	함께 듣기
+listen_together_activity	활동
+listen_together_code	초대 코드
+listen_together_create	모임 만들기
+listen_together_create_action	만들기
+listen_together_creating	모임 만드는 중…
+listen_together_custom_server	사용자 지정 서버
+listen_together_full	모임 인원이 가득 찼습니다
+listen_together_host	호스트
+listen_together_host_controls	호스트 재생 제어
+listen_together_host_only	호스트만 조작
+listen_together_in_sync	동기화됨 · 왕복 지연 %1$lldms
+listen_together_invite	초대
+listen_together_invite_title	함께 듣기에 초대
+listen_together_join	모임 참여
+listen_together_join_action	참여
+listen_together_joining	참여 중…
+listen_together_leave	모임 나가기
+listen_together_listening	%1$@ 감상 중
+listen_together_manage	모임 관리
+listen_together_not_now	나중에
+listen_together_nothing_playing	재생 중인 곡이 없습니다
+listen_together_now_playing	지금 함께 듣는 곡
+listen_together_profile	프로필
+listen_together_reconnecting	다시 연결 중…
+listen_together_remove	내보내기
+listen_together_remove_server	서버 삭제
+listen_together_scan_qr	QR 코드 스캔
+listen_together_server	서버
+listen_together_server_checking	서버 확인 중…
+listen_together_server_offline	연결할 수 없음
+listen_together_server_online	연결됨 · %1$@
+listen_together_share_link	초대 링크 공유
+listen_together_subtitle	친구와 같은 음악을 함께 들어보세요
+listen_together_you	나
+listenbrainz_token	ListenBrainz 토큰
+listening_history	감상 기록
+local_music	기기 내 음악
+local_music_folder	음악 폴더
+log_copied	진단 %1$lld줄을 복사했습니다
+login_failed	로그인하지 못했습니다
+lossless	무손실
+lossless_audio	무손실 오디오
+lossless_hq_audio	고음질 무손실 오디오
+lossless_source_subtitle	FLAC·ALAC 음원을 원래 음질로 재생합니다
+loudness_measuring	음량 분석 중…
+loudness_normalization	곡마다 음량 맞추기
+loudness_normalization_subtitle	곡을 바꿔도 체감 음량이 비슷하도록 조절합니다
+loudness_target	기준 음량
+low	낮음
+lyrics_already_in_language	이미 %1$@ 가사입니다
+lyrics_already_romanized	이미 로마자로 표기된 가사입니다
+lyrics_by	가사 제공: %1$@
+lyrics_not_available	가사를 불러올 수 없습니다
+lyrics_offset	가사 타이밍 조절
+lyrics_offset_description	양수로 설정하면 가사가 더 늦게 표시됩니다
+lyrics_offset_reset	초기화
+lyrics_provider_current	사용 중인 서비스
+lyrics_provider_fetching	가사 찾는 중…
+lyrics_provider_found	가사 있음 · 눌러서 사용
+lyrics_provider_not_fetched	눌러서 검색
+lyrics_provider_not_found	가사 없음
+lyrics_romanization_unavailable	이 가사는 발음을 변환할 수 없습니다
+lyrics_romanized	로마자 발음
+lyrics_share_description	선택한 가사를 앨범 커버와 함께 카드로 만듭니다
+lyrics_share_pick_limit	카드가 가득 찼습니다
+lyrics_share_story	스토리로 만들기
+lyrics_share_story_revert	카드로 돌아가기
+lyrics_share_title	가사 공유
+saved_bang	저장했습니다!
+share_your_lyrics	가사 카드 보내기
+your_lyrics_card	내 가사 카드
+lyrics_saved_with_download	다운로드에 저장된 가사
+lyrics_sources	가사 제공 서비스
+lyrics_sources_order	위에서부터 가사를 찾습니다. 길게 눌러 순서를 바꿀 수 있습니다.
+lyrics_translated_to	%1$@ 번역
+lyrics_translation_unavailable	지금은 가사를 번역할 수 없습니다
+manage_accounts	계정 관리
+max_delay	최대 대기 시간
+medium	보통
+medium_quality	일반 음질
+minutes	분
+miscellaneous	기타
+mobile_data	모바일 데이터
+mono	모노
+more	더보기
+name	이름
+new_playlist	새 플레이리스트
+no_album_metadata	앨범 정보가 없습니다
+no_dolby_atmos	Dolby Atmos 아님
+no_equalizer	이퀄라이저 꺼짐
+no_internet_connection	인터넷에 연결되어 있지 않습니다
+no_languages_match	일치하는 언어가 없습니다
+no_listening_history	아직 감상 기록이 없습니다
+no_local_albums	기기에 저장된 앨범이 없습니다
+no_local_audio_found	기기에서 음악 파일을 찾지 못했습니다
+no_lyrics_for_track	이 곡의 가사가 없습니다
+no_lyrics_found	가사를 찾지 못했습니다
+no_lyrics_sources_enabled	선택한 서비스가 없어 가사를 가져오지 않습니다
+no_playlists_yet	아직 플레이리스트가 없습니다
+no_results	검색 결과가 없습니다
+no_tracks_here	곡이 없습니다
+no_youtube_music_results	YouTube Music 검색 결과가 없습니다
+not_connected	연결 안 됨
+not_signed_in	로그인하지 않음
+not_yet	아직 없음
+nothing_downloading	다운로드 중인 곡이 없습니다
+nothing_matches	“%1$@”에 해당하는 항목이 없습니다
+nothing_to_explore	표시할 항목이 없습니다
+now_playing	지금 재생 중
+off	끄기
+on_device	이 기기에 저장됨
+on_mobile_data	모바일 데이터 사용 시
+on_wifi	Wi-Fi 사용 시
+one_hour	1시간
+open	열기
+open_album	앨범 보기
+open_artist	아티스트 보기
+open_lyrics	가사
+open_playlist	플레이리스트 보기
+open_releases_page	릴리즈 페이지 열기
+password	비밀번호
+pause	일시 정지
+pause_after_a_while	잠시 후 재생 중지
+pause_after_song	이 곡이 끝나면 중지
+performance	성능
+personal	개인
+personal_phone	%1$@의 기기
+personalized_recommendations	맞춤 추천
+pin	고정
+pinned	고정됨
+play	재생
+play_next	다음에 재생
+play_next_on_swipe	쓸어서 다음에 재생
+playback	재생
+playback_channel_name	재생 중
+playlist	플레이리스트
+playlist_name	플레이리스트 이름
+playlists	플레이리스트
+polish	폴란드어
+portuguese	포르투갈어
+prefer_lossless	무손실 우선
+prefer_music_only	음악만 재생
+prefer_music_only_subtitle	동영상보다 오디오 음원을 우선 재생합니다
+presence	활동 표시
+preview	미리보기
+prioritize_spotify_canvas	Spotify Canvas 우선
+prioritize_spotify_canvas_subtitle	여러 커버 영상이 있으면 Spotify Canvas를 먼저 사용합니다
+prioritize_syllable_lyrics	단어별 가사 우선
+prioritize_syllable_lyrics_subtitle	줄 단위 가사를 찾은 뒤에도 단어별 가사가 있는지 계속 찾습니다
+profile_unavailable	프로필을 불러올 수 없습니다
+profiles	프로필
+queue	재생 대기 목록
+queued	대기 중
+recent_search_edit	“%1$@” 수정
+recent_search_remove	“%1$@” 삭제
+recent_searches	최근 검색
+reduce_animation	애니메이션 줄이기
+reduce_animation_subtitle	화면 움직임을 줄여 더 편안하게 표시합니다
+reduce_dynamic_blur	배경 흐림 줄이기
+reduce_dynamic_blur_subtitle	움직이는 흐림 효과를 줄여 성능을 높입니다
+remind_me_later	나중에 알림
+remove	삭제
+remove_from_library	보관함에서 삭제
+remove_from_liked	좋아요 취소
+remove_from_playlist	플레이리스트에서 삭제
+remove_from_queue	대기 목록에서 삭제
+remove_source	음원 서비스 삭제
+rename	이름 변경
+rename_playlist	플레이리스트 이름 변경
+repeat_all	전체 반복
+repeat_off	반복 끄기
+repeat_one	한 곡 반복
+replay	나의 감상 기록
+replay_subtitle	내가 들은 음악을 돌아보세요
+reset_to_default	기본값으로 초기화
+retry	다시 시도
+revert_to_original	원래 버전으로 되돌리기
+rich_presence	Discord 활동 연동
+rich_presence_footer	지금 듣는 음악을 Discord 프로필에 표시합니다
+romanize_lyrics	발음을 로마자로 표시
+romanizing_lyrics	발음 변환 중…
+running	실행 중
+russian	러시아어
+save	저장
+save_name	이름 저장
+saved	저장됨
+saved_to_bitchord_folder	BitChord 폴더에 저장했습니다
+saved_to_downloads	다운로드에 저장했습니다
+saved_to_youtube_music	YouTube Music에 저장했습니다
+saved_to_youtube_music_account	YouTube Music 계정에 저장했습니다
+scrobble_primary_artist_only	대표 아티스트만 기록
+scrobble_timing	감상 기록 전송 시점
+scrobble_tracks	감상 기록 전송
+scrobble_tracks_subtitle	들은 곡을 연결한 서비스에 기록합니다
+scrobbling	감상 기록 연동
+search	검색
+search_empty	검색어를 입력하세요
+search_hint	노래, 앨범, 아티스트 검색
+search_languages	언어 검색
+search_this_folder	이 폴더에서 검색
+search_this_list	이 목록에서 검색
+second_button	두 번째 버튼
+select_all	모두 선택
+selected	선택됨
+selected_account	선택한 계정
+settings	설정
+settings_search_hint	설정 검색
+share	공유
+share_my_replay	내 감상 기록 공유
+share_your_replay	감상 기록 공유
+shared_link	공유한 링크
+sharing_as	@%1$@ 프로필로 공유
+sharing_listens	감상 기록 공유
+shelf_100_on_repeat	자꾸 듣게 되는 100곡
+shelf_artists_on_the_rise	주목받는 아티스트
+shelf_chart	인기 차트
+shelf_charts	차트
+shelf_commute	출퇴근길
+shelf_energy_boosters	기분 전환
+shelf_featured_playlists_for_you	나를 위한 추천 플레이리스트
+shelf_feel_good	기분 좋은 음악
+shelf_focus	집중할 때
+shelf_for_you	나를 위한 추천
+shelf_forgotten_favorites	잊고 있던 좋아하는 곡
+shelf_from_the_community	커뮤니티 추천
+shelf_from_your_library	내 보관함에서
+shelf_hits_today	오늘의 인기곡
+shelf_listen_again	다시 듣기
+shelf_mixed_for_you	나를 위한 믹스
+shelf_new_albums_singles	새 앨범과 싱글
+shelf_new_releases	새로 나온 음악
+shelf_party	파티
+shelf_quick_picks	빠른 선곡
+shelf_recents	최근 감상
+shelf_recommended_music_videos	추천 뮤직비디오
+shelf_relax	편안한 휴식
+shelf_romance	설레는 순간
+shelf_sad	마음이 가라앉을 때
+shelf_shorts	Shorts
+shelf_single	싱글
+shelf_sleep	잠들기 전
+shelf_top_music_videos	인기 뮤직비디오
+shelf_top_tunes_right_now	지금 인기 있는 곡
+shelf_trending	지금 뜨는 음악
+shelf_trending_community_playlists	인기 커뮤니티 플레이리스트
+shelf_workout	운동할 때
+shelf_youtube_charts	YouTube 차트
+show_all	모두 보기
+show_nerd_stats	상세 재생 정보
+show_nerd_stats_subtitle	음질, 비트레이트, 코덱 등 재생 정보를 표시합니다
+show_original_lyrics	원문 가사 보기
+show_what_playing	듣는 음악 표시
+shuffle	셔플
+shuffle_off	셔플 끄기
+shuffle_on	셔플 켜기
+sign_in	로그인
+sign_in_discord	Discord 로그인
+sign_in_youtube_music	YouTube Music 로그인
+sign_out	로그아웃
+signed_in	로그인됨
+signing_in	로그인 중…
+skip_silence	무음 구간 건너뛰기
+skip_silence_subtitle	곡 앞뒤의 긴 무음 구간을 건너뜁니다
+sleep_timer	취침 타이머
+smart_version_alignment	음원 버전 타이밍 맞추기
+smart_version_alignment_subtitle	다른 음원으로 전환할 때 도입부와 재생 위치를 맞춥니다
+smb	SMB
+software_update	소프트웨어 업데이트
+something_went_wrong	문제가 발생했습니다
+song_added_to_playlist	플레이리스트에 추가했습니다
+song_added_to_queue	재생 대기 목록에 추가했습니다
+song_already_in_playlist	이미 플레이리스트에 있는 곡입니다
+song_cache_cleared	음악 캐시를 비웠습니다
+song_cache_limit	음악 캐시 용량
+songs	곡
+songs_added_to_queue	대기 목록에 %1$lld곡을 추가했습니다
+sort_date_added	최근 추가순
+sort_date_added_oldest	추가한 지 오래된 순
+sort_date_modified	최근 수정순
+sort_default	기본 순서
+sort_library	보관함 정렬
+sort_music	음악 정렬
+sort_songs	곡 정렬
+sort_title_ascending	제목 오름차순
+sort_title_descending	제목 내림차순
+source	음원 서비스
+source_matching	음원 검색 조건
+source_setup_required	눌러서 설정을 마치세요
+source_unrecognised	지원하는 서비스 주소인지 확인할 수 없습니다
+sources	음원 서비스
+sources_no_lossless	무손실 음원을 제공하는 서비스가 없습니다. 추가 서비스를 연결해보세요.
+sources_order_footer	곡을 찾지 못하거나 연결할 수 없으면 다음 서비스를 확인합니다. YouTube보다 위에 있는 서비스에서 더 좋은 버전을 찾으면 전환할 수 있습니다.
+sources_order_header	음원을 찾는 순서
+sources_quality_capped	현재 연결의 음질 제한에 맞춰 변환합니다. 다운로드 음질에는 영향을 주지 않습니다.
+sources_subtitle	음원을 가져올 서비스와 우선순위
+spanish	스페인어
+spatial_audio	공간 음향
+spatial_audio_atmos_subtitle	Atmos 음원을 공간 음향으로 재생하고 있습니다
+spatial_audio_subtitle	스테레오 소리가 더 넓게 들리도록 조절합니다
+spotify_canvas_auto_hide	가사 화면에서 Canvas 숨기기
+spotify_canvas_auto_hide_subtitle	가사를 보는 동안 커버 영상을 숨깁니다
+spotify_canvas_setup	Spotify Canvas 설정
+standard	기본
+start_radio	관련 곡 이어 듣기
+starting	시작 중…
+status	상태
+status_dnd	방해 금지
+status_idle	자리 비움
+status_online	온라인
+stereo	스테레오
+stop_music_on_close	앱을 닫으면 재생 중지
+stop_music_on_close_subtitle	앱을 닫을 때 음악도 멈춥니다
+storage	저장 공간
+subscribe	구독
+subscribers	구독자 %1$@명
+subscriptions	구독
+suggested	추천
+swipe_adds_to_queue	쓸어서 대기 목록에 추가
+swipe_plays_next	쓸어서 다음에 재생
+switch_account	계정 전환
+switch_profile_hint	사용할 프로필을 선택하세요
+switch_to_grid_view	격자로 보기
+switch_to_list_view	목록으로 보기
+synced_lyrics	실시간 가사
+synced_lyrics_subtitle	노래에 맞춰 현재 부르는 가사를 강조합니다
+system	시스템 설정에 맞춤
+system_equalizer	시스템 이퀄라이저
+tap_to_connect	눌러서 연결
+tap_to_sign_in	눌러서 로그인
+tap_to_sign_in_discord	눌러서 Discord 로그인
+tap_to_sign_in_google	눌러서 Google 로그인
+test	연결 확인
+testing	확인 중…
+thai	태국어
+theme	테마
+this_month	이번 달
+this_phone	이 기기
+this_year	올해
+token	토큰
+top_album	가장 많이 들은 앨범
+top_albums	많이 들은 앨범
+top_artist	가장 많이 들은 아티스트
+top_artists	많이 들은 아티스트
+top_genre	가장 많이 들은 장르
+top_genres	많이 들은 장르
+top_song	가장 많이 들은 곡
+top_songs	많이 들은 곡
+translate_lyrics	가사 번역
+translating_lyrics_to	%1$@로 번역 중…
+translation_language	가사 번역 언어
+translation_language_app_default	앱 언어 사용
+translation_language_description	가사를 번역할 언어를 선택하세요
+translation_language_subtitle	가사를 번역해서 볼 언어
+try_again	다시 시도
+turkish	튀르키예어
+turn_off_timer	타이머 끄기
+undo_dislike	싫어요 취소
+unknown_artist	알 수 없는 아티스트
+unknown_error	알 수 없는 오류
+unpin	고정 해제
+unsubscribe	구독 취소
+up_next	다음 재생
+upgrade_quality	더 좋은 음질로 전환
+upgrading_quality	음질 전환 중…
+upload_to_webdav	WebDAV에 업로드
+usb_audio	USB 오디오
+use_all_audio_folders	모든 음악 폴더 사용
+use_this_channel	이 채널 사용
+use_this_profile	이 프로필 사용
+username	사용자 이름
+vietnamese	베트남어
+waiting	대기 중…
+webdav	WebDAV
+webdav_apply_to_all	모두 적용
+webdav_conflict_title	서버에 “%1$@”이(가) 이미 있습니다
+webdav_keep_both	둘 다 보관
+webdav_overwrite	덮어쓰기
+webdav_server_url	서버 주소
+webdav_skip	건너뛰기
+whats_new	업데이트 내용
+widget_next	다음 곡
+widget_nothing_played	재생한 음악이 없습니다
+widget_open_bitchord	BitChord 열기
+widget_pause	일시 정지
+widget_play	재생
+widget_previous	이전 곡
+wifi	Wi-Fi
+wired_headphones	유선 헤드폰
+work_out_genres	감상 장르 분석
+your_data	내 데이터
+your_listening_experience	나의 음악 감상
+your_playlists	내 플레이리스트
+your_replay	나의 감상 기록
+youtube_music_account	YouTube Music 계정
+album_count	앨범 %1$lld개
+artist_count	아티스트 %1$lld명
+song_count	%1$lld곡
+song_count_plural	%1$lld곡
+song_count_with_duration	%1$@ · %2$@
+song_count_with_hours_minutes	%1$@ · %2$@ %3$lld분
+song_count_with_minutes	%1$@ · %2$lld분
+track_count_plural	%1$lld곡
+minute_count	%1$lld분
+hour_count	%1$lld시간
+minutes_short	%1$lld분
+seconds_short	%1$lld초
+minutes_grouped_short	%1$@분
+download_quality_subtitle	곡당 %1$@ · 네트워크에 관계없이 적용
+settings_search_empty	“%1$@”에 해당하는 설정이 없습니다
+playing_from	%1$@에서 재생
+played_by	%1$@ 재생
+signed_in_as	%1$@ 계정으로 로그인됨
+listen_together_in_party	함께 듣는 중 · %1$@
+download_done_count	%1$lld곡 완료
+download_failed_count	%1$lld곡 실패

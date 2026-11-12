@@ -42,7 +42,7 @@ struct SettingsSearch {
 /// Downloads screen).
 enum SettingsRowID: String, CaseIterable, Hashable {
     // No header: the account and the party.
-    case account, listenTogether
+    case account, listenTogether, proxy
     // Audio quality
     case source, onWifi, onMobileData, dolbyAtmos, directSourceStream
     // Downloads
@@ -53,7 +53,7 @@ enum SettingsRowID: String, CaseIterable, Hashable {
     // Appearance
     case theme, reduceAnimation, reduceDynamicBlur, fullScreenCoverArt, legacyMeshGradient,
          animatedCoverArt, animatedCoverCellular, spotifyCanvas, syncedLyrics, lyricsBlur,
-         lyricsSources, translationLanguage
+         lyricsSources, translationLanguage, showLyricsProvider
     // Storage
     case songCacheLimit, clearSongCache, clearImageCache
     // Your data
@@ -148,6 +148,7 @@ enum SettingsCatalog {
         if v.syncedLyrics {
             appearance += [
                 row(.lyricsBlur, L10n.blurUnfocusedLyrics, "lyrics", "blur"),
+                row(.showLyricsProvider, L10n.tr("show_lyrics_provider"), "lyrics", "provider", "change", "가사", "출처"),
                 row(.lyricsSources, L10n.lyricsSources, "lyrics", "lrclib", "musixmatch"),
                 row(.translationLanguage, L10n.translationLanguage, "lyrics", "translate"),
             ]
@@ -159,6 +160,7 @@ enum SettingsCatalog {
                 // typing even though none is named on the row.
                 row(.account, L10n.accountIntegrations, "scrobbling", "last.fm", "listenbrainz"),
                 row(.listenTogether, L10n.listenTogether, "jam", "party", "sync", "friends"),
+                row(.proxy, L10n.tr("proxy_title"), "wireguard", "http", "socks5", "프록시"),
             ]),
             SettingsGroupSpec(id: "audioQuality", header: L10n.audioQuality, rows: [
                 row(.source, L10n.source, L10n.sourcesSubtitle, "addon", "lossless"),

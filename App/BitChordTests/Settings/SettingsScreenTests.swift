@@ -34,7 +34,7 @@ final class SettingsSearchTests: XCTestCase {
         let groups = SettingsCatalog.groups(visibility: .init(), search: SettingsSearch(""))
         XCTAssertEqual(groups.map(\.id), ["account", "audioQuality", "downloads", "playback", "appearance",
                                           "storage", "yourData", "miscellaneous", "language", "advanced"])
-        XCTAssertEqual(groups.first?.rows.map(\.id), [.account, .listenTogether])
+        XCTAssertEqual(groups.first?.rows.map(\.id), [.account, .listenTogether, .proxy])
         XCTAssertEqual(groups[1].rows.map(\.id), [.source, .onWifi, .onMobileData, .dolbyAtmos, .directSourceStream])
         XCTAssertEqual(groups[3].rows.last?.id, .equalizer)
         XCTAssertEqual(groups[5].rows.map(\.id), [.songCacheLimit, .clearSongCache, .clearImageCache])

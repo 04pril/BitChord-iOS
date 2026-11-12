@@ -31,6 +31,17 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(L10n.cancel, "ביטול")
     }
 
+    func testKoreanCanBeSelectedAndUsesNaturalCountPhrases() {
+        LanguageBundle.override = "ko"
+        XCTAssertEqual(L10n.settings, "설정")
+        XCTAssertEqual(L10n.cancel, "취소")
+        XCTAssertEqual(L10n.songCountPlural(1), "1곡")
+        XCTAssertEqual(L10n.songCountPlural(3), "3곡")
+        XCTAssertEqual(L10n.tr("proxy_title"), "프록시")
+        LanguageBundle.override = "en"
+        XCTAssertEqual(L10n.settings, "Settings")
+    }
+
     func testRussianUsesAllPluralCategories() {
         LanguageBundle.override = "ru"
         XCTAssertEqual(L10n.songCountPlural(1), "1 песня")
