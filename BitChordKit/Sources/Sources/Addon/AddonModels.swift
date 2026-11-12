@@ -15,17 +15,20 @@ public struct AddonManifest: Decodable, Hashable, Sendable {
     public var name: String
     public var version: String
     public var resources: [String]
+    /// The official addon-auth protocol declares this public requirement in its manifest.
+    public var requiresOfficialAppProof: Bool
     /// The settings schema the addon declares. Read for its *defaults*, not to build a UI: the
     /// protocol has the host send what the user picked as query parameters, and with no form the
     /// declared defaults are what the reference host sends. That is what reaches an addon that
     /// gates its lossless tier behind a `quality` setting.
     var settings: [AddonSetting]
 
-    public init(id: String = "", name: String = "", version: String = "", resources: [String] = []) {
+    public init(id: String = "", name: String = "", version: String = "", resources: [String] = [], requiresOfficialAppProof: Bool = false) {
         self.id = id
         self.name = name
         self.version = version
         self.resources = resources
+        self.requiresOfficialAppProof = requiresOfficialAppProof
         settings = []
     }
 
@@ -35,6 +38,7 @@ public struct AddonManifest: Decodable, Hashable, Sendable {
         name = c.lenientString("name") ?? ""
         version = c.lenientString("version") ?? ""
         resources = c.lenientStrings("resources")
+        requiresOfficialAppProof = c.lenientBool("bitchordAuth") ?? false
         settings = c.lenientArray("settings", of: AddonSetting.self)
     }
 

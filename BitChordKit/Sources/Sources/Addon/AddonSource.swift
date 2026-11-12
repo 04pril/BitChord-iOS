@@ -47,6 +47,19 @@ public final class AddonSource: MusicSource, @unchecked Sendable {
         switch await client.manifest() {
         case .success(let manifest):
             let parts = [manifest.displayName.nonBlank, manifest.version.nonBlank.map { "v\($0)" }].compactMap { $0 }
+            if manifest.requiresOfficialAppProof {
+                switch await client.probeSearch() {
+                case .success(let count):
+                    let searchStatus = count == 0 ? "Search answered (no test matches)" : "Search works (\(count) matches)"
+                    return .ok(detail: (parts + [searchStatus]).joined(separator: " · "))
+                case .failure(let failure):
+                    let reason = failure.localizedDescription.nonBlank ?? "Search request failed"
+                    if case AddonError.rejected = failure {
+                        return .rejected("Search refused: this addon requires official BitChord authentication (\(reason))")
+                    }
+                    return .unreachable("Search check failed: \(reason)")
+                }
+            }
             return .ok(detail: parts.isEmpty ? nil : parts.joined(separator: " "))
         case .failure(let failure):
             if case .success = await client.probeSearch() {
