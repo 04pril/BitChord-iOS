@@ -113185,6 +113185,38 @@
           }
         }
       }
+    },
+    "floating_artwork" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Floating album art"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "플로팅 앨범 아트"
+          }
+        }
+      }
+    },
+    "floating_artwork_subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows a rounded, softly shadowed cover that grows during playback and shrinks when paused."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "둥근 커버에 은은한 그림자를 더하고, 재생 중에는 커지고 일시정지하면 작아집니다."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

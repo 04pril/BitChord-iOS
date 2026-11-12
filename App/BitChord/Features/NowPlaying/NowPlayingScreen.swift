@@ -512,7 +512,8 @@ private struct PortraitPlayer: View {
                 let image = artworkImage
                 let pose = main && !hero ? ArtworkPose(
                     scale: PlayerArtworkPose.portraitScale(isPlaying: player.playWhenReady),
-                    offset: CGSize(width: PlayerSkipSwipe.artworkOffset(translation: model.swipeTranslation), height: -model.queuePull * 36)
+                    offset: CGSize(width: PlayerSkipSwipe.artworkOffset(translation: model.swipeTranslation), height: -model.queuePull * 36),
+                    elevation: player.playWhenReady ? 1 : 0
                 ) : .rest
                 ZStack {
                     if !(main && hero) {
@@ -524,8 +525,8 @@ private struct PortraitPlayer: View {
                             onCanvasRendered: { model.canvas.rendered = $0 },
                             onCanvasFrame: canvasFrameHandler(main: true)
                         )
-                        .docked(open: rect, shape: ArtworkShape(corner: main ? 8 : 6, castsShadow: image != nil), pose: pose)
-                        .animation(reduceAnimation ? nil : .spring(response: 0.55, dampingFraction: 0.62), value: player.playWhenReady)
+                        .docked(open: rect, shape: ArtworkShape(corner: main ? 12 : 6, castsShadow: image != nil), pose: pose)
+                        .animation(reduceAnimation ? nil : .spring(response: 0.58, dampingFraction: 0.56), value: player.playWhenReady)
                         .transition(.opacity)
                     }
                     if main, settings.showNerdStats {

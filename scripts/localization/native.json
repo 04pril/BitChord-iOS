@@ -250,5 +250,13 @@
   "lyrics_font_display": {
     "en": "Display",
     "ko": "표시"
+  },
+  "floating_artwork": {
+    "en": "Floating album art",
+    "ko": "플로팅 앨범 아트"
+  },
+  "floating_artwork_subtitle": {
+    "en": "Shows a rounded, softly shadowed cover that grows during playback and shrinks when paused.",
+    "ko": "둥근 커버에 은은한 그림자를 더하고, 재생 중에는 커지고 일시정지하면 작아집니다."
   }
 }

@@ -275,10 +275,11 @@ struct SettingsScreen: View {
             SettingsToggleRow(symbol: "drop.halffull", title: L10n.reduceDynamicBlur,
                               subtitle: L10n.reduceDynamicBlurSubtitle, isOn: $settings.reduceDynamicBlur)
         case .fullScreenCoverArt:
-            // Android hides this where its player can't fill the window; the iOS player always
-            // does (a full-screen cover on iPhone and iPad), so the row is always here.
-            SettingsToggleRow(symbol: "arrow.up.left.and.arrow.down.right", title: L10n.fullScreenCoverArt,
-                              subtitle: L10n.fullScreenCoverArtSubtitle, isOn: $settings.fullBleedArtwork)
+            // The legacy preference stores the inverse: full bleed on means the floating sleeve is off.
+            SettingsToggleRow(symbol: "square.stack.3d.up", title: L10n.tr("floating_artwork"),
+                              subtitle: L10n.tr("floating_artwork_subtitle"),
+                              isOn: Binding(get: { !settings.fullBleedArtwork },
+                                            set: { settings.fullBleedArtwork = !$0 }))
         case .legacyMeshGradient:
             SettingsToggleRow(symbol: "circle.hexagongrid.fill", title: L10n.legacyMeshGradient,
                               subtitle: L10n.legacyMeshGradientSubtitle, isOn: $settings.legacyMeshGradient)

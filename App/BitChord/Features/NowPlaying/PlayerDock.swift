@@ -54,7 +54,7 @@ struct DockFrame: Equatable {
                 corner: shape.dissolves ? 0 : shape.corner,
                 shadow: shape.castsShadow && !shape.dissolves ? 1 : 0,
                 dissolve: shape.dissolves ? 1 : 0,
-                scale: pose.scale, offset: pose.offset
+                scale: pose.scale, offset: pose.offset, elevation: pose.elevation
             )
         }
         let shown = shape.dissolves ? t : 0
@@ -65,7 +65,8 @@ struct DockFrame: Equatable {
             shadow: shape.castsShadow ? max(1 - 2 * shown, 0) * t : 0,
             dissolve: shown,
             scale: 1 - t + pose.scale * t,
-            offset: CGSize(width: pose.offset.width * t, height: pose.offset.height * t)
+            offset: CGSize(width: pose.offset.width * t, height: pose.offset.height * t),
+            elevation: pose.elevation * t
         )
     }
 }
@@ -89,6 +90,8 @@ enum ArtworkRole: Hashable { case sleeve, banner }
 struct ArtworkPose: Equatable {
     var scale: CGFloat = 1
     var offset: CGSize = .zero
+    /// The sleeve's lift while music plays; the cast shadow follows this through the same spring.
+    var elevation: CGFloat = 0
     static let rest = ArtworkPose()
 }
 
@@ -96,12 +99,14 @@ struct ArtworkPlacement: Equatable {
     /// Window points.
     var rect: CGRect
     var corner: CGFloat
-    /// Share of the rest shadow (0.35 / r14 / y8).
+    /// Share of the rest shadow (0.16 / r18 / y9).
     var shadow: CGFloat
     /// Share of the banner's gradient foot; 0 is a hard edge.
     var dissolve: CGFloat
     var scale: CGFloat
     var offset: CGSize
+    /// How far the artwork floats off its backdrop while playing, 0 to 1.
+    var elevation: CGFloat
 }
 
 /// Android 1.8's numbers and the decisions built on them. No views, no state.
@@ -701,15 +706,26 @@ private struct Docked: ViewModifier {
             let window = open.offsetBy(dx: origin.x, dy: origin.y - frame.stageOffset)
             let placed = frame.artwork(open: window, shape: shape, pose: pose)
             let rect = placed.rect
-            content
-                .frame(width: rect.width, height: rect.height)
-                #if DEBUG
-                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { dock.probeShown[shape.role] = $0 }
-                #endif
-                .modifier(BannerDissolve(share: shape.dissolves ? placed.dissolve : nil))
-                .clipShape(RoundedRectangle(cornerRadius: placed.corner, style: .continuous))
-                .shadow(color: .black.opacity(0.35 * placed.shadow), radius: 14 * placed.shadow, y: 8 * placed.shadow)
-                .animation(.easeOut(duration: 0.25), value: shape.castsShadow)
+            ZStack(alignment: .topLeading) {
+                if !shape.dissolves {
+                    ArtworkPerspectiveShadow(elevation: placed.elevation, strength: placed.shadow)
+                        .frame(width: rect.width, height: rect.height)
+                }
+                content
+                    .frame(width: rect.width, height: rect.height)
+                    #if DEBUG
+                    .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { dock.probeShown[shape.role] = $0 }
+                    #endif
+                    .modifier(BannerDissolve(share: shape.dissolves ? placed.dissolve : nil))
+                    .clipShape(RoundedRectangle(cornerRadius: placed.corner, style: .continuous))
+                    .shadow(
+                        color: .black.opacity((0.18 + 0.03 * placed.elevation) * placed.shadow),
+                        radius: (18 + 3 * placed.elevation) * placed.shadow,
+                        y: (10 + 3 * placed.elevation) * placed.shadow
+                    )
+                    .animation(.easeOut(duration: 0.25), value: shape.castsShadow)
+            }
+            .frame(width: rect.width, height: rect.height)
                 .scaleEffect(placed.scale)
                 .offset(placed.offset)
                 .position(x: rect.midX - origin.x, y: rect.midY - origin.y)
@@ -728,6 +744,47 @@ private struct Docked: ViewModifier {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
         .onChange(of: open, initial: true) { dock.layoutDidChange() }
+    }
+}
+
+/// A soft, widening cast shadow under the sleeve makes the playing artwork feel slightly lifted.
+/// The tapered footprint spreads away from the album's lower edge and follows its playback spring.
+private struct ArtworkPerspectiveShadow: View {
+    let elevation: CGFloat
+    let strength: CGFloat
+
+    var body: some View {
+        GeometryReader { proxy in
+            let height = 30 + 10 * elevation
+            ArtworkShadowWedge()
+                .fill(LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(0.17), location: 0),
+                        .init(color: .black.opacity(0.09), location: 0.42),
+                        .init(color: .black.opacity(0), location: 1),
+                    ],
+                    startPoint: .top, endPoint: .bottom
+                ))
+                .frame(width: proxy.size.width * (1.04 + 0.08 * elevation), height: height)
+                .blur(radius: 9 + 5 * elevation)
+                .opacity(elevation * strength)
+                .position(x: proxy.size.width / 2, y: proxy.size.height + height / 2 + 2)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// The top edge sits close under the album; the angled sides widen the shadow as it falls.
+private struct ArtworkShadowWedge: Shape {
+    func path(in rect: CGRect) -> Path {
+        let inset = rect.width * 0.14
+        return Path { path in
+            path.move(to: CGPoint(x: inset, y: 0))
+            path.addLine(to: CGPoint(x: rect.width - inset, y: 0))
+            path.addLine(to: CGPoint(x: rect.width, y: rect.height))
+            path.addLine(to: CGPoint(x: 0, y: rect.height))
+            path.closeSubpath()
+        }
     }
 }
 

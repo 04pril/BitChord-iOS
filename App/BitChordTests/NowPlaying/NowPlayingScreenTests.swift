@@ -220,7 +220,7 @@ final class NowPlayingScreenTests: XCTestCase {
 
     func testThePausedSleeveShrinksBack() {
         XCTAssertEqual(PlayerArtworkPose.portraitScale(isPlaying: true), 1)
-        XCTAssertEqual(PlayerArtworkPose.portraitScale(isPlaying: false), 0.86)
+        XCTAssertEqual(PlayerArtworkPose.portraitScale(isPlaying: false), 0.76)
     }
 
     // MARK: Done criterion

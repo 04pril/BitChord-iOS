@@ -132,7 +132,7 @@ enum SettingsCatalog {
             row(.theme, L10n.theme, "dark mode", "light mode"),
             row(.reduceAnimation, L10n.reduceAnimation, "motion"),
             row(.reduceDynamicBlur, L10n.reduceDynamicBlur, "blur", "performance"),
-            row(.fullScreenCoverArt, L10n.fullScreenCoverArt, "artwork", "player"),
+            row(.fullScreenCoverArt, L10n.tr("floating_artwork"), "artwork", "player", "floating", "card", "shadow", "animation", "앨범", "커버", "플로팅", "카드", "그림자", "일시정지"),
             row(.legacyMeshGradient, L10n.legacyMeshGradient, "background", "player"),
             // Carries the keywords of the rows that only appear once it is on, so searching
             // "spotify" with animated covers off turns up the switch that brings that row back.

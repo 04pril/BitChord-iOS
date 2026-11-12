@@ -240,9 +240,11 @@ enum PlayerVerticalDrag {
 
 /// The sleeve's scale: Apple Music's signature shrink while paused.
 enum PlayerArtworkPose {
-    /// The portrait player's pose: a bouncy spring between playing and paused.
+    static let pausedPortraitScale: CGFloat = 0.76
+
+    /// The portrait player's pose: a soft spring between full-size playback and a smaller paused sleeve.
     static func portraitScale(isPlaying: Bool) -> CGFloat {
-        isPlaying ? 1 : 0.86
+        isPlaying ? 1 : pausedPortraitScale
     }
 
     /// The landscape player's three flat poses. Paused wins outright over a scrub in progress —

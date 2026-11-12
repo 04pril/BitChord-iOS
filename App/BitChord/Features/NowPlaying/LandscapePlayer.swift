@@ -167,7 +167,8 @@ struct LandscapePlayer: View {
                 let image = model.artwork.image ?? PlayerArtworkLoader.standIn(for: song)
                 let pose = ArtworkPose(
                     scale: PlayerArtworkPose.landscapeScale(isPlaying: player.playWhenReady, scrubbing: model.scrub.scrubbing),
-                    offset: CGSize(width: PlayerSkipSwipe.artworkOffset(translation: model.swipeTranslation), height: 0)
+                    offset: CGSize(width: PlayerSkipSwipe.artworkOffset(translation: model.swipeTranslation), height: 0),
+                    elevation: player.playWhenReady ? 1 : 0
                 )
                 ZStack {
                     PlayerSleeve(
@@ -178,7 +179,7 @@ struct LandscapePlayer: View {
                         onCanvasRendered: { model.canvas.rendered = $0 }
                     )
                     .docked(open: rect, shape: ArtworkShape(corner: 10, castsShadow: image != nil), pose: pose)
-                    .animation(.timingCurve(0.215, 0.61, 0.355, 1, duration: 0.5), value: player.playWhenReady)
+                    .animation(.spring(response: 0.58, dampingFraction: 0.56), value: player.playWhenReady)
                     .animation(.timingCurve(0.215, 0.61, 0.355, 1, duration: 0.5), value: model.scrub.scrubbing)
                     if settings.showNerdStats && !model.panes.panelOpen {
                         PlayerNerdStatsOverlay(
