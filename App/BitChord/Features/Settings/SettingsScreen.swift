@@ -22,6 +22,7 @@ struct SettingsScreen: View {
     @Environment(AppRouter.self) private var router
     @Environment(PlayerController.self) private var player
 
+    @State private var openingLyricsTypography = false
     @State private var openingProxy = false
     @State private var query = ""
     @State private var metered: Bool?
@@ -93,6 +94,7 @@ struct SettingsScreen: View {
         .background { SearchFieldRedraw() }
         .navigationTitle(L10n.settings)
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(isPresented: $openingLyricsTypography) { LyricsTypographyScreen() }
         .navigationDestination(isPresented: $openingProxy) { ProxySettingsScreen() }
         .navigationDestination(isPresented: $openingSpotifyCanvas) { SpotifyCanvasSetupScreen() }
         .task {
@@ -304,6 +306,8 @@ struct SettingsScreen: View {
         case .lyricsBlur:
             SettingsToggleRow(symbol: "aqi.medium", title: L10n.blurUnfocusedLyrics,
                               subtitle: L10n.blurUnfocusedLyricsSubtitle, isOn: $settings.lyricsBlur)
+        case .lyricsTypography:
+            SettingsRow(symbol: "textformat.size", title: L10n.tr("lyrics_typography"), subtitle: L10n.tr("lyrics_typography_subtitle")) { openingLyricsTypography = true }
         case .showLyricsProvider:
             SettingsToggleRow(symbol: "text.bubble", title: L10n.tr("show_lyrics_provider"),
                               subtitle: L10n.tr("show_lyrics_provider_subtitle"), isOn: $settings.showLyricsProvider)

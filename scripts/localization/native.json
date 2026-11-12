@@ -182,5 +182,73 @@
   "WG_YES": {
     "en": "yes",
     "ko": "예"
+  },
+  "lyrics_typography": {
+    "en": "Lyrics font settings",
+    "ko": "가사 폰트 설정"
+  },
+  "lyrics_typography_subtitle": {
+    "en": "Text size, weight and lyrics appearance",
+    "ko": "전체·한글·영문 크기와 굵기, 출처 표시를 조절합니다"
+  },
+  "lyrics_font_preview": {
+    "en": "Preview",
+    "ko": "미리보기"
+  },
+  "lyrics_font_separate": {
+    "en": "Separate Korean and English settings",
+    "ko": "한글·영문 따로 조절"
+  },
+  "lyrics_font_separate_help": {
+    "en": "Applies to each script even within a mixed-language line. Other scripts and punctuation use the common setting.",
+    "ko": "한 줄에 섞여 있어도 글자별로 적용합니다. 그 외 언어와 기호는 전체 설정을 따릅니다."
+  },
+  "lyrics_font_korean": {
+    "en": "Korean",
+    "ko": "한글"
+  },
+  "lyrics_font_english": {
+    "en": "English",
+    "ko": "영문"
+  },
+  "lyrics_font_common": {
+    "en": "All lyrics",
+    "ko": "전체 가사"
+  },
+  "lyrics_font_size": {
+    "en": "Text size",
+    "ko": "글자 크기"
+  },
+  "lyrics_font_weight": {
+    "en": "Weight",
+    "ko": "글자 굵기"
+  },
+  "lyrics_weight_regular": {
+    "en": "Regular",
+    "ko": "보통"
+  },
+  "lyrics_weight_medium": {
+    "en": "Medium",
+    "ko": "약간 굵게"
+  },
+  "lyrics_weight_semibold": {
+    "en": "Semibold",
+    "ko": "중간 굵게"
+  },
+  "lyrics_weight_bold": {
+    "en": "Bold",
+    "ko": "굵게"
+  },
+  "lyrics_weight_heavy": {
+    "en": "Heavy",
+    "ko": "아주 굵게"
+  },
+  "lyrics_font_default_help": {
+    "en": "Default: 32 pt, Bold. The original BitChord used 34 pt, Heavy. Changes are saved automatically.",
+    "ko": "기본값은 32pt·굵게입니다. 기존 BitChord는 34pt·아주 굵게였으며, 변경한 설정은 자동으로 저장됩니다."
+  },
+  "lyrics_font_display": {
+    "en": "Display",
+    "ko": "표시"
   }
 }

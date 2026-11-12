@@ -311,6 +311,10 @@ public final class AppSettings {
         didSet { write(.showLyricsProvider, showLyricsProvider) }
     }
 
+    public var lyricsTypography: LyricsTypography = .standard {
+        didSet { write(.lyricsTypography, lyricsTypography.persisted) }
+    }
+
     /// Cover art as a full-bleed banner off the top of the screen rather than a square card.
     public var fullBleedArtwork: Bool = true {
         didSet { write(.fullBleedArtwork, fullBleedArtwork) }
@@ -936,6 +940,7 @@ public final class AppSettings {
         showQueueHistory = readBool(.showQueueHistory, default: false)
         hideSongStatus = readBool(.hideSongStatus, default: false)
         showLyricsProvider = readBool(.showLyricsProvider, default: false)
+        lyricsTypography = .restore(readString(.lyricsTypography) ?? "")
         fullBleedArtwork = readBool(.fullBleedArtwork, default: true)
         legacyMeshGradient = readBool(.legacyMeshGradient, default: false)
         lastPlayerScreen = readEnum(.lastPlayerScreen, default: .main)

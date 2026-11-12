@@ -250,7 +250,9 @@ struct PlayerDeck: View {
     var body: some View {
         VStack(spacing: 0) {
             if model.panes.lyricsOpen {
-                PlayerLyricsStatus(session: model.lyrics) { model.sheet = .lyricsProvider }
+                if settings.showLyricsProvider {
+                    PlayerLyricsStatus(session: model.lyrics) { model.sheet = .lyricsProvider }
+                }
             } else {
                 PlayerLyricStrip(session: model.lyrics) {
                     withAnimation(NowPlayingMotion.collapse) { model.panes.openLyrics() }

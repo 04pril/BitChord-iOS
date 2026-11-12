@@ -302,7 +302,6 @@ struct LyricStripShift: GeometryEffect {
 /// inline (LyricsStatusWithChange): the status takes what it needs and gives way first, "Change"
 /// always shows in full.
 struct PlayerLyricsStatus: View {
-    @Environment(AppSettings.self) private var settings
     let session: LyricsSession
     var onChange: () -> Void
 
@@ -329,9 +328,6 @@ struct PlayerLyricsStatus: View {
             .accessibilityIdentifier("nowPlaying.changeLyricsProvider")
             Spacer(minLength: 0)
         }
-        .opacity(settings.showLyricsProvider ? 1 : 0)
-        .allowsHitTesting(settings.showLyricsProvider)
-        .accessibilityHidden(!settings.showLyricsProvider)
         .font(.headline)
         .frame(height: 26)
         .offset(y: 6)

@@ -1,12 +1,44 @@
 import BitChordCore
 import Lyrics
 import SwiftUI
+import UIKit
 import XCTest
 @testable import BitChord
 
 /// The page keeps every line inside its column at any text size, in either layout direction.
 @MainActor
 final class LyricsLayoutTests: XCTestCase {
+    func testMixedLanguageFontsShareOneWrappedLayout() throws {
+        var preference = LyricsTypography.standard
+        preference.separateScripts = true
+        preference.korean = LyricsFontChoice(size: 28, weight: .medium)
+        preference.english = LyricsFontChoice(size: 35, weight: .semibold)
+        let text = "널 향해 there's no danger 👨‍👩‍👧‍👦"
+        let typeface = LyricTypeface.synced.customized(using: preference)
+        for width: CGFloat in [200, 310, 500] {
+            let layout = LyricTextLayout(text: text, typeface: typeface, width: width)
+            let korean = try XCTUnwrap(layout.storage.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+            let englishIndex = (text as NSString).range(of: "there").location
+            let english = try XCTUnwrap(layout.storage.attribute(.font, at: englishIndex, effectiveRange: nil) as? UIFont)
+            XCTAssertEqual(korean, UIFont.systemFont(ofSize: 28, weight: .medium))
+            XCTAssertEqual(english, UIFont.systemFont(ofSize: 35, weight: .semibold))
+            XCTAssertTrue(layout.rows.allSatisfy { $0.right <= width + 4 })
+            XCTAssertGreaterThan(layout.size.height, 0)
+        }
+        var changed = preference
+        changed.english.weight = .regular
+        XCTAssertNotEqual(typeface, LyricTypeface.synced.customized(using: changed))
+    }
+
+    func testCommonFontAppliesToBothScripts() throws {
+        let attributed = LyricTypeface.synced.customized(using: .standard)
+            .attributedText("한글 English", paragraph: NSMutableParagraphStyle())
+        let korean = try XCTUnwrap(attributed.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+        let english = try XCTUnwrap(attributed.attribute(.font, at: 3, effectiveRange: nil) as? UIFont)
+        XCTAssertEqual(korean, UIFont.systemFont(ofSize: 32, weight: .bold))
+        XCTAssertEqual(korean, english)
+    }
+
     func testLinesStayInsideTheColumnAtEveryTextSizeAndDirection() {
         let settings = makeTestSettings()
         let clock = LyricFrameClock()

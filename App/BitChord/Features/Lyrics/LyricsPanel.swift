@@ -231,14 +231,19 @@ struct LyricsPanelContent: View {
                     onSeek: onSeek
                 )
             }
-            LyricsTranslationDiscs(translation: translation, hasLyrics: !lines.isEmpty,
-                                   shown: chrome.active && chrome.controlsOpen && !picking)
             // The bar arrives and leaves without a transition of its own: it is an instruction over
             // the words, and one that has to be legible the instant it is on.
             if let share, share.picking {
                 LyricsPickBar(shareEnabled: share.canShare,
                               onCancel: { share.cancel() },
                               onShare: { share.share() })
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if chrome.active && chrome.controlsOpen && !picking && !lines.isEmpty {
+                LyricsTranslationDiscs(translation: translation, hasLyrics: true, shown: true)
+                    .frame(height: 44)
+                    .padding(.top, 4)
             }
         }
         .onChange(of: lines, initial: true) {
@@ -756,6 +761,7 @@ private struct LyricPickGesture: ViewModifier {
 /// One line of the song: the lead, its translation or romanization, and the answering vocal
 /// under it. They are one row — they scale and dim together, and tapping any of them seeks.
 private struct LyricRow: View {
+    @Environment(AppSettings.self) private var settings
     let line: LyricLine
     let sub: LyricLine?
     let active: Bool
@@ -876,7 +882,7 @@ private struct LyricRow: View {
             : LyricRowStyle.litAlpha(synced: synced, sung: sung, active: active)
         return ScaledLyricVoice(
             line: voice,
-            style: LyricVoiceStyle(typeface: typeface, alignEnd: alignEnd, room: room, sweeps: sweeps, rises: rises, feather: active),
+            style: LyricVoiceStyle(typeface: typeface.customized(using: settings.lyricsTypography), alignEnd: alignEnd, room: room, sweeps: sweeps, rises: rises, feather: active),
             dimAlpha: dim,
             glowAlpha: glow,
             clock: clock,

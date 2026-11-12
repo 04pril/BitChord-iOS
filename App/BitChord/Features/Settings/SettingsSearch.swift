@@ -53,7 +53,7 @@ enum SettingsRowID: String, CaseIterable, Hashable {
     // Appearance
     case theme, reduceAnimation, reduceDynamicBlur, fullScreenCoverArt, legacyMeshGradient,
          animatedCoverArt, animatedCoverCellular, spotifyCanvas, syncedLyrics, lyricsBlur,
-         lyricsSources, translationLanguage, showLyricsProvider
+         lyricsSources, translationLanguage, showLyricsProvider, lyricsTypography
     // Storage
     case songCacheLimit, clearSongCache, clearImageCache
     // Your data
@@ -145,10 +145,9 @@ enum SettingsCatalog {
             ]
         }
         appearance.append(row(.syncedLyrics, L10n.syncedLyrics, "lyrics", "translation", "lrclib", "musixmatch"))
+        appearance.append(row(.lyricsTypography, L10n.tr("lyrics_typography"), "font", "size", "weight", "bold", "한글", "영문", "글자", "굵기", "가사", "출처", "provider", "change", "blur"))
         if v.syncedLyrics {
             appearance += [
-                row(.lyricsBlur, L10n.blurUnfocusedLyrics, "lyrics", "blur"),
-                row(.showLyricsProvider, L10n.tr("show_lyrics_provider"), "lyrics", "provider", "change", "가사", "출처"),
                 row(.lyricsSources, L10n.lyricsSources, "lyrics", "lrclib", "musixmatch"),
                 row(.translationLanguage, L10n.translationLanguage, "lyrics", "translate"),
             ]

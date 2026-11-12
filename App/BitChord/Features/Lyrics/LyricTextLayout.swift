@@ -1,3 +1,4 @@
+import BitChordCore
 import NaturalLanguage
 import SwiftUI
 import UIKit
@@ -15,6 +16,69 @@ struct LyricTypeface: Hashable {
     var size: CGFloat
     var lineHeight: CGFloat
     var weight: UIFont.Weight
+    var korean: FontChoice?
+    var english: FontChoice?
+
+    struct FontChoice: Hashable {
+        var size: CGFloat
+        var weight: UIFont.Weight
+        var font: UIFont { UIFont.systemFont(ofSize: size, weight: weight) }
+        func scaled(_ factor: CGFloat) -> Self {
+            Self(size: (size * factor).rounded(), weight: weight)
+        }
+    }
+
+    func customized(using preference: LyricsTypography) -> Self {
+        let preference = preference.normalized
+        let ratio = size / 34
+        func choice(_ value: LyricsFontChoice) -> FontChoice {
+            FontChoice(size: CGFloat(value.size) * ratio, weight: Self.uiWeight(value.weight))
+        }
+        let common = choice(preference.common)
+        return Self(size: common.size, lineHeight: lineHeight / size * common.size, weight: common.weight,
+                    korean: preference.separateScripts ? choice(preference.korean) : nil,
+                    english: preference.separateScripts ? choice(preference.english) : nil)
+    }
+
+    static func uiWeight(_ value: LyricsFontWeight) -> UIFont.Weight {
+        switch value {
+        case .regular: return .regular
+        case .medium: return .medium
+        case .semibold: return .semibold
+        case .bold: return .bold
+        case .heavy: return .heavy
+        }
+    }
+
+    /// Attributes are assigned per composed character, preserving mixed Hangul/Latin
+    /// lyrics and emoji/combining sequences in the same TextKit layout.
+    func attributedText(_ text: String, paragraph: NSMutableParagraphStyle) -> NSAttributedString {
+        let common = font
+        let korean = self.korean?.font ?? common
+        let english = self.english?.font ?? common
+        var runs: [(NSRange, UIFont)] = []
+        text.enumerateSubstrings(in: text.startIndex..<text.endIndex, options: .byComposedCharacterSequences) { part, range, _, _ in
+            guard let part else { return }
+            let scalars = part.unicodeScalars.map(\.value)
+            let hangul = scalars.contains { (0xAC00...0xD7A3).contains($0) || (0x1100...0x11FF).contains($0)
+                || (0x3130...0x318F).contains($0) || (0xA960...0xA97F).contains($0) || (0xD7B0...0xD7FF).contains($0) }
+            let latin = scalars.contains { (0x41...0x5A).contains($0) || (0x61...0x7A).contains($0)
+                || (0x30...0x39).contains($0) || (0xC0...0x24F).contains($0) || (0x1E00...0x1EFF).contains($0) }
+            runs.append((NSRange(range, in: text), hangul ? korean : (latin ? english : common)))
+        }
+        let largest = runs.map { $0.1.pointSize }.max() ?? size
+        let tallest = runs.map { $0.1.lineHeight }.max() ?? common.lineHeight
+        let height = max(lineHeight / size * largest, tallest)
+        paragraph.minimumLineHeight = height
+        paragraph.maximumLineHeight = height
+        let result = NSMutableAttributedString(string: text, attributes: [
+            .font: common, .foregroundColor: UIColor.white, .paragraphStyle: paragraph,
+        ])
+        for (range, font) in runs {
+            result.addAttributes([.font: font, .baselineOffset: max(height - font.lineHeight, 0) / 2], range: range)
+        }
+        return result
+    }
 
     /// The lead line of a synced page (Android: 34 sp ExtraBold on 41 sp).
     static let synced = LyricTypeface(size: 34, lineHeight: 41, weight: .heavy)
@@ -35,7 +99,8 @@ struct LyricTypeface: Hashable {
         let capped: UIContentSizeCategory = category > .accessibilityMedium ? .accessibilityMedium : category
         let traits = UITraitCollection(preferredContentSizeCategory: capped)
         let factor = UIFontMetrics(forTextStyle: .title1).scaledValue(for: 1, compatibleWith: traits)
-        return LyricTypeface(size: (size * factor).rounded(), lineHeight: (lineHeight * factor).rounded(), weight: weight)
+        return LyricTypeface(size: (size * factor).rounded(), lineHeight: (lineHeight * factor).rounded(), weight: weight,
+                             korean: korean?.scaled(factor), english: english?.scaled(factor))
     }
 
     var font: UIFont { UIFont.systemFont(ofSize: size, weight: weight) }
@@ -94,15 +159,7 @@ final class LyricTextLayout {
         let startIsLeft = !rightToLeftLayout
         paragraph.alignment = (alignEnd != startIsLeft) ? .left : .right
         paragraph.baseWritingDirection = rightToLeftText ? .rightToLeft : .leftToRight
-        let font = typeface.font
-        // Centre the glyphs in the fixed line height, the way Compose does.
-        let baselineShift = max(typeface.lineHeight - font.lineHeight, 0) / 2
-        storage = NSTextStorage(string: text, attributes: [
-            .font: font,
-            .foregroundColor: UIColor.white,
-            .paragraphStyle: paragraph,
-            .baselineOffset: baselineShift,
-        ])
+        storage = NSTextStorage(attributedString: typeface.attributedText(text, paragraph: paragraph))
         layoutManager = NSLayoutManager()
         layoutManager.usesFontLeading = false
         container = NSTextContainer(size: CGSize(width: max(width, 1), height: .greatestFiniteMagnitude))

@@ -55,6 +55,7 @@ extension AppSettings {
         case showQueueHistory = "show_queue_history"
         case hideSongStatus = "hide_song_status"
         case showLyricsProvider = "show_lyrics_provider"
+        case lyricsTypography = "lyrics_typography"
         case fullBleedArtwork = "full_bleed_artwork"
         case legacyMeshGradient = "legacy_mesh_gradient"
         case lastPlayerScreen = "last_player_screen"
@@ -145,7 +146,7 @@ extension AppSettings {
                 return .float
             case .audioQualityLegacy, .audioQualityWifi, .audioQualityCellular, .downloadQuality,
                  .directSourceStream, .automixPerformanceMode, .equalizerMode, .equalizerBands, .themeMode,
-                 .lastPlayerScreen, .translationLanguage, .lyricsSources, .lyricsSourcesSeen,
+                 .lastPlayerScreen, .lyricsTypography, .translationLanguage, .lyricsSources, .lyricsSourcesSeen,
                  .lyricsSourceOrder, .localMusicSort, .downloadedMusicSort, .librarySort,
                  .detailSongSorts, .localMusicViewType, .downloadedMusicViewType,
                  .homeRecentsViewType, .pinnedPlaylists, .searchHistory, .webdavUrl,
