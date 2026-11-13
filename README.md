@@ -5,6 +5,10 @@
 
 **[최신 IPA 다운로드 / 릴리즈](https://github.com/04pril/BitChord-iOS/releases/latest)** · [원본 README](docs/UPSTREAM-README.md)
 
+## 로그인 전 프록시 설정
+
+로그아웃 상태의 홈 카드에서 **로그인** 옆 **프록시 설정**으로 바로 이동할 수 있습니다. 프록시를 사용한다면 로그인 전에 설정을 저장하고 앱을 완전히 종료한 뒤 다시 열어 주세요. 안내 문구는 화면 너비에 맞춰 줄바꿈됩니다.
+
 ## 컬러 위젯 예시
 
 ![컬러 4×2 위젯 실제 사용 예시](docs/images/widget-preview.jpg)

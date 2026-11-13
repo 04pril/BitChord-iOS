@@ -113905,6 +113905,54 @@
           }
         }
       }
+    },
+    "login_proxy_settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proxy settings"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프록시 설정"
+          }
+        }
+      }
+    },
+    "login_proxy_first" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up your proxy before signing in!"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 전 프록시 설정 먼저!"
+          }
+        }
+      }
+    },
+    "login_proxy_restart_hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If using a proxy, save its settings, fully close the app, then reopen it before signing in."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프록시를 사용한다면 설정을 저장하고 앱을 완전히 종료한 뒤 다시 열어 로그인하세요."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

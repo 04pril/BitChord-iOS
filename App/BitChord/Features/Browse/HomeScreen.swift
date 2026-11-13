@@ -22,6 +22,7 @@ struct HomeScreen: View {
     @State private var feed = HomeFeedModel()
     /// The shelves on screen (by `feedKey`), so paging only runs while the tail is in view.
     @State private var onScreen: Set<String> = []
+    @State private var openingProxy = false
 
     var body: some View {
         let state = feed.state
@@ -29,7 +30,11 @@ struct HomeScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if !model.accounts.isSignedIn {
-                        SignInBanner { model.router.present(.googleSignIn) }
+                        SignInBanner(
+                            onSignIn: { model.router.present(.googleSignIn) },
+                            onProxy: { openingProxy = true }
+                        )
+                            .frame(width: proxy.size.width, alignment: .leading)
                             .padding(.bottom, 8)
                     }
                     // Each state gets a container of its own. The shell's version switched states
@@ -61,6 +66,7 @@ struct HomeScreen: View {
                         shelfList(shelves, width: proxy.size.width)
                     }
                 }
+                .frame(width: proxy.size.width, alignment: .leading)
                 .padding(.bottom, 16)
             }
             .refreshable {
@@ -69,6 +75,7 @@ struct HomeScreen: View {
         }
         .navigationTitle(L10n.listenNow)
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(isPresented: $openingProxy) { ProxySettingsScreen() }
         .task {
             #if DEBUG
             if BrowseDebugLaunch.take("explore") != nil || BrowseDebugLaunch.target == "moodGenre" {
@@ -181,16 +188,17 @@ extension HomeShelf {
 /// Common.kt's `SignInBanner`: a rounded panel inviting the guest to sign in.
 struct SignInBanner: View {
     let onSignIn: () -> Void
+    let onProxy: () -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        // Side by side as on Android; at the accessibility text sizes the button drops under the
-        // text, or the pair runs off the screen's edge.
+        // Keep both actions reachable before opening the login browser. Accessibility text
+        // sizes stack the buttons instead of squeezing their labels off screen.
         let layout = typeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
             : AnyLayout(HStackLayout(spacing: 12))
-        layout {
+        VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(L10n.signInYoutubeMusic)
                     .font(BrowseFont.title)
@@ -201,20 +209,37 @@ struct SignInBanner: View {
                     .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Button(L10n.signIn, action: onSignIn)
-                .buttonStyle(.borderedProminent)
+            layout {
+                Button(L10n.signIn, action: onSignIn)
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+                    .accessibilityIdentifier("home.signIn")
+                Button(action: onProxy) {
+                    Label(L10n.tr("login_proxy_settings"), systemImage: "network")
+                }
+                .buttonStyle(.bordered)
                 .buttonBorderShape(.capsule)
+                .accessibilityIdentifier("home.proxySettings")
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Label(L10n.tr("login_proxy_first"), systemImage: "exclamationmark.circle")
+                    .font(.footnote.weight(.semibold))
+                Text(L10n.tr("login_proxy_restart_hint"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(nil)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .onTapGesture(perform: onSignIn)
         .padding(.horizontal, BrowseMetrics.gutter)
         .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { onSignIn() }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.signInBanner")
     }
 }
