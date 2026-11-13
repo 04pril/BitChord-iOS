@@ -667,10 +667,16 @@ actor AudioCacheStore {
         // The flag is read per piece rather than once up front: a lazily-resolved source only
         // knows its origin after its first request, which is also when the first piece arrives.
         var gate: InitSegmentGate? = fetch.start == 0 ? InitSegmentGate() : nil
+        var initGateStarted: ContinuousClock.Instant?
+        var initGateBytes = 0
         do {
             for try await piece in source.stream(fetch.start..<fetch.requestEnd) {
                 var ready = piece
                 if var held = gate {
+                    if fetch.start == 0 {
+                        if initGateStarted == nil { initGateStarted = .now }
+                        initGateBytes += piece.count
+                    }
                     let patch: (inout Data) -> Int = source.requiresYouTubeDurationFix
                         ? FragmentedMP4Durations.patchYouTubeInitSegment : { _ in 0 }
                     guard let released = held.feed(piece, patch: patch) else {
@@ -679,6 +685,11 @@ actor AudioCacheStore {
                     }
                     gate = nil
                     ready = released
+                    if let initGateStarted {
+                        TrackLog.i(Self.category,
+                                   "MP4 opening gate decided in \(TrackLog.ms(since: initGateStarted))ms after \(initGateBytes) source bytes (YouTube duration fix \(source.requiresYouTubeDurationFix ? "enabled" : "off"))",
+                                   about: fetch.key.trackID)
+                    }
                 }
                 if !accept(ready, into: fetch) { break }
             }

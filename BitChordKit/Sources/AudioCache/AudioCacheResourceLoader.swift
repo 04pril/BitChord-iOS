@@ -53,7 +53,9 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
         lock.withLock {
             tasks[id] = Task { [weak self] in
                 guard let self else { return }
-                await self.serve(request)
+                await TrackLog.about(self.key.trackID) {
+                    await self.serve(request)
+                }
                 self.lock.withLock { _ = self.tasks.removeValue(forKey: id) }
             }
         }
@@ -105,8 +107,14 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
             defer { hasOpened = true }
             return !hasOpened
         }
+        let infoStarted = ContinuousClock.now
         let info = try await TrackLog.about(key.trackID) {
             try await store.contentInfo(for: key, source: source, opening: opening)
+        }
+        if opening {
+            TrackLog.i(AudioCacheStore.category,
+                       "first AV resource content info took \(TrackLog.ms(since: infoStarted))ms (\(info.contentLength) bytes, type \(info.contentType ?? "unknown"))",
+                       about: key.trackID)
         }
         let fullyCached = await store.cachedLength(key, position: 0, length: info.contentLength) >= info.contentLength
         request.answer(info, entireLengthAvailable: fullyCached)
@@ -114,8 +122,25 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
         let read = ObjectIdentifier(request)
         lock.withLock { openReads[read] = range }
         defer { lock.withLock { openReads[read] = nil } }
+        let readStarted = ContinuousClock.now
+        var firstPiece = true
+        var deliveredBytes: Int64 = 0
         do {
-            try await serveBytes(range, info: info) { request.respond(with: $0) }
+            try await serveBytes(range, info: info) {
+                request.respond(with: $0)
+                deliveredBytes += Int64($0.count)
+                if opening && firstPiece {
+                    firstPiece = false
+                    TrackLog.i(AudioCacheStore.category,
+                               "first AV resource bytes delivered after \(TrackLog.ms(since: readStarted))ms (range [\(range.lowerBound), \(range.upperBound)), piece \($0.count) bytes)",
+                               about: key.trackID)
+                }
+            }
+            if opening {
+                TrackLog.i(AudioCacheStore.category,
+                           "first AV resource read finished in \(TrackLog.ms(since: readStarted))ms (\(deliveredBytes) bytes)",
+                           about: key.trackID)
+            }
         } catch {
             // A precisely timed FLAC or MP3 won't open until it has looked for a tag at the file's
             // end. With those bytes out of reach (offline, on a copy only partly here), a read that

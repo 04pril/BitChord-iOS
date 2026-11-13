@@ -81,18 +81,24 @@ extension AudioPlayerEngine {
     /// `preciselyTimed` for an entry that will be sought mid-song straight away.
     func makeEntry(for item: PlayableItem, on deck: PlaybackDeck, source: PlayableItem.Source? = nil,
                    joined: AudioOpenFlight? = nil, preciselyTimed: Bool = false) async throws -> DeckEntry {
+        let sourceOpenStarted = ContinuousClock.now
         let opened = try await openAudio(for: item, source: source, joined: joined)
+        PlaybackLog.info("\(item.id) source asset open took \(TrackLog.ms(since: sourceOpenStarted))ms", about: item.trackID)
         try Task.checkCancellation()
         // An HLS asset has no asset-level tracks (they live on the player item's variants), so an
         // empty list only means "no audio" for a non-playlist asset.
         var asset = opened.asset
+        let loadTracksStarted = ContinuousClock.now
         var track = try await asset.loadTracks(withMediaType: .audio).first
+        PlaybackLog.info("\(item.id) AVAsset.loadTracks(audio) took \(TrackLog.ms(since: loadTracksStarted))ms", about: item.trackID)
         guard track != nil || asset.isStreamingPlaylist else { throw PlaybackSourceError.noAudioTrack }
         var isPrecise = asset.isStreamingPlaylist
         if !isPrecise { isPrecise = (try? await asset.load(.providesPreciseDurationAndTiming)) == true }
         if preciselyTimed, !isPrecise {
             asset = AudioStreamCache.preciselyTimed(asset)
+            let preciseTracksStarted = ContinuousClock.now
             track = try await asset.loadTracks(withMediaType: .audio).first
+            PlaybackLog.info("\(item.id) precise AVAsset.loadTracks(audio) took \(TrackLog.ms(since: preciseTracksStarted))ms", about: item.trackID)
             isPrecise = true
         }
         let format = if let track { await AudioTrackFormat.load(track) } else { AudioTrackFormat() }

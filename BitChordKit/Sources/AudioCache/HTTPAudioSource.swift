@@ -231,9 +231,13 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
         private struct Chunk {
             let url: URL
             let start: Int64
+            let requestedAt: ContinuousClock.Instant
+            let firstForSource: Bool
             /// Where this request's bytes stop being wanted.
             var end: Int64
             var delivered: Int64 = 0
+            var loggedHeaders = false
+            var loggedFirstBody = false
             /// Bytes to drop off the front: a server that ignored the range sends from byte 0.
             var skip: Int64 = 0
         }
@@ -326,8 +330,9 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
             }
             let openEnded = chunkEnd == .max
             request.setValue(openEnded ? "bytes=\(position)-" : "bytes=\(position)-\(chunkEnd - 1)", forHTTPHeaderField: "Range")
-            source.logRequest(position..<chunkEnd)
-            chunk = Chunk(url: stream.url, start: position, end: chunkEnd)
+            let firstForSource = source.logRequest(position..<chunkEnd)
+            chunk = Chunk(url: stream.url, start: position, requestedAt: .now, firstForSource: firstForSource,
+                          end: chunkEnd)
             events = HTTPAudioSource.events(for: request, session: source.session).makeAsyncIterator()
         }
 
@@ -341,6 +346,13 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
         private func handle(_ response: HTTPURLResponse) async throws {
             guard var current = chunk else { return }
             responseMimeType = response.mimeType
+            if current.firstForSource && !current.loggedHeaders {
+                current.loggedHeaders = true
+                chunk = current
+                TrackLog.i(HTTPAudioSource.category,
+                           "first audio range [\(current.start), \(current.end == .max ? "end" : String(current.end))) HTTP headers in \(TrackLog.ms(since: current.requestedAt))ms (\(response.statusCode))",
+                           about: TrackLog.currentTrack)
+            }
             // A captive portal answers a plain-HTTP stream with its sign-in page. Taken as audio,
             // the page became the whole track on disk, served without asking again.
             if (200..<300).contains(response.statusCode), HTTPAudioSource.isWebPage(response) {
@@ -410,6 +422,12 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
             }
             let room = min(current.end, end) - position
             if Int64(piece.count) > room { piece = piece.prefix(Int(max(0, room))) }
+            if current.firstForSource && !current.loggedFirstBody && !piece.isEmpty {
+                current.loggedFirstBody = true
+                TrackLog.i(HTTPAudioSource.category,
+                           "first audio range body in \(TrackLog.ms(since: current.requestedAt))ms (\(piece.count) bytes)",
+                           about: TrackLog.currentTrack)
+            }
             current.delivered += Int64(piece.count)
             position += Int64(piece.count)
             chunk = current
@@ -428,7 +446,13 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
     fileprivate func noteRangesIgnored() { lock.withLock { rangesUnsupported = true } }
     fileprivate var lengthIfKnown: Int64? { lock.withLock { knownLength } }
     fileprivate var canReMint: Bool { resolver != nil }
-    fileprivate func logRequest(_ range: Range<Int64>) { lock.withLock { requestLog.append(range) } }
+    fileprivate func logRequest(_ range: Range<Int64>) -> Bool {
+        lock.withLock {
+            let first = requestLog.isEmpty
+            requestLog.append(range)
+            return first
+        }
+    }
 
     /// A response refused as a page stated the page's length, not the track's: back to what the
     /// resolver said, so a later contentInfo asks again instead of answering with it.
