@@ -471,6 +471,31 @@ final class PlaybackSourceFactory {
         return window
     }
 
+    /// A precise raw-FLAC item can synchronously wait for a whole-file frame scan even after
+    /// loadTracks answered. Finish its bounded download before putting it on a native player.
+    /// The current rendition keeps playing throughout; skipping cancels this warmRange consumer.
+    func prepareUpgradeTiming(for song: Song, stream: ResolvedStream, tag: String,
+                              layout: UpgradeWarm.Layout?) async -> Bool {
+        guard layout?.isWalkedFromTheStart == true || stream.format.codec?.lowercased() == "flac" else { return true }
+        if stream.url.isFileURL { return true }
+        guard let cache, let source = upgradeSource(for: stream) else { return false }
+        let key = AudioCacheKey(trackID: song.videoId, rendition: tag)
+        if await cache.isFullyCached(key) { return true }
+        let length = await cache.contentLength(of: key)
+        let budget = min(Int64(128 * 1_024 * 1_024), cache.configuration.limitBytes)
+        guard length > 0, length <= budget else {
+            TrackLog.d(Self.logCategory, "exact upgrade preparation deferred: size \(length) exceeds budget \(budget)", about: song.videoId)
+            return false
+        }
+        let began = ContinuousClock.now
+        TrackLog.i(Self.logCategory, "exact upgrade cache preparation started: \(length) B; existing playback continues", about: song.videoId)
+        await cache.warmRange(key, source: source, range: 0..<length)
+        guard !Task.isCancelled else { return false }
+        let complete = await cache.isFullyCached(key)
+        TrackLog.i(Self.logCategory, "exact upgrade cache preparation complete=\(complete) in \(TrackLog.ms(since: began))ms", about: song.videoId)
+        return complete
+    }
+
     /// What an upgrade's warm-ups fetch through (the session read-ahead and playback use), or nil
     /// for a stream the cache never serves: a file on this device, HLS, or a playlist the source
     /// loader answers itself. No re-mint on refusal, as in ``forcedAssetFactory(for:stream:tag:silent:)``:

@@ -1,12 +1,13 @@
 import SwiftUI
 import WidgetKit
 
-// Ports widget/MediaWidget.kt (MediaWidgetSquare, MediaWidgetWide) and widget/MediaWidgetPill.kt:
-// the three entries Android's widget picker offers, in its order.
+// Gallery order: the two Liquid Artwork cards first, followed by the three original widgets.
 
 @main
 struct BitChordWidgetBundle: WidgetBundle {
     var body: some Widget {
+        PosterWideWidget()
+        PosterSquareWidget()
         NowPlayingSquareWidget()
         NowPlayingWideWidget()
         NowPlayingPillWidget()
@@ -54,6 +55,36 @@ struct NowPlayingPillWidget: Widget {
         }
         .configurationDisplayName(SharedStrings.widgetPillLabel)
         .description(SharedStrings.widgetPillDescription)
+        .supportedFamilies([.systemMedium])
+        .contentMarginsDisabled()
+    }
+}
+
+/// Poster 2×2, added beside the original square widget.
+struct PosterSquareWidget: Widget {
+    static let kind = "com.music.bitchord.widget.poster.square"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: Self.kind, provider: NowPlayingProvider()) { entry in
+            PosterSquareWidgetView(snapshot: entry.snapshot, art: entry.art)
+        }
+        .configurationDisplayName(SharedStrings.widgetPosterSquareLabel)
+        .description(SharedStrings.widgetPosterSquareDescription)
+        .supportedFamilies([.systemSmall])
+        .contentMarginsDisabled()
+    }
+}
+
+/// Poster 4×2, the wide colour card.
+struct PosterWideWidget: Widget {
+    static let kind = "com.music.bitchord.widget.poster.wide"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: Self.kind, provider: NowPlayingProvider()) { entry in
+            PosterWideWidgetView(snapshot: entry.snapshot, art: entry.art)
+        }
+        .configurationDisplayName(SharedStrings.widgetPosterWideLabel)
+        .description(SharedStrings.widgetPosterWideDescription)
         .supportedFamilies([.systemMedium])
         .contentMarginsDisabled()
     }

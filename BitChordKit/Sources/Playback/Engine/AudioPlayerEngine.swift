@@ -215,6 +215,7 @@ public final class AudioPlayerEngine {
     /// A ``replaceCurrent(with:)`` in flight, and which one (a newer swap supersedes it).
     @ObservationIgnored var swapTask: Task<Void, Never>?
     @ObservationIgnored var swapGeneration = 0
+    @ObservationIgnored var pendingReplacementID: String?
     /// An optional quality replacement that was left unapplied to preserve current playback.
     @ObservationIgnored public internal(set) var deferredReplacementID: String?
     /// How the last swap's crossover began: how far the better copy was from the playing one, in
@@ -416,9 +417,12 @@ public final class AudioPlayerEngine {
             return
         }
         let seeking = ContinuousClock.now
-        active.seek(to: target) { [weak self] _ in
-            guard let self else { return }
-            self.position = self.active.position
+        let seekingDeck = active
+        let seekingEntry = seekingDeck.current
+        seekingDeck.seek(to: target) { [weak self] finished in
+            guard finished, let self, self.active === seekingDeck, seekingDeck.current === seekingEntry,
+                  seekingEntry?.item.id == self.currentItem?.id else { return }
+            self.position = seekingDeck.position
             self.publishNowPlaying()
             self.logClock("a seek to \(String(format: "%.3f", target))s, \(TrackLog.ms(since: seeking))ms after it was asked for", on: self.active)
         }
@@ -566,6 +570,10 @@ public final class AudioPlayerEngine {
         endLiveSkip()
         setPlayWhenReady(false)
         active.pause()
+        // A quality replacement's standby is separate from the crossfade controller's
+        // outgoing deck. Stop both, including a future host-clock start, before cleanup.
+        standby.pause()
+        cancelSwap(deferReplacement: true)
         crossfade.syncTransport()
         updatePlayingState()
         publishNowPlaying()

@@ -464,6 +464,11 @@ final class PlaybackDeck: TransitionDeck {
 
     /// Empties the deck.
     func clear() {
+        player.pause()
+        seekGeneration += 1
+        pendingInitialSeek = false
+        resetPreroll()
+        current?.playerItem.cancelPendingSeeks()
         detachAll()
         current = nil
         hasEnded = false
@@ -602,10 +607,10 @@ final class PlaybackDeck: TransitionDeck {
     }
 
     func pause() {
-        logPlaybackStage("deck pause requested")
         wantsToPlay = false
         stopHolding()
         player.pause()
+        logPlaybackStage("deck pause applied")
     }
 
     private func issueInitialSeekIfReady(_ entry: DeckEntry) {

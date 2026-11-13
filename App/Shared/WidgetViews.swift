@@ -104,10 +104,11 @@ struct WidgetControl<Intent: AppIntent>: View {
     var height: CGFloat
     var fillsWidth = true
     var isOn = false
+    var weight: Font.Weight = .semibold
 
     var body: some View {
         let icon = Image(systemName: symbol)
-            .font(.system(size: glyph, weight: .semibold))
+            .font(.system(size: glyph, weight: weight))
             .foregroundStyle(.white)
             .opacity(opacity)
             .frame(maxWidth: fillsWidth ? .infinity : nil)
@@ -127,7 +128,7 @@ struct WidgetControl<Intent: AppIntent>: View {
     }
 }
 
-private extension View {
+extension View {
     @ViewBuilder
     func widgetBackground<Background: View>(_ canvas: WidgetCanvas, @ViewBuilder _ background: () -> Background) -> some View {
         switch canvas {

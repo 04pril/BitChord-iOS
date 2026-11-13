@@ -26,6 +26,13 @@ enum SharedAppGroup {
         var candidates = [hostGroup, declaredIdentifier].filter { granted.contains($0) }
         candidates += granted.filter { $0.lowercased().contains("bitchord") }.sorted()
         if granted.count == 1 { candidates += granted }
+        // A sideload profile can replace the original group with several numbered IDs
+        // that do not contain the app name. Keep only IDs present on both this process
+        // and the widget, in one sorted order, so both open the same container.
+        if let widgetGroups = packagedWidgetIdentifiers {
+            let shared = Set(widgetGroups)
+            candidates += granted.filter { shared.contains($0) }.sorted()
+        }
         var seen = Set<String>()
         for identifier in candidates where seen.insert(identifier).inserted {
             if let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identifier) {

@@ -56,6 +56,12 @@ enum SharedStrings {
     static var widgetSquareDescription: String { tr("widget_square_description", "Album art with playback controls, in a square.") }
     static var widgetWideDescription: String { tr("widget_wide_description", "Album art with the track and playback controls, full width.") }
     static var widgetPillDescription: String { tr("widget_pill_description", "The track with Like, Shuffle and playback controls, in a single row.") }
+    static var widgetPosterSquareLabel: String { tr("widget_poster_square_label", "컬러 2×2") }
+    static var widgetPosterWideLabel: String { tr("widget_poster_wide_label", "컬러 4×2") }
+    static var widgetPosterPillLabel: String { tr("widget_poster_pill_label", "컬러 4×1") }
+    static var widgetPosterSquareDescription: String { tr("widget_poster_square_description", "표지 색 배경에 둥근 표지와 재생 버튼.") }
+    static var widgetPosterWideDescription: String { tr("widget_poster_wide_description", "표지 색 배경, 둥근 표지, 곡 정보와 재생 버튼.") }
+    static var widgetPosterPillDescription: String { tr("widget_poster_pill_description", "표지 색 배경의 한 줄 카드.") }
     static var widgetPreviewTitle: String { tr("widget_preview_title", "Song title") }
     static var widgetPreviewArtist: String { tr("widget_preview_artist", "Artist") }
     static var like: String { tr("like", "Like") }

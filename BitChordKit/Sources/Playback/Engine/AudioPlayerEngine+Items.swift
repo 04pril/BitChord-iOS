@@ -114,8 +114,19 @@ extension AudioPlayerEngine {
         }
         let formatStarted = ContinuousClock.now
         let format = if let track { await AudioTrackFormat.load(track) } else { AudioTrackFormat() }
+        let formatLoadMs = TrackLog.ms(since: formatStarted)
+        if preciselyTimed, format.formatID == kAudioFormatFLAC {
+            // loadTracks can finish before precise frame timing is prepared. Await that work
+            // before constructing/attaching the native item, rather than letting a synchronous
+            // item getter wait for it on the transport/UI actor.
+            let timingStarted = ContinuousClock.now
+            let timeline = try await asset.load(.duration)
+            if let track { _ = try await track.load(.timeRange) }
+            try Task.checkCancellation()
+            PlaybackLog.info("exact FLAC timeline prepared for \(item.id) in \(TrackLog.ms(since: timingStarted))ms; duration=\(timeline.seconds)s", about: item.trackID)
+        }
         let codec = format.formatID.map { AudioContentKind.decoderDescription(for: $0) ?? "formatID=\($0)" } ?? "unknown"
-        PlaybackLog.info("asset audio format for \(item.id): \(codec), sampleRate=\(format.sampleRate.map { String($0) } ?? "unknown"), channels=\(format.channels.map { String($0) } ?? "unknown"); format load \(TrackLog.ms(since: formatStarted))ms, declared=\(opened.declaredFormat?.summary ?? item.declaredFormat?.summary ?? "unknown")", about: item.trackID)
+        PlaybackLog.info("asset audio format for \(item.id): \(codec), sampleRate=\(format.sampleRate.map { String($0) } ?? "unknown"), channels=\(format.channels.map { String($0) } ?? "unknown"); format load \(formatLoadMs)ms, declared=\(opened.declaredFormat?.summary ?? item.declaredFormat?.summary ?? "unknown")", about: item.trackID)
         try Task.checkCancellation()
         let playerItem = AVPlayerItem(asset: asset)
         // Speed changes keep the pitch; spectral is the algorithm meant for music.

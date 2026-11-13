@@ -171,6 +171,45 @@ final class HomeScreenWidgetTests: XCTestCase {
         XCTAssertLessThanOrEqual(max(art.cover.size.width, art.cover.size.height) * art.cover.scale, WidgetArt.maxPixels)
         XCTAssertEqual(art.softened.size, art.cover.size)
         XCTAssertEqual(art.body.size, art.cover.size)
+        XCTAssertEqual(art.wash.size, art.cover.size)
+        var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+        art.background.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+        XCTAssertTrue(hue < 0.08 || hue > 0.92, "a red cover stays red, hue \(hue)")
+        XCTAssertGreaterThanOrEqual(brightness, 0.42)
+        XCTAssertLessThanOrEqual(brightness, 0.58)
+    }
+
+    func testPosterColorsLiftADarkCoverAndKeepABlueOne() {
+        let black = UIGraphicsImageRenderer(size: CGSize(width: 32, height: 32)).image { context in
+            UIColor.black.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 32, height: 32))
+        }
+        let dark = WidgetArt.posterColors(from: black).background
+        var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+        dark.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+        XCTAssertGreaterThanOrEqual(brightness, 0.42, "a black sleeve is lifted so the title still reads")
+        XCTAssertLessThan(saturation, 0.2)
+
+        let blue = UIGraphicsImageRenderer(size: CGSize(width: 32, height: 32)).image { context in
+            UIColor(red: 0.05, green: 0.28, blue: 0.95, alpha: 1).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 32, height: 32))
+        }
+        WidgetArt.posterColors(from: blue).background.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+        XCTAssertEqual(hue, 0.62, accuracy: 0.06)
+        XCTAssertGreaterThan(saturation, 0.4)
+        XCTAssertEqual(brightness, 0.50, accuracy: 0.02)
+
+        // A white sleeve on a navy field must stay navy. Averaging the whole picture, the way a
+        // blur does, turns this grey.
+        let sleeve = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40)).image { context in
+            UIColor(red: 0.10, green: 0.12, blue: 0.42, alpha: 1).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 40, height: 40))
+            UIColor.white.setFill()
+            context.fill(CGRect(x: 6, y: 8, width: 28, height: 24))
+        }
+        WidgetArt.posterColors(from: sleeve).background.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+        XCTAssertEqual(hue, 0.66, accuracy: 0.08, "navy surround, not the white paper")
+        XCTAssertGreaterThan(saturation, 0.35)
     }
 
     /// Render smoke: each widget, with a track and without, hosted and laid out.
@@ -184,6 +223,10 @@ final class HomeScreenWidgetTests: XCTestCase {
         assertRendered(hostAndLayOut(WideWidgetView(snapshot: nil, art: nil, canvas: .inline).frame(width: 338, height: 158)), "4×2 empty")
         assertRendered(hostAndLayOut(PillWidgetView(snapshot: playing, art: art, canvas: .inline).frame(width: 338, height: 158)), "4×1")
         assertRendered(hostAndLayOut(PillWidgetView(snapshot: nil, art: nil, canvas: .inline).frame(width: 338, height: 158)), "4×1 empty")
+        assertRendered(hostAndLayOut(PosterSquareWidgetView(snapshot: playing, art: art, canvas: .inline).frame(width: 158, height: 158)), "poster 2×2")
+        assertRendered(hostAndLayOut(PosterWideWidgetView(snapshot: playing, art: art, canvas: .inline).frame(width: 338, height: 158)), "poster 4×2")
+        assertRendered(hostAndLayOut(PosterPillWidgetView(snapshot: playing, art: art, canvas: .inline).frame(width: 338, height: 158)), "poster 4×1")
+        assertRendered(hostAndLayOut(PosterWideWidgetView(snapshot: nil, art: nil, canvas: .inline).frame(width: 338, height: 158)), "poster empty")
         assertRendered(hostAndLayOut(SystemWidgetGallery().environment(\.layoutDirection, .rightToLeft).dynamicTypeSize(.accessibility3)), "RTL, large type")
     }
 }

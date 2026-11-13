@@ -51,12 +51,14 @@ extension AudioPlayerEngine {
         swapGeneration += 1
         let generation = swapGeneration
         let deck = standby
+        pendingReplacementID = item.id
         swapTask = Task { [weak self] in
             guard let self else { return }
             let started = ContinuousClock.now
-            let crossed = await self.crossOver(to: item, on: deck, replacing: replacing)
+            let crossed = await self.crossOver(to: item, on: deck, replacing: replacing, generation: generation)
             guard !Task.isCancelled, self.swapGeneration == generation else { return }
             self.swapTask = nil
+            self.pendingReplacementID = nil
             if crossed {
                 PlaybackLog.info("swapped \(replacing) for \(item.id) with no gap, \(TrackLog.ms(since: started))ms after it was asked for",
                                  about: item.trackID)
@@ -80,7 +82,10 @@ extension AudioPlayerEngine {
 
     /// Drops a swap in flight (for a new one, a load, a stop): the standby deck it held is emptied
     /// and the session deck back at full volume, whatever point the crossover had reached.
-    func cancelSwap() {
+    func cancelSwap(deferReplacement: Bool = false) {
+        swapGeneration += 1
+        if deferReplacement, let pendingReplacementID { deferredReplacementID = pendingReplacementID }
+        pendingReplacementID = nil
         guard let task = swapTask else { return }
         task.cancel()
         swapTask = nil
@@ -91,7 +96,7 @@ extension AudioPlayerEngine {
     /// Opens `item` on `deck`, cues it ahead of the playhead until it's ready there in time, then
     /// starts it and hands the session over. False when it never got there, or the session left
     /// `replacing` (a skip, a stop) on the way.
-    private func crossOver(to item: PlayableItem, on deck: PlaybackDeck, replacing: String) async -> Bool {
+    private func crossOver(to item: PlayableItem, on deck: PlaybackDeck, replacing: String, generation: Int) async -> Bool {
         let deadline = ContinuousClock.now + Self.swapDeadline
         deck.retire(rate: rate)
         deck.volume = 0
@@ -100,7 +105,7 @@ extension AudioPlayerEngine {
         var lead = Self.swapLead
         var cue: TimeInterval?
         while ContinuousClock.now < deadline {
-            guard !Task.isCancelled, currentItem?.id == replacing, deck === standby else { return false }
+            guard !Task.isCancelled, swapGeneration == generation, currentItem?.id == replacing, deck === standby else { return false }
             // Paused (nothing to hear: the cut is as good), or the copy failed to load: no point
             // waiting out the deadline.
             if !playWhenReady || (cue != nil && deck.isIdle) { return false }
@@ -123,7 +128,7 @@ extension AudioPlayerEngine {
                     continue
                 }
                 if late >= 0, playWhenReady {
-                    return await handOver(to: entry, on: deck, at: target, from: session, replacing: replacing)
+                    return await handOver(to: entry, on: deck, at: target, from: session, replacing: replacing, generation: generation)
                 }
             } else {
                 // Not cued yet, or a seek moved the playhead away from the cue.
@@ -147,14 +152,17 @@ extension AudioPlayerEngine {
     /// Starts `deck` (silent), waits for it to be heard at `cue`, crosses the two over and moves the
     /// session onto it.
     private func handOver(to entry: DeckEntry, on deck: PlaybackDeck, at cue: TimeInterval, from session: PlaybackDeck,
-                          replacing: String) async -> Bool {
+                          replacing: String, generation: Int) async -> Bool {
+        func ownsDeck() -> Bool {
+            swapGeneration == generation && deck.current === entry && standby === deck
+        }
         // Still the swap it began as: playing, on the same item and decks, and the two copies
         // still at the same point. They differ by at most the start latency plus the crossover;
         // more is a seek that moved only the session deck, and the fallback cut then lands where
         // the listener sought.
         let agreement = max(crossfade.startLatency, Self.swapSyncLead) * Double(rate) + Self.swapFade + 0.15
         func stillOn() -> Bool {
-            !Task.isCancelled && playWhenReady && currentItem?.id == replacing && active === session && standby === deck
+            !Task.isCancelled && playWhenReady && ownsDeck() && currentItem?.id == replacing && active === session
                 && abs(session.position - deck.position) < agreement
         }
         // In step with the session deck by the host clock, so the copy is heard at the cue exactly
@@ -162,7 +170,8 @@ extension AudioPlayerEngine {
         // latency instead, a copy that took longer to sound (a Bluetooth route) came in behind the
         // playhead and a moment was heard twice. A playlist starts the old way.
         // Stall-waiting, which a synchronized start has to switch off, is back on however this ends.
-        defer { deck.player.automaticallyWaitsToMinimizeStalling = true }
+        guard stillOn(), deck.isReadyToPlay else { return false }
+        defer { if ownsDeck() { deck.player.automaticallyWaitsToMinimizeStalling = true } }
         let inStep = deck.start(inStepWith: session, at: cue, margin: Self.swapSyncMargin)
         if !inStep {
             // Timed off the measured latency, as before, not the scheduling lead the trigger allows.
@@ -176,7 +185,7 @@ extension AudioPlayerEngine {
         let sounding = ContinuousClock.now + .seconds(1) + .seconds(max(cue - session.position, 0) / Double(rate))
         while !(deck.isPlaying && deck.position > cue) {
             guard ContinuousClock.now < sounding, stillOn(), (try? await Task.sleep(for: .milliseconds(5))) != nil else {
-                deck.pause()
+                if ownsDeck() { deck.pause() }
                 return false
             }
         }
@@ -188,7 +197,9 @@ extension AudioPlayerEngine {
         PlaybackLog.info("swap crossover: the copy is \(Int((abs(skew) * 1_000).rounded()))ms \(skew < 0 ? "behind" : "ahead of") the playing one, "
             + (inStep ? "started in step by the host clock" : "started by the measured latency"), about: entry.item.trackID)
         logClock("the swap's crossover", on: deck)
-        defer { session.volume = 1 }
+        defer {
+            if swapGeneration == generation, session.current?.item.id == replacing { session.volume = 1 }
+        }
         let steps = 8
         for step in 1...steps {
             let progress = Double(step) / Double(steps)
@@ -197,7 +208,7 @@ extension AudioPlayerEngine {
             guard (try? await Task.sleep(for: .seconds(Self.swapFade / Double(steps)))) != nil, stillOn() else {
                 // Whoever interrupted (a skip, a stop, another swap) has the decks now; the copy
                 // goes quiet and the session deck, whatever it holds, back to full volume.
-                deck.pause()
+                if ownsDeck() { deck.pause() }
                 return false
             }
         }

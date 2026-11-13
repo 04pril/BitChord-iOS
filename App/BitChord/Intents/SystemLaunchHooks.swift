@@ -140,6 +140,8 @@ struct SystemWidgetGallery: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                PosterWideWidgetView(snapshot: snapshot, art: art, canvas: .inline).frame(width: 338, height: 158)
+                PosterSquareWidgetView(snapshot: snapshot, art: art, canvas: .inline).frame(width: 158, height: 158)
                 HStack(spacing: 18) {
                     CompactWidgetView(snapshot: snapshot, art: art, canvas: .inline).frame(width: 158, height: 158)
                     CompactWidgetView(snapshot: nil, art: nil, canvas: .inline).frame(width: 158, height: 158)

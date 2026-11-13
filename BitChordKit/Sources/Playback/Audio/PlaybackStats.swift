@@ -73,9 +73,17 @@ enum PlaybackStatsSampler {
     static func sample(itemID: String, playerItem: AVPlayerItem, declared: StreamFormat?) async -> PlaybackStats {
         var stats = PlaybackStats(itemID: itemID, declared: declared)
         // An HLS asset has no asset-level tracks; its variant's track shows up on the player item.
-        let assetTrack = try? await playerItem.asset.loadTracks(withMediaType: .audio).first
-        let itemTrack = playerItem.tracks.lazy.compactMap(\.assetTrack).first { $0.mediaType == .audio }
-        if let track = assetTrack ?? itemTrack {
+        var audioTrack = try? await playerItem.asset.loadTracks(withMediaType: .audio).first
+        // Native player-item tracks can synchronously wait on preparation. Ordinary file/cache
+        // assets already supplied their track asynchronously; only HLS needs this fallback.
+        if audioTrack == nil, !Task.isCancelled, playerItem.status == .readyToPlay {
+            for itemTrack in playerItem.tracks {
+                guard let track = itemTrack.assetTrack else { continue }
+                if track.mediaType == .audio { audioTrack = track; break }
+            }
+        }
+        guard !Task.isCancelled else { return stats }
+        if let track = audioTrack {
             if let descriptions = try? await track.load(.formatDescriptions),
                let description = descriptions.first,
                let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee {

@@ -588,6 +588,18 @@ final class QualityUpgradeController {
             finish(song, phase: .unavailable)
             return
         }
+        // Header-only proof was fast, but attaching a precise FLAC item could then block
+        // transport until the remaining tens of MB arrived. Prepare it before native attachment.
+        let timingReady = await withDeadline(.seconds(60)) { @Sendable () async -> Bool? in
+            await sources.prepareUpgradeTiming(for: song, stream: found, tag: tag, layout: warmed.layout)
+        }
+        guard !Task.isCancelled else { upgrade.endAudition(song.videoId); return }
+        guard timingReady == true, isStillPlaying(song) else {
+            upgrade.endAudition(song.videoId)
+            Self.log("upgrade timing preparation deferred; candidate retained", song)
+            shelve(song, stream: found)
+            return
+        }
         let proving = ContinuousClock.now
         Self.log("upgrade audition: proving \(found.format.summary)", song)
         let proved = await proof(of: song, stream: found, tag: tag, against: reference)
@@ -659,16 +671,34 @@ final class QualityUpgradeController {
         // The engine says how it landed: crossed over with no gap, or cut over (and its first audio).
         Self.log("upgrade swap at \(String(format: "%.1f", player.engine.position)) s, "
             + "\(TrackLog.ms(since: warming))ms after the warm began", song)
-        player.reopenCurrent(onRendition: tag, stream: found, allowCutover: false)
         candidate = nil
         upgrade.unshelve(song.videoId)
         nerdStats.onLosslessRaceEnd(song.videoId)
-        Self.log("upgrade replacement requested; waiting for the engine to apply it", song)
-
-        guard await watch(song, previousSeconds: reference) else {
-            if player.engine.deferredReplacementID == player.sources.engineItemID(for: song) {
-                Self.log("upgrade deferred: keeping the existing playback; candidate retained for another visit", song)
+        var applied = false
+        var deferred = false
+        for attempt in 1...2 {
+            guard !Task.isCancelled, isStillPlaying(song) else { shelve(song, stream: found); return }
+            player.reopenCurrent(onRendition: tag, stream: found, allowCutover: false)
+            Self.log("upgrade replacement attempt \(attempt); waiting for the engine to apply it", song)
+            applied = await watch(song, previousSeconds: reference)
+            guard !Task.isCancelled, isStillPlaying(song) else { shelve(song, stream: found); return }
+            if applied { break }
+            deferred = player.engine.deferredReplacementID == player.sources.engineItemID(for: song)
+            if deferred {
                 player.reopenCurrent(onRendition: previousTag, stream: previousStream, skipIfAlreadyCurrent: true)
+                if attempt < 2, player.engine.playWhenReady, roomToSwap(length: reference), !crossfadeReading().isRunning {
+                    Self.log("upgrade not ready at the cue; retrying the prepared copy during this playback", song)
+                    do { try await Task.sleep(for: .milliseconds(250)) }
+                    catch { shelve(song, stream: found); return }
+                    continue
+                }
+            }
+            break
+        }
+
+        guard applied else {
+            if deferred {
+                Self.log("upgrade deferred after readiness attempts; candidate retained", song)
                 shelve(song, stream: found)
                 if status?.videoId == song.videoId { status = nil }
                 return
