@@ -122,7 +122,7 @@ struct PosterSquareWidgetView: View {
                 PosterCover(art: art, side: 67 * scale, cornerRadius: 10.5 * scale)
                     .position(x: 49 * scale, y: 49 * scale)
                 Text(face.title)
-                    .font(.system(size: 12.5 * scale, weight: .medium))
+                    .font(.system(size: 12.5 * scale, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -186,25 +186,25 @@ struct PosterWideWidgetView: View {
             ZStack(alignment: .topLeading) {
                 PosterCover(art: art, side: 135.5 * scale)
                     .position(x: 79.25 * scale, y: 79 * scale)
-                VStack(spacing: 0) {
+                VStack(spacing: 2 * scale) {
                     Text(face.title)
-                        .font(.system(size: 14 * scale, weight: .medium))
+                        .font(.system(size: 14 * scale, weight: .semibold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(width: 148 * scale)
+                    if face.hasTrack, let artist = face.artist {
+                        Text(artist)
+                            .font(.system(size: 13.5 * scale, weight: .regular))
+                            .foregroundStyle(Color.white.opacity(0.88))
+                            .lineLimit(1)
+                            .frame(width: 148 * scale)
+                    }
                 }
-                .frame(width: 148 * scale, height: 36 * scale)
-                .position(x: 243 * scale, y: 54 * scale)
-                if face.hasTrack, let artist = face.artist {
-                    Text(artist)
-                        .font(.system(size: 13.5 * scale, weight: .regular))
-                        .foregroundStyle(Color.white.opacity(0.88))
-                        .lineLimit(1)
-                        .frame(width: 148 * scale, height: 20 * scale)
-                        .position(x: 243 * scale, y: 82 * scale)
-                }
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 148 * scale)
+                .position(x: 243 * scale, y: 64 * scale)
                 WidgetControl(intent: PreviousTrackIntent(), symbol: "backward.fill", label: SharedStrings.widgetPrevious,
                               opacity: face.opacity(.previous), isLive: face.hasTrack, glyph: 18 * scale,
                               height: 38 * scale, fillsWidth: false, weight: .regular)
