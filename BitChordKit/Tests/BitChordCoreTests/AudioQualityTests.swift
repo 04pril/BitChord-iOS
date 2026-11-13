@@ -76,6 +76,21 @@ final class AudioQualityTests: XCTestCase {
         XCTAssertFalse(s.downloadStreamRequest.readsAheadFromSources)
     }
 
+    func testAddonFirstPreparesTheQueueWithoutExtendingItsForegroundDeadline() {
+        let foreground = StreamRequest.playback(.lossless, directSource: .always, sourceWaitSeconds: 5)
+        XCTAssertTrue(foreground.preparesSourceQueue)
+        XCTAssertFalse(foreground.readsAheadFromSources, "foreground must still use the 5-second start deadline")
+        XCTAssertEqual(foreground.sourceWaitSeconds, 5)
+        XCTAssertFalse(foreground.allowsAutomaticSourceSwitch)
+        let ahead = foreground.sourceQueueLookup
+        XCTAssertTrue(ahead.waitsForSources)
+        XCTAssertTrue(ahead.readsAheadFromSources)
+        XCTAssertEqual(ahead.playbackMode, .always)
+        XCTAssertEqual(ahead.permittedSources, foreground.permittedSources)
+        XCTAssertFalse(ahead.allowsAutomaticSourceSwitch)
+        XCTAssertFalse(StreamRequest.playback(.lossless, directSource: .off).preparesSourceQueue)
+    }
+
     func testPlaybackRequestsPerRung() {
         XCTAssertEqual(StreamRequest.playback(.lossless).tier, .lossless)
         XCTAssertEqual(StreamRequest.playback(.high).tier, .best)

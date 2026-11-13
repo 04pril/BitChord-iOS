@@ -953,7 +953,8 @@ final class PlayerController {
         // same rows (Queue only's whole next-track copy needs an unmetered one), so a change in
         // either re-plans it.
         return ["playing:\(engine.playWhenReady)", "unmetered:\(sources.isUnmetered())",
-                "direct:\(settings.directSourceStream)", "wait:\(settings.addonWaitSeconds)", Self.itemID(for: current)]
+                "direct:\(settings.directSourceStream)", "wait:\(settings.addonWaitSeconds)",
+                "meteredFullNext:\(settings.preloadNextOnMetered)", Self.itemID(for: current)]
             + state.upcoming.prefix(AudioStreamCache.queueDepth).map(Self.itemID(for:))
     }
 

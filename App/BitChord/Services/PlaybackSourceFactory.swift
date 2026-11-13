@@ -69,6 +69,7 @@ final class PlaybackSourceFactory {
     /// Whether the connection is unmetered: the only one a played segmented copy's missing parts
     /// are fetched on, so the track is whole for its next play and the offline backup.
     var isUnmetered: () -> Bool = { false }
+    var preloadNextOnMetered: () -> Bool = { false }
     /// Whether `videoId` is still the track playing.
     var isPlaying: (String) -> Bool = { _ in false }
     private let playbackRequestClock = PlaybackRequestClock()
@@ -678,7 +679,7 @@ final class PlaybackSourceFactory {
                 }
             }
 
-            let readsAhead = wanted.readsAheadFromSources && !pinned
+            let readsAhead = wanted.preparesSourceQueue && !pinned
             // Off: the quick sources' copy (JioSaavn) of a row opened ahead, shared with read-ahead,
             // which puts that same copy's bytes on disk.
             let quickFind = wanted.playbackMode == .off || pinned || sourceKey != nil || isOffline() || wanted.waitsForSources || wanted.readsAheadFromSources
@@ -723,15 +724,24 @@ final class PlaybackSourceFactory {
                     // land in this track's log rather than in every track's.
                     if joins {
                         let lookup = readAheadStreams.lookUp(song.videoId, request: wanted, atmosAllowed: atmos) {
-                            var asked = wanted
-                            asked.waitsForSources = true
+                            let asked = wanted.sourceQueueLookup
                             return try await TrackLog.about(song.videoId) { try await resolve(asked) }
                         }
                         // As long as the lookup takes while nobody is listening yet; once the row is
                         // playing, until `lookupJoinWait` after the lookup started.
                         var found = await PlaybackSourceFactory.waitedFor(lookup.task, until: { await MainActor.run { factory?.isPlaying(song.videoId) ?? true } })
                         try Task.checkCancellation()
-                        if found == nil, wanted.playbackMode != .queueOnly {
+                        if found == nil, wanted.playbackMode == .always {
+                            // Count only from the request that actually selected this row.
+                            // A 60-second background lookup never adds a second foreground wait.
+                            let budget = playbackRequestClock.remaining(for: Self.itemID(for: song),
+                                                                        budget: wanted.sourceWaitSeconds ?? 12)
+                            if budget > 0 {
+                                let task = lookup.task
+                                found = await withDeadline(.seconds(budget)) { try? await task.value }
+                            }
+                            try Task.checkCancellation()
+                        } else if found == nil, wanted.playbackMode != .queueOnly {
                             let left = lookupJoinWait - (ContinuousClock.now - lookup.startedAt)
                             if left > .zero {
                                 let task = lookup.task
@@ -746,7 +756,20 @@ final class PlaybackSourceFactory {
                             // The sources had nothing, or not in time: it starts now, as a tapped
                             // row does, and the upgrade can still swap their copy in.
                             TrackLog.d(PlaybackSourceFactory.logCategory, "'\(song.title)' starts without its sources' copy", about: song.videoId)
-                            picked = try await TrackLog.about(song.videoId) { try await resolve(wanted) }
+                            if wanted.playbackMode == .always {
+                                // Its foreground budget was spent joining the prepared lookup.
+                                // Resolve only the YouTube backup; never restart an addon wait.
+                                var backup = wanted
+                                backup.waitsForSources = false
+                                backup.readsAheadFromSources = false
+                                backup.permittedSources = [.youtube]
+                                let asked = backup
+                                TrackLog.i(PlaybackSourceFactory.logCategory,
+                                           "addon-first queued lookup unavailable or deadline reached; YouTube backup without a second wait", about: song.videoId)
+                                picked = try await TrackLog.about(song.videoId) { try await resolve(asked) }
+                            } else {
+                                picked = try await TrackLog.about(song.videoId) { try await resolve(wanted) }
+                            }
                         }
                     } else if let quickFind, ahead {
                         // Off: the quick sources are asked first, until the row is reached. Their copy
@@ -875,7 +898,7 @@ final class PlaybackSourceFactory {
     /// - a downloaded or pinned-to-YouTube row plays a file (or a rendition read-ahead does not
     ///   fill);
     /// - the stream URL warmed is YouTube's, never an add-on's answer (see `warmer` below), except
-    ///   with Direct source stream's Queue only, where the whole race runs and waits for the ranked
+    ///   with either source-oriented mode, where the whole race runs and waits for the ranked
     ///   sources, and its answer is kept for the track to start on (its copy then goes onto disk:
     ///   the next track's whole on an unmetered connection, otherwise only the opening);
     /// - when a source outranks YouTube for this request, only the stream URL is warmed: read-ahead
@@ -883,16 +906,14 @@ final class PlaybackSourceFactory {
     ///   fill from another server, under the same key. Except Off's next track, when a quick source
     ///   has it (``quickCopy``, Android's `prefetchSubstitute`): the track's open asks it first and
     ///   starts on its answer, and read-ahead fetches that same copy whole;
-    /// - with Always and a source ranked above YouTube, nothing: the track's open asks the sources
-    ///   itself, and a YouTube URL warmed for it would go unused (Android switches ordinary
-    ///   read-ahead off in Direct mode).
+    /// - Addon-first shares the same prepared copies. Its foreground deadline still starts
+    ///   at the playback request and never inherits a background lookup's longer budget.
     ///
     /// A row whose copy above YouTube broke (``fallBackToYouTube(_:)``) only has YouTube's URL warmed.
     func prefetchItems(for songs: [Song]) -> [AudioCachePrefetchItem] {
         guard cache != nil else { return [] }
         let request = request()
         let needsSource = !canSubstitute(request)
-        if request.waitsForSources, !needsSource { return [] }
         let resolver = self.resolver
         // The URL warm-up goes to YouTube's own resolver, as Android's `prefetchQueue` does: through
         // `resolver` it would be the whole race, every add-on searched and asked for a stream of a
@@ -905,10 +926,14 @@ final class PlaybackSourceFactory {
         let cache = self.cache
         let segmented = self.segmented
         let soundingWait = self.soundingWait
-        let unmetered = isUnmetered()
+        let wholeNextAllowed = isUnmetered() || preloadNextOnMetered()
+        if request.preparesSourceQueue {
+            TrackLog.d(Self.logCategory,
+                       "source queue plan mode=\(request.playbackMode?.rawValue ?? "legacy") tracks<=\(min(songs.count, AudioStreamCache.queueDepth)) fullNext=\(wholeNextAllowed) openingBytes=\(Self.openingBytes)")
+        }
         // Queue only: an add-on's stream for a track ahead is the point, so the race waits for the
         // ranked sources as Always does at play time; the track then starts on what it found.
-        let waiting = { var asked = request; asked.waitsForSources = true; return asked }()
+        let waiting = request.sourceQueueLookup
         // The sources' copy of a track ahead as the cache fetches it, or nil: YouTube's plays under
         // its own key, and a playlist the cache can't lay out isn't cached at all.
         let copySource: @Sendable (ResolvedStream) async -> (any AudioRangeDataSource)? = { stream in
@@ -943,17 +968,23 @@ final class PlaybackSourceFactory {
                 await PlaybackSourceFactory.held(until: { await sounding(song.videoId) }, atMost: soundingWait)
             }
             let warmUp: @Sendable () async throws -> Void
-            if request.readsAheadFromSources, !refused {
+            if request.preparesSourceQueue, !refused {
                 // A lookup of its own, not this warm-up's: read-ahead is replaced on every queue
                 // edit (AutoPlay appending, most often), and a slow add-on's answer must outlive that.
                 let lookUp: @Sendable () -> Task<ResolvedStream, Error> = {
                     let lookup = readAheadStreams.lookUp(song.videoId, request: request, atmosAllowed: atmos) {
-                        try await resolver.resolveStream(for: song, request: waiting)
+                        TrackLog.d(PlaybackSourceFactory.logCategory, "background source lookup mode=\(request.playbackMode?.rawValue ?? "legacy")", about: song.videoId)
+                        return try await resolver.resolveStream(for: song, request: waiting)
                     } then: { stream in
                         // Its opening onto disk where the open reads it, so a skip onto the track
                         // plays the sources' copy from the first byte.
-                        guard let cache, !stream.belowRequest, let source = await copySource(stream) else { return }
-                        await cache.warmRange(copyKey, source: source, range: 0..<PlaybackSourceFactory.openingBytes)
+                        guard let cache, !stream.belowRequest else { return }
+                        if stream.origin == .youtube {
+                            let source = HTTPAudioSource(stream: stream, session: session, onRefused: onRefused)
+                            await cache.warmRange(key, source: source, range: 0..<PlaybackSourceFactory.openingBytes)
+                        } else if let source = await copySource(stream) {
+                            await cache.warmRange(copyKey, source: source, range: 0..<PlaybackSourceFactory.openingBytes)
+                        }
                     }
                     return lookup.task
                 }
@@ -963,9 +994,9 @@ final class PlaybackSourceFactory {
                     await holdForStart()
                     _ = try await lookUp().value
                 }
-                // By design, the whole copy only on an unmetered connection; on cellular or in
-                // Low Data Mode the next track gets its opening, like the tracks after it.
-                if isNext, !needsSource, unmetered {
+                // Full next-track download defaults to unmetered connections. The explicit
+                // mobile-data option also permits it on metered/Low Data Mode connections.
+                if isNext, !needsSource, wholeNextAllowed {
                     // The next track: its whole copy onto disk, so a skip onto it starts from disk
                     // rather than on what a slow link delivers past the opening. Read-ahead's own
                     // pass for the next track fetches it (no byte twice, and it stops when the
@@ -1015,6 +1046,11 @@ final class PlaybackSourceFactory {
                 }
             }
             guard needsSource else {
+                return AudioCachePrefetchItem(key: key, source: nil, warmUp: warmUp)
+            }
+            // With either source-oriented mode, the mobile option also bounds a YouTube
+            // fallback: its warm-up fills only the opening, without the generic whole-file pass.
+            if request.preparesSourceQueue, !wholeNextAllowed {
                 return AudioCachePrefetchItem(key: key, source: nil, warmUp: warmUp)
             }
             // YouTube's next track: its first bytes wait for the playing track's start too, not just

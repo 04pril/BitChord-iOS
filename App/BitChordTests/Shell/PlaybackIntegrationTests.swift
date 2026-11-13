@@ -2625,7 +2625,7 @@ final class ReadAheadWiringTests: XCTestCase {
     /// stream's Queue only; Off warms YouTube's URL alone. Always reads
     /// nothing ahead: the track's own open asks the add-ons, so a YouTube URL would go unused, and
     /// Android switches ordinary read-ahead off in Direct mode.
-    func testReadAheadAsksTheAddonsOnlyInQueueOnly() async throws {
+    func testReadAheadAsksTheAddonsInBothSourceModes() async throws {
         for mode in DirectSourceStream.allCases {
             let addons = FakeStreamResolver()
             let youTube = FakeStreamResolver()
@@ -2641,13 +2641,11 @@ final class ReadAheadWiringTests: XCTestCase {
                 try await item.warmUp?()
             }
 
-            if mode == .queueOnly {
+            if mode == .queueOnly || mode == .always {
                 XCTAssertEqual(addons.requestedIds, [id], "the add-ons are asked")
                 XCTAssertEqual(addons.requests.first?.request.waitsForSources, true, "the race waits for them")
                 XCTAssertEqual(youTube.requestedIds, [])
-            } else if mode == .always {
-                XCTAssertEqual(addons.requestedIds, [], "no add-on is asked ahead (\(mode))")
-                XCTAssertEqual(youTube.requestedIds, [], "nor YouTube (\(mode))")
+
             } else {
                 XCTAssertEqual(addons.requestedIds, [], "no add-on is asked (\(mode))")
                 XCTAssertEqual(youTube.requestedIds, [id], "YouTube's URL is warmed (\(mode))")

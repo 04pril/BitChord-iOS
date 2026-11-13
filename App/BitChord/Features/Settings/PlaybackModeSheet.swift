@@ -59,6 +59,21 @@ struct PlaybackModeSheet: View {
                                     }
                                     .padding(.leading, 34)
                                 }
+                                if mode != .off {
+                                    Toggle(isOn: $settings.preloadNextOnMetered) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(L10n.tr("playback_metered_preload"))
+                                            Text(L10n.tr("playback_metered_preload_help"))
+                                                .font(.caption).foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    .tint(.accentColor)
+                                    .padding(.leading, 34)
+                                    .accessibilityIdentifier("playbackMode.meteredPreload")
+                                    Text(L10n.tr("playback_queue_preparation_help"))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                        .padding(.leading, 34)
+                                }
                             }
                         }
                         .padding(16)

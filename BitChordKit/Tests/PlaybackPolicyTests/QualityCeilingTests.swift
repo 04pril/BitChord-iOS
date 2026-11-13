@@ -103,6 +103,7 @@ final class QualityCeilingTests: XCTestCase {
             ceiling.setInParty(true)
             XCTAssertFalse(ceiling.currentRequest.waitsForSources, "\(mode)")
             XCTAssertFalse(ceiling.currentRequest.readsAheadFromSources, "\(mode)")
+            XCTAssertFalse(ceiling.currentRequest.preparesSourceQueue, "party must suppress source-queue preparation in every mode")
             XCTAssertEqual(ceiling.currentRequest.tier, .lossless, "the quality ceiling still applies")
 
             ceiling.setInParty(false)

@@ -183,6 +183,21 @@ public struct StreamRequest: Codable, Hashable, Sendable {
         self.sourceWaitSeconds = sourceWaitSeconds
     }
 
+    /// Both source-oriented modes can prepare upcoming copies. Addon-first keeps its
+    /// foreground wait separate; a party clears waits/read-ahead and therefore prepares none.
+    public var preparesSourceQueue: Bool {
+        readsAheadFromSources || (playbackMode == .always && waitsForSources)
+    }
+
+    /// A background queue lookup has its own bounded budget rather than a listener's start
+    /// deadline. Keep the foreground request as the cache identity when storing its answer.
+    public var sourceQueueLookup: StreamRequest {
+        var copy = self
+        copy.waitsForSources = true
+        copy.readsAheadFromSources = true
+        return copy
+    }
+
     /// Queue lookup identity excludes current-track switching and its foreground wait budget.
     /// Toggling automatic switching must not throw away an already prepared next-track copy.
     public var readAheadCacheIdentity: StreamRequest {

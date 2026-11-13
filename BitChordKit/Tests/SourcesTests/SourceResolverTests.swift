@@ -480,6 +480,19 @@ final class SourceResolverTests: XCTestCase {
     }
 
     @MainActor
+    func testAddonFirstBackgroundPreparationCanFinishAfterTheForegroundWaitBudget() async throws {
+        let addon = FakeSource("addon", after: 250, format: StreamFormat(codec: "flac"), kind: .addon)
+        let (resolver, registry) = resolver([addon], youTube: FakeYouTubeResolver(delay: 0),
+                                          directSourceWait: 0.1, aheadSourceWait: 1, substituteTimeout: 0.5)
+        seed(registry, [addon])
+        let asked = StreamRequest.playback(.lossless, directSource: .always, sourceWaitSeconds: 0.1).sourceQueueLookup
+        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "background"), request: asked)
+        XCTAssertEqual(stream.sourceConfigId, "addon")
+        XCTAssertFalse(stream.belowRequest)
+        XCTAssertNil(resolver.takeStillLooking("background"), "preparing the queue does not arm a current-track upgrade")
+    }
+
+    @MainActor
     func testAddonDeadlineStartsBeforeYouTubeIsReady() async throws {
         let addon = FakeSource("addon", after: 2_000, format: StreamFormat(codec: "flac"), kind: .addon)
         let (resolver, registry) = resolver([addon], youTube: FakeYouTubeResolver(delay: 300))

@@ -575,6 +575,18 @@ final class AppSettingsTests: XCTestCase {
         }
     }
 
+    func testWholeNextTrackOnMobileDataIsOptInAndSurvivesBackupAndRelaunch() {
+        let s = makeSettings()
+        XCTAssertFalse(s.preloadNextOnMetered)
+        s.preloadNextOnMetered = true
+        XCTAssertTrue(makeSettings().preloadNextOnMetered)
+        let backup = s.exportPrefs()
+        s.preloadNextOnMetered = false
+        s.importPrefs(backup)
+        XCTAssertTrue(s.preloadNextOnMetered)
+        XCTAssertTrue(s.playbackDiagnosticSummary.contains("meteredFullNext=ON"))
+    }
+
     func testPlaybackModeOptionsPersistAndFastModeSurvivesRelaunch() {
         let s = makeSettings()
         XCTAssertEqual(AppSettings.addonWaitChoices, [5, 12, 15, 20])

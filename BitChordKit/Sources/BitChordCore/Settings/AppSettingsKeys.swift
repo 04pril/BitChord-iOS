@@ -29,6 +29,7 @@ extension AppSettings {
         case playbackModesMigrated = "playback_modes_v1_migrated"
         case automaticSourceSwitch = "automatic_source_switch"
         case addonWaitSeconds = "addon_wait_seconds"
+        case preloadNextOnMetered = "preload_next_on_metered"
         case spatialAudio = "spatial_audio"
         case playbackSpeed = "playback_speed"
         case autoplay = "autoplay"

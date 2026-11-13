@@ -316,6 +316,7 @@ final class AppModel {
         // cache fetches them once and keeps them.
         sources.segmented = SegmentedSources(session: BitChordHTTP.session) { SourceManifestFiles.standard.playlistText(for: $0) }
         sources.isUnmetered = { [network] in network.status.isOnline && network.status.isMetered != true }
+        sources.preloadNextOnMetered = { [weak settings] in settings?.preloadNextOnMetered ?? false }
         player = PlayerController(engine: engine, queue: queue, settings: settings, sources: sources, likeState: likeState, processors: processors)
         sources.isPlaying = { [weak player = self.player] videoId in player?.currentSong?.videoId == videoId }
         // A couple of seconds of sound: the track playing has its start before anything ahead is looked up.

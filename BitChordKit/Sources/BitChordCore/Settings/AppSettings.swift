@@ -152,6 +152,9 @@ public final class AppSettings {
     public var automaticSourceSwitch: Bool = true {
         didSet { write(.automaticSourceSwitch, automaticSourceSwitch) }
     }
+    public var preloadNextOnMetered: Bool = false {
+        didSet { write(.preloadNextOnMetered, preloadNextOnMetered) }
+    }
     public static let addonWaitChoices = [5, 12, 15, 20]
     public var addonWaitSeconds: Int = 12 {
         didSet {
@@ -171,7 +174,7 @@ public final class AppSettings {
         case .queueOnly: mode = "연속 재생 우선 / Continuous playback"
         case .always: mode = "애드온 우선 재생 / Addons first"
         }
-        return "playback settings: mode=\(mode) (\(directSourceStream.rawValue)); autoSwitch=\(allowsAutomaticSourceSwitch ? "ON" : "OFF") (saved=\(automaticSourceSwitch ? "ON" : "OFF")); addonWait=\(addonWaitSeconds)s; wifi=\(audioQualityWifi.rawValue); cellular=\(audioQualityCellular.rawValue)"
+        return "playback settings: mode=\(mode) (\(directSourceStream.rawValue)); autoSwitch=\(allowsAutomaticSourceSwitch ? "ON" : "OFF") (saved=\(automaticSourceSwitch ? "ON" : "OFF")); addonWait=\(addonWaitSeconds)s; meteredFullNext=\(preloadNextOnMetered ? "ON" : "OFF"); wifi=\(audioQualityWifi.rawValue); cellular=\(audioQualityCellular.rawValue)"
     }
 
     /// The app's own stereo widening (not object-based spatial audio).
@@ -942,6 +945,7 @@ public final class AppSettings {
         }
         directSourceStream = readEnum(.directSourceStream, default: .queueOnly)
         automaticSourceSwitch = readBool(.automaticSourceSwitch, default: true)
+        preloadNextOnMetered = readBool(.preloadNextOnMetered, default: false)
         let storedWait = readInt(.addonWaitSeconds, default: 12)
         addonWaitSeconds = Self.addonWaitChoices.contains(storedWait) ? storedWait : 12
         spatialAudio = readBool(.spatialAudio, default: false)

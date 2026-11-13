@@ -113857,6 +113857,54 @@
           }
         }
       }
+    },
+    "playback_metered_preload" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare the full next track on mobile data"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모바일 데이터로 다음 곡 전체 준비"
+          }
+        }
+      }
+    },
+    "playback_metered_preload_help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Also download the full next source track on mobile data or Low Data Mode connections. Uses more data. Off by default."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "켜면 모바일·데이터 절약 연결에서도 바로 다음 곡 전체를 미리 받습니다. 데이터 사용량이 늘어납니다. 기본값은 꺼짐입니다."
+          }
+        }
+      }
+    },
+    "playback_queue_preparation_help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare up to four upcoming tracks. Cache the full next track on Wi-Fi; keep up to 2 MiB of the following tracks. Playback keeps its own addon wait deadline."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음 4곡까지 준비합니다. Wi-Fi에서는 바로 다음 곡 전체, 나머지는 앞부분 최대 2MiB를 받습니다. 곡을 눌렀을 때의 애드온 대기 시간은 그대로 적용됩니다."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
