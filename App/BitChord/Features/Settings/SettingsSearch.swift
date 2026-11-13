@@ -44,7 +44,7 @@ enum SettingsRowID: String, CaseIterable, Hashable {
     // No header: the account and the party.
     case account, listenTogether, proxy
     // Audio quality
-    case source, onWifi, onMobileData, dolbyAtmos, directSourceStream
+    case source, onWifi, onMobileData, dolbyAtmos
     // Downloads
     case downloadQuality, downloadWifiOnly
     // Playback
@@ -162,11 +162,10 @@ enum SettingsCatalog {
                 row(.proxy, L10n.tr("proxy_title"), "wireguard", "http", "socks5", "프록시"),
             ]),
             SettingsGroupSpec(id: "audioQuality", header: L10n.audioQuality, rows: [
-                row(.source, L10n.source, L10n.sourcesSubtitle, "addon", "lossless"),
+                row(.source, L10n.source, L10n.sourcesSubtitle, L10n.directSourceStream, L10n.directSourceStreamSubtitle, "direct source", "addon", "lossless", "youtube", "fallback"),
                 row(.onWifi, L10n.onWifi, "wi-fi", "streaming quality"),
                 row(.onMobileData, L10n.onMobileData, "cellular", "streaming quality"),
                 row(.dolbyAtmos, L10n.dolbyAtmos, "surround", "e-ac-3"),
-                row(.directSourceStream, L10n.directSourceStream, L10n.directSourceStreamSubtitle, "addon", "lossless", "atmos", "youtube", "fallback"),
             ]),
             SettingsGroupSpec(id: "downloads", header: L10n.downloads, rows: [
                 row(.downloadQuality, L10n.downloadQuality, "offline", "lossless"),
@@ -200,7 +199,7 @@ enum SettingsCatalog {
                 row(.showNerdStats, L10n.showNerdStats, "debug", "bitrate", "codec"),
             ] + (v.alternateIcons ? [row(.appIcon, L10n.appIcon, "icon", "launcher", "logo")] : [])),
             SettingsGroupSpec(id: "diagnostics", header: L10n.tr("full_logs_section"), rows: [
-                row(.keepDiagnosticLog, L10n.tr("full_logs_title"), "debug", "logs", "record", "export", "로그", "기록", "진단", "공유"),
+                row(.keepDiagnosticLog, L10n.tr("full_logs_title"), "debug", "logs", "record", "export", "로그", "기록", "진단", "공유", L10n.tr("playback_cache_clear"), "cache", "캐시"),
                 row(.widgetConnection, L10n.tr("widget_link_title"), "widget", "signing", "app group", "위젯", "연결", "서명"),
             ]),
         ]

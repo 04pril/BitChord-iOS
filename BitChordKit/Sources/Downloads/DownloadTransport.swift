@@ -75,7 +75,7 @@ public protocol DownloadTransport: AnyObject, Sendable {
 /// again.
 public final class URLSessionDownloadTransport: NSObject, DownloadTransport, URLSessionDownloadDelegate, @unchecked Sendable {
     /// The identifier the app's background session uses.
-    public static let defaultBackgroundIdentifier = "com.music.bitchord.downloads"
+    public static let defaultBackgroundIdentifier = "com.music.bitchord.logincheck1113204816.downloads"
 
     /// What a finished transfer whose body couldn't be kept is told as (both places that surface it).
     private static let storageFailure = DownloadError("Couldn't save the download to this device's storage")
@@ -109,6 +109,19 @@ public final class URLSessionDownloadTransport: NSObject, DownloadTransport, URL
         URLSessionDownloadTransport(configuration: backgroundConfiguration(identifier: identifier), stagingDirectory: stagingDirectory)
     }
 
+    /// A proxy running inside the app cannot outlive its process. Keep its transfers in the
+    /// same process as URL resolution/playback instead of handing them to nsurlsessiond.
+    /// The queue still checkpoints completed ranges and resumes them on the next launch.
+    public static func appLocal(stagingDirectory: URL) -> URLSessionDownloadTransport {
+        URLSessionDownloadTransport(configuration: appLocalConfiguration(), stagingDirectory: stagingDirectory)
+    }
+
+    static func appLocalConfiguration() -> URLSessionConfiguration {
+        let configuration = BitChordHTTP.makeConfiguration()
+        configuration.timeoutIntervalForResource = 60 * 60
+        return configuration
+    }
+
     /// The app's background session configuration.
     static func backgroundConfiguration(identifier: String) -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.background(withIdentifier: identifier)
@@ -140,7 +153,7 @@ public final class URLSessionDownloadTransport: NSObject, DownloadTransport, URL
         }
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = 1
-        queue.name = "com.music.bitchord.downloads.transport"
+        queue.name = "com.music.bitchord.logincheck1113204816.downloads.transport"
         session = URLSession(configuration: configuration, delegate: self, delegateQueue: queue)
         try? FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
         // Transfers started by an earlier launch of the app are still running in a background
@@ -243,6 +256,10 @@ public final class URLSessionDownloadTransport: NSObject, DownloadTransport, URL
     }
 
     public func handleBackgroundEvents(completion: @escaping @Sendable () -> Void) {
+        guard session.configuration.identifier != nil else {
+            completion()
+            return
+        }
         lock.withLock { backgroundCompletion = completion }
     }
 

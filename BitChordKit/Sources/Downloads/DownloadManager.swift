@@ -214,12 +214,13 @@ public final class DownloadManager {
         resolver: any StreamResolving,
         network: any NetworkStatusProviding,
         library: DownloadLibrary? = nil,
+        transport: (any DownloadTransport)? = nil,
         lyricsProvider: DownloadLyricsProvider? = nil,
         refusalHandler: DownloadStreamRefusalHandler? = nil
     ) -> DownloadManager {
         let settings = settings ?? .shared
         let library = library ?? .live()
-        let transport = URLSessionDownloadTransport.background(stagingDirectory: library.store.stagingDirectory)
+        let transport = transport ?? URLSessionDownloadTransport.background(stagingDirectory: library.store.stagingDirectory)
         return DownloadManager(settings: settings, resolver: resolver, network: network, transport: transport,
                                library: library, lyricsProvider: lyricsProvider, refusalHandler: refusalHandler)
     }

@@ -31,7 +31,6 @@ struct SettingsScreen: View {
     @State private var picking: QualityTarget?
     @State private var pickingDownloadQuality = false
     @State private var pickingAutomixPerformance = false
-    @State private var pickingDirectSourceStream = false
     @State private var pickingLanguage = false
     @State private var openingSpotifyCanvas = false
     // What the last export or import did, shown on the row that did it rather than as a toast: a
@@ -97,7 +96,7 @@ struct SettingsScreen: View {
         .navigationTitle(L10n.settings)
         .navigationBarTitleDisplayMode(.large)
         .navigationDestination(isPresented: $openingLyricsTypography) { LyricsTypographyScreen() }
-        .navigationDestination(isPresented: $openingDiagnosticLogs) { DiagnosticLogsScreen() }
+        .navigationDestination(isPresented: $openingDiagnosticLogs) { DiagnosticLogsScreen(clearPlaybackCache: { await player.clearPlaybackCache() }) }
         .navigationDestination(isPresented: $openingWidgetDiagnostics) { WidgetDiagnosticsScreen() }
         .navigationDestination(isPresented: $openingProxy) { ProxySettingsScreen() }
         .navigationDestination(isPresented: $openingSpotifyCanvas) { SpotifyCanvasSetupScreen() }
@@ -109,7 +108,6 @@ struct SettingsScreen: View {
         .sheet(item: $picking) { target in qualitySheet(target) }
         .sheet(isPresented: $pickingDownloadQuality) { downloadQualitySheet }
         .sheet(isPresented: $pickingAutomixPerformance) { automixPerformanceSheet }
-        .sheet(isPresented: $pickingDirectSourceStream) { directSourceStreamSheet }
         .sheet(isPresented: $pickingLanguage) {
             AppLanguagePicker(selected: AppLanguage.current()) { language in
                 app.setLanguage(language.code)
@@ -205,11 +203,6 @@ struct SettingsScreen: View {
                               subtitle: supported ? L10n.dolbyAtmosSubtitle : L10n.dolbyAtmosUnavailable,
                               enabled: supported,
                               isOn: Binding(get: { settings.dolbyAtmos && supported }, set: { settings.dolbyAtmos = $0 }))
-        case .directSourceStream:
-            SettingsRow(symbol: "arrow.triangle.branch", title: L10n.directSourceStream,
-                        subtitle: L10n.directSourceStreamSubtitle,
-                        value: settings.directSourceStream.settingsLabel) { pickingDirectSourceStream = true }
-
         case .downloadQuality:
             SettingsRow(symbol: "arrow.down.circle", title: L10n.downloadQuality,
                         subtitle: L10n.downloadQualitySubtitle(settings.downloadQuality.perTrack),
@@ -458,10 +451,6 @@ struct SettingsScreen: View {
             },
             selected: settings.downloadQuality
         ) { settings.downloadQuality = $0 }
-    }
-
-    private var directSourceStreamSheet: some View {
-        PlaybackModeSheet(settings: settings)
     }
 
     private var automixPerformanceSheet: some View {

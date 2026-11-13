@@ -129,11 +129,16 @@ final class AppModel {
     /// finished background transfers.
     @ObservationIgnored private(set) lazy var downloads: DownloadManager = {
         let resolver = streamResolver
+        let appProxyActive = YTMUWGActiveThisLaunch()
+        let transport: URLSessionDownloadTransport? = appProxyActive
+            ? .appLocal(stagingDirectory: downloadLibrary.store.stagingDirectory) : nil
+        TrackLog.i("Downloads", "download transport: \(appProxyActive ? "app-local proxy session" : "system background session")")
         let manager = DownloadManager.live(
             settings: settings,
             resolver: sourceResolver,
             network: network,
             library: downloadLibrary,
+            transport: transport,
             lyricsProvider: downloadLyrics,
             refusalHandler: { url, status in await resolver.onPlaybackRefused(url: url, statusCode: status) }
         )

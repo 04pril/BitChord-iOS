@@ -16,11 +16,11 @@ enum DeepLink: Hashable {
     case search(query: String, play: Bool)
     /// "Play music" with nothing named: carry on with what was playing.
     case resume
-    /// Open the full player (the widget's tap target, `bitchord://player`).
+    /// Open the full player (the widget's tap target, `bitchordlogin1113204816://player`).
     case player
     /// Join a Listen Together party.
     case party(code: String, server: String?)
-    /// A screen of the app itself (`bitchord://settings`, `bitchord://downloads`, …).
+    /// A screen of the app itself (`bitchordlogin1113204816://settings`, `bitchordlogin1113204816://downloads`, …).
     case route(AppRoute)
 
     /// Reads a URL from `onOpenURL`, a Universal Link or the Share Extension. Nil for a link the
@@ -30,7 +30,7 @@ enum DeepLink: Hashable {
         if let invite = JamInviteLink.parseInvite(url.absoluteString) {
             return .party(code: invite.code, server: invite.serverUrl)
         }
-        if url.scheme?.lowercased() == "bitchord" {
+        if url.scheme?.lowercased() == "bitchordlogin1113204816" {
             return parseAppScheme(url)
         }
         return MusicLink.parse(url).map(DeepLink.init(request:))
@@ -54,8 +54,8 @@ enum DeepLink: Hashable {
         }
     }
 
-    /// `bitchord://` links the app writes itself: the widget, the Share Extension handing a link
-    /// over (`bitchord://open?url=…`), shortcuts to screens.
+    /// `bitchordlogin1113204816://` links the app writes itself: the widget, the Share Extension handing a link
+    /// over (`bitchordlogin1113204816://open?url=…`), shortcuts to screens.
     private static func parseAppScheme(_ url: URL) -> DeepLink? {
         let host = url.host(percentEncoded: false)?.lowercased() ?? ""
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
@@ -65,7 +65,7 @@ enum DeepLink: Hashable {
         let path = url.path(percentEncoded: false).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         switch host {
         case "open":
-            if let raw = query("url"), let inner = URL(string: raw), inner.scheme?.lowercased() != "bitchord" { return parse(inner) }
+            if let raw = query("url"), let inner = URL(string: raw), inner.scheme?.lowercased() != "bitchordlogin1113204816" { return parse(inner) }
             if let text = query("text") { return parse(sharedText: text) }
             return nil
         case "watch", "track", "play":

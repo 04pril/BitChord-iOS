@@ -5,7 +5,7 @@ import Darwin
 /// Resolve the group actually granted to this process after sideload re-signing.
 /// A defaults suite alone is not proof that the app and extension share a container.
 enum SharedAppGroup {
-    static let declaredIdentifier = "group.com.music.bitchord"
+    static let declaredIdentifier = "group.com.music.bitchord.logincheck1113204816"
     static let signedIdentifiers: [String]? = readSignedIdentifiers()
     static var packagedWidgetIdentifiers: [String]? {
         var host = Bundle.main
@@ -21,7 +21,7 @@ enum SharedAppGroup {
         if bundle.bundleURL.pathExtension == "appex" {
             bundle = Bundle(url: bundle.bundleURL.deletingLastPathComponent().deletingLastPathComponent()) ?? bundle
         }
-        let hostGroup = "group." + (bundle.bundleIdentifier ?? "com.music.bitchord")
+        let hostGroup = "group." + (bundle.bundleIdentifier ?? "com.music.bitchord.logincheck1113204816")
         let granted = own ?? [declaredIdentifier]
         var candidates = [hostGroup, declaredIdentifier].filter { granted.contains($0) }
         candidates += granted.filter { $0.lowercased().contains("bitchord") }.sorted()

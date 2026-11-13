@@ -16,7 +16,7 @@
 NSString *const YTMUWGVersion = @"1.0";
 
 static NSString *const kDefaultsKey = @"BitChordWireGuard";
-static NSString *const kKeychainService = @"BitChord.WireGuard";
+static NSString *const kKeychainService = @"BitChord.LoginCheck1113204816.WireGuard";
 static NSString *const kKeychainAccount = @"profile";
 static NSString *const kKeychainProxyAccount = @"proxy-password";
 

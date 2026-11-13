@@ -4,7 +4,7 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.music.bitchord.analysis</string>
+		<string>com.music.bitchord.logincheck1113204816.analysis</string>
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
@@ -12,10 +12,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.music.bitchord</string>
+			<string>com.music.bitchord.logincheck1113204816</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>bitchord</string>
+				<string>bitchordlogin1113204816</string>
 			</array>
 		</dict>
 	</array>

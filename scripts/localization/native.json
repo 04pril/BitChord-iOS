@@ -355,6 +355,18 @@
     "en": "After sending playback data, show the widget on the Home Screen, then return here and check again. A successful app storage check alone does not confirm widget access.",
     "ko": "재생 정보를 전송한 뒤 홈 화면에서 위젯을 표시하고, 돌아와 다시 확인하세요. 앱의 저장소 확인 성공만으로 위젯 접근까지 확인된 것은 아닙니다."
   },
+  "login_proxy_settings": {
+    "en": "Proxy settings",
+    "ko": "프록시 설정"
+  },
+  "login_proxy_first": {
+    "en": "Set up your proxy before signing in!",
+    "ko": "로그인 전 프록시 설정 먼저!"
+  },
+  "login_proxy_restart_hint": {
+    "en": "If using a proxy, save its settings, fully close the app, then reopen it before signing in.",
+    "ko": "프록시를 사용한다면 설정을 저장하고 앱을 완전히 종료한 뒤 다시 열어 로그인하세요."
+  },
   "login_proxy_unavailable": {
     "en": "Login proxy is not ready",
     "ko": "로그인 프록시를 준비하지 못했습니다"

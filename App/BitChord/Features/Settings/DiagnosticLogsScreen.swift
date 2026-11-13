@@ -4,10 +4,13 @@ import UIKit
 
 struct DiagnosticLogsScreen: View {
     @Environment(AppSettings.self) private var settings
+    let clearPlaybackCache: () async -> Int64
     @State private var working = false
     @State private var share: LogShare?
     @State private var errorMessage: String?
     @State private var confirmClear = false
+    @State private var clearingPlaybackCache = false
+    @State private var playbackCacheResult: String?
 
     var body: some View {
         @Bindable var settings = settings
@@ -40,6 +43,29 @@ struct DiagnosticLogsScreen: View {
                 if working { ProgressView() }
                 if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
             } footer: { Text(L10n.tr("full_logs_storage")) }
+            Section {
+                Button {
+                    clearingPlaybackCache = true
+                    playbackCacheResult = nil
+                    Task { @MainActor in
+                        defer { clearingPlaybackCache = false }
+                        let freed = await clearPlaybackCache()
+                        playbackCacheResult = L10n.tr("playback_cache_cleared") + " · " + ByteCountFormatter.string(fromByteCount: freed, countStyle: .file)
+                    }
+                } label: {
+                    HStack {
+                        Label(L10n.tr("playback_cache_clear"), systemImage: "trash")
+                        Spacer()
+                        if clearingPlaybackCache { ProgressView() }
+                    }
+                }
+                .disabled(clearingPlaybackCache)
+                .accessibilityIdentifier("settings.fullLogs.clearPlaybackCache")
+            } header: {
+                Text(L10n.tr("playback_test_tools"))
+            } footer: {
+                Text(playbackCacheResult ?? L10n.tr("playback_cache_clear_help"))
+            }
         }
         .navigationTitle(L10n.tr("full_logs_title"))
         .navigationBarTitleDisplayMode(.inline)
@@ -73,5 +99,5 @@ private struct LogShareSheet: UIViewControllerRepresentable {
 }
 
 #Preview {
-    NavigationStack { DiagnosticLogsScreen().environment(AppSettings.shared) }
+    NavigationStack { DiagnosticLogsScreen(clearPlaybackCache: { 0 }).environment(AppSettings.shared) }
 }

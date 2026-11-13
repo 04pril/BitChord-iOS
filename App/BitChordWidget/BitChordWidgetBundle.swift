@@ -16,7 +16,7 @@ struct BitChordWidgetBundle: WidgetBundle {
 
 /// "Now playing 2×2".
 struct NowPlayingSquareWidget: Widget {
-    static let kind = "com.music.bitchord.widget.square"
+    static let kind = "com.music.bitchord.logincheck1113204816.widget.square"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: Self.kind, provider: NowPlayingProvider()) { entry in
@@ -32,7 +32,7 @@ struct NowPlayingSquareWidget: Widget {
 
 /// "Now playing 4×2".
 struct NowPlayingWideWidget: Widget {
-    static let kind = "com.music.bitchord.widget.wide"
+    static let kind = "com.music.bitchord.logincheck1113204816.widget.wide"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: Self.kind, provider: NowPlayingProvider()) { entry in
@@ -47,7 +47,7 @@ struct NowPlayingWideWidget: Widget {
 
 /// "Now playing 4×1". iOS has no one-row Home Screen size; the medium slot is the closest.
 struct NowPlayingPillWidget: Widget {
-    static let kind = "com.music.bitchord.widget.pill"
+    static let kind = "com.music.bitchord.logincheck1113204816.widget.pill"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: Self.kind, provider: NowPlayingProvider()) { entry in
@@ -62,7 +62,7 @@ struct NowPlayingPillWidget: Widget {
 
 /// Poster 2×2, added beside the original square widget.
 struct PosterSquareWidget: Widget {
-    static let kind = "com.music.bitchord.widget.poster.square"
+    static let kind = "com.music.bitchord.logincheck1113204816.widget.poster.square"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: Self.kind, provider: NowPlayingProvider()) { entry in
@@ -77,7 +77,7 @@ struct PosterSquareWidget: Widget {
 
 /// Poster 4×2, the wide colour card.
 struct PosterWideWidget: Widget {
-    static let kind = "com.music.bitchord.widget.poster.wide"
+    static let kind = "com.music.bitchord.logincheck1113204816.widget.poster.wide"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: Self.kind, provider: NowPlayingProvider()) { entry in

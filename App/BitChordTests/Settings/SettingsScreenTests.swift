@@ -21,7 +21,7 @@ final class SettingsSearchTests: XCTestCase {
     func testSearchingForTheDirectSourceStreamFindsItByTitleOrByWhatItDoes() {
         for query in ["direct source", "lossless", "fallback"] {
             let groups = SettingsCatalog.groups(visibility: .init(), search: SettingsSearch(query))
-            XCTAssertTrue(ids(groups).contains(.directSourceStream), query)
+            XCTAssertTrue(ids(groups).contains(.source), query)
         }
     }
 
@@ -33,9 +33,9 @@ final class SettingsSearchTests: XCTestCase {
     func testABlankQueryShowsEveryGroupInAndroidsOrder() {
         let groups = SettingsCatalog.groups(visibility: .init(), search: SettingsSearch(""))
         XCTAssertEqual(groups.map(\.id), ["account", "audioQuality", "downloads", "playback", "appearance",
-                                          "storage", "yourData", "miscellaneous", "language", "advanced"])
+                                          "storage", "yourData", "miscellaneous", "language", "advanced", "diagnostics"])
         XCTAssertEqual(groups.first?.rows.map(\.id), [.account, .listenTogether, .proxy])
-        XCTAssertEqual(groups[1].rows.map(\.id), [.source, .onWifi, .onMobileData, .dolbyAtmos, .directSourceStream])
+        XCTAssertEqual(groups[1].rows.map(\.id), [.source, .onWifi, .onMobileData, .dolbyAtmos])
         XCTAssertEqual(groups[3].rows.last?.id, .equalizer)
         XCTAssertEqual(groups[5].rows.map(\.id), [.songCacheLimit, .clearSongCache, .clearImageCache])
         XCTAssertEqual(groups[6].rows.map(\.id), [.replay, .workOutGenres, .exportData, .importData])
