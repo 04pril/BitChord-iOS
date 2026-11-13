@@ -74,14 +74,17 @@ public final class DiagnosticLog: @unchecked Sendable {
 
     public var isEnabled: Bool { lock.withLock { enabled } }
 
-    /// Turns the file on or off. Off stops writing and deletes both files; on writes `header` first
-    /// (the build, the device and the time zone, which a log pulled later has to say for itself).
-    public func setEnabled(_ on: Bool, header: String? = nil) {
+    /// Turns the file on or off. Off deletes both files by default; pass
+    /// `deleteFilesWhenDisabled: false` to pause while preserving a session for export.
+    /// On writes `header` first (build, device and time zone).
+    public func setEnabled(_ on: Bool, header: String? = nil, deleteFilesWhenDisabled: Bool = true) {
         lock.withLock { enabled = on }
         if !on {
             queue.async { [self] in
                 closeFile()
-                for url in [fileURL, rotatedFileURL] { try? FileManager.default.removeItem(at: url) }
+                if deleteFilesWhenDisabled {
+                    for url in [fileURL, rotatedFileURL] { try? FileManager.default.removeItem(at: url) }
+                }
             }
         } else if let header {
             record(.info, category: "App", track: nil, message: header)
@@ -100,6 +103,41 @@ public final class DiagnosticLog: @unchecked Sendable {
 
     /// Returns once everything queued so far is on disk. For tests, and for reading the files.
     public func waitUntilWritten() { queue.sync {} }
+
+    /// Flush and combine oldest-to-newest on the writer queue. Sharing uses an immutable copy,
+    /// so rotation or stopping recording cannot change a file while the share sheet reads it.
+    public func snapshotForSharing() async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async { [self] in
+                do {
+                    let folder = FileManager.default.temporaryDirectory.appending(path: "BitChord-Log-Exports", directoryHint: .isDirectory)
+                    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                    let output = folder.appending(path: "BitChord-full-log-\(Int(now().timeIntervalSince1970))-\(UUID().uuidString.prefix(6)).log")
+                    var data = Data((Self.launchHeader() + "\n").utf8)
+                    for file in [rotatedFileURL, fileURL] where FileManager.default.fileExists(atPath: file.path) {
+                        data.append(try Data(contentsOf: file))
+                    }
+                    try data.write(to: output, options: .atomic)
+                    continuation.resume(returning: output)
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
+
+    public func clearFiles() async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            queue.async { [self] in
+                do {
+                    closeFile()
+                    for file in [fileURL, rotatedFileURL] where FileManager.default.fileExists(atPath: file.path) {
+                        try FileManager.default.removeItem(at: file)
+                    }
+                    if isEnabled { append(Self.launchHeader() + "\n") }
+                    continuation.resume()
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
 
     // MARK: Formatting
 

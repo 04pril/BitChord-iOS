@@ -258,5 +258,49 @@
   "floating_artwork_subtitle": {
     "en": "Shows a rounded, softly shadowed cover that grows during playback and shrinks when paused.",
     "ko": "둥근 커버에 은은한 그림자를 더하고, 재생 중에는 커지고 일시정지하면 작아집니다."
+  },
+  "full_logs_section": {
+    "en": "Diagnostics",
+    "ko": "진단"
+  },
+  "full_logs_title": {
+    "en": "Full session log",
+    "ko": "전체 로그 기록"
+  },
+  "full_logs_subtitle": {
+    "en": "Record multiple tracks and share one log file",
+    "ko": "여러 곡의 재생 흐름을 기록하고 파일로 공유합니다"
+  },
+  "full_logs_record": {
+    "en": "Record full session log",
+    "ko": "전체 로그 기록 켜기"
+  },
+  "full_logs_running": {
+    "en": "Recording",
+    "ko": "기록 중"
+  },
+  "full_logs_stopped": {
+    "en": "Stopped · saved log retained",
+    "ko": "기록 중지 · 기존 로그 보관 중"
+  },
+  "full_logs_help": {
+    "en": "Turn recording on, play several tracks, then share the log. It includes source lookup, cache, player and audio route events across tracks. Stopping recording keeps the saved log.",
+    "ko": "기록을 켠 뒤 여러 곡을 재생하고 로그를 공유하세요. 곡별 소스 검색·캐시·플레이어·오디오 출력 기록을 함께 저장합니다. 기록을 꺼도 기존 로그는 보관합니다."
+  },
+  "full_logs_share": {
+    "en": "Share full log file",
+    "ko": "전체 로그 파일 공유"
+  },
+  "full_logs_clear": {
+    "en": "Clear saved logs",
+    "ko": "저장된 로그 지우기"
+  },
+  "full_logs_clear_confirm": {
+    "en": "Clear the saved full session logs?",
+    "ko": "저장된 전체 로그를 지울까요?"
+  },
+  "full_logs_storage": {
+    "en": "The most recent logs are retained, up to about 16 MiB. The shared file combines both log files in chronological order.",
+    "ko": "최근 로그를 최대 약 16MiB까지 보관합니다. 공유 파일에는 보관 중인 로그를 시간순으로 합칩니다."
   }
 }

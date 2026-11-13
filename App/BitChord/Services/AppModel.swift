@@ -389,7 +389,7 @@ final class AppModel {
     /// The live app: shared settings, the Keychain, the shared InnerTube client, the disk cache.
     static func live(launch: AppLaunchOptions = .current) -> AppModel {
         // Before anything that logs: the file opens with the build and the device, or stays off.
-        DiagnosticLog.shared.setEnabled(AppSettings.shared.keepDiagnosticLog, header: DiagnosticLog.launchHeader())
+        DiagnosticLog.shared.setEnabled(AppSettings.shared.keepDiagnosticLog, header: DiagnosticLog.launchHeader(), deleteFilesWhenDisabled: false)
         // First, before any cache opens: the first launch of a new build drops what the old one
         // wrote, the audio cache an earlier build left in Caches included.
         VersionUpdateWipe.run(settings: .shared)
@@ -444,9 +444,9 @@ final class AppModel {
         Self.atmosSetting.value = settings.dolbyAtmos
         trackers.append(ChangeTracker.track({ [settings] in settings.dolbyAtmos }) { on in Self.atmosSetting.value = on })
         if let audioCache { _ = audioCache.followLimit(of: settings) }
-        // The settings switch: off deletes the log file, on starts a fresh one.
+        // Stopping recording preserves the session so it can still be exported.
         trackers.append(ChangeTracker.track({ [settings] in settings.keepDiagnosticLog }, initial: false) { on in
-            DiagnosticLog.shared.setEnabled(on, header: DiagnosticLog.launchHeader())
+            DiagnosticLog.shared.setEnabled(on, header: DiagnosticLog.launchHeader(), deleteFilesWhenDisabled: false)
         })
 
         // Automix measures nothing while it is off or a party is on (every device then moves

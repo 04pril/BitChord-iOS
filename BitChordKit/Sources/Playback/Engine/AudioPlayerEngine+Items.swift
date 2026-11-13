@@ -60,6 +60,7 @@ extension AudioPlayerEngine {
                 // once the deck plays would re-clock it under the track's opening.
                 self.audioSession?.trackSampleRate = entry.trackFormat.sampleRate
                 #endif
+                PlaybackLog.info("playback entry prepared \(item.id); sending deck playIntent=\(self.playWhenReady), then attach", about: item.trackID)
                 if self.playWhenReady { deck.play() } else { deck.pause() }
                 deck.setCurrent(entry, at: at)
                 self.position = at
@@ -109,7 +110,10 @@ extension AudioPlayerEngine {
             PlaybackLog.info("\(item.id) precise AVAsset.loadTracks(audio) took \(TrackLog.ms(since: preciseTracksStarted))ms", about: item.trackID)
             isPrecise = true
         }
+        let formatStarted = ContinuousClock.now
         let format = if let track { await AudioTrackFormat.load(track) } else { AudioTrackFormat() }
+        let codec = format.formatID.map { AudioContentKind.decoderDescription(for: $0) ?? "formatID=\($0)" } ?? "unknown"
+        PlaybackLog.info("asset audio format for \(item.id): \(codec), sampleRate=\(format.sampleRate.map { String($0) } ?? "unknown"), channels=\(format.channels.map { String($0) } ?? "unknown"); format load \(TrackLog.ms(since: formatStarted))ms, declared=\(opened.declaredFormat?.summary ?? item.declaredFormat?.summary ?? "unknown")", about: item.trackID)
         try Task.checkCancellation()
         let playerItem = AVPlayerItem(asset: asset)
         // Speed changes keep the pitch; spectral is the algorithm meant for music.
@@ -508,6 +512,6 @@ extension AudioPlayerEngine {
         clockWatch = nil
         guard watch.entry === deck.current else { return }
         let waited = TrackLog.ms(since: watch.since) - Int64(((deck.position - watch.from) * 1_000).rounded())
-        PlaybackLog.info("clock started \(max(waited, 0))ms after the player said it was playing, at \(watch.after)", about: watch.entry.item.trackID)
+        PlaybackLog.info("clock movement observed \(TrackLog.ms(since: watch.since))ms after \(watch.after); player advanced \(String(format: "%.3f", deck.position - watch.from))s, estimated start delay \(max(waited, 0))ms (not measured audible output)", about: watch.entry.item.trackID)
     }
 }

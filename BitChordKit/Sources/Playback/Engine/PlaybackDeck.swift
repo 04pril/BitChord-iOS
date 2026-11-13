@@ -15,6 +15,9 @@ final class DeckEntry {
     let content: AudioContentKind
     let loudnessDb: Double?
     let declaredFormat: StreamFormat?
+    let diagnosticCreatedAt = ContinuousClock.now
+    var diagnosticAttachedAt: ContinuousClock.Instant?
+    var diagnosticLoggedBuffer = false
     /// The tap's context while the item is processed; nil while it plays without one.
     private(set) var tap: TapContext?
     private(set) var signalPath: PlaybackSignalPath = .unprocessed
@@ -209,20 +212,36 @@ final class PlaybackDeck: TransitionDeck {
         self.binding = DeckProcessorBinding(processor: processor)
         player.actionAtItemEnd = .pause
         playerObservations.append(player.observe(\.currentItem, options: [.new]) { [weak self] _, _ in
-            DispatchQueue.main.async { MainActor.assumeIsolated { self?.currentItemChanged() } }
+            let observedAt = ContinuousClock.now
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self?.currentItemChanged()
+                    self?.logPlaybackStage("player currentItem changed callbackDelay=\(TrackLog.ms(since: observedAt))ms")
+                }
+            }
         })
-        playerObservations.append(player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, _ in
+        playerObservations.append(player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, change in
+            let observed = change.newValue?.rawValue ?? -1
+            let observedAt = ContinuousClock.now
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard let self else { return }
+                    self.logPlaybackStage("timeControl observed=\(observed) callbackDelay=\(TrackLog.ms(since: observedAt))ms (0 paused, 1 waiting, 2 playing)")
                     self.startIfBuffered()
                     self.onEvent?(self, .timeControlChanged)
                 }
             }
         })
         // The reason can turn from "evaluating" to "minimizing stalls" with the status unchanged.
-        playerObservations.append(player.observe(\.reasonForWaitingToPlay, options: [.new]) { [weak self] _, _ in
-            DispatchQueue.main.async { MainActor.assumeIsolated { self?.startIfBuffered() } }
+        playerObservations.append(player.observe(\.reasonForWaitingToPlay, options: [.new]) { [weak self] player, _ in
+            let reason = player.reasonForWaitingToPlay?.rawValue ?? "none"
+            let observedAt = ContinuousClock.now
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self?.logPlaybackStage("waitingReason observed=\(reason) callbackDelay=\(TrackLog.ms(since: observedAt))ms")
+                    self?.startIfBuffered()
+                }
+            }
         })
     }
 
@@ -253,6 +272,8 @@ final class PlaybackDeck: TransitionDeck {
 
     /// Replaces everything on the deck with `entry`, positioned at `time`.
     func setCurrent(_ entry: DeckEntry, at time: TimeInterval) {
+        entry.diagnosticAttachedAt = .now
+        logPlaybackStage("attach begin at=\(time)s", entry: entry)
         detachAll()
         current = entry
         hasEnded = false
@@ -267,6 +288,7 @@ final class PlaybackDeck: TransitionDeck {
             }
         }
         player.insert(entry.playerItem, after: nil)
+        logPlaybackStage("attach inserted", entry: entry)
         player.volume = storedVolume
         updateActionAtItemEnd()
         if wantsToPlay { startPlayer() }
@@ -278,8 +300,11 @@ final class PlaybackDeck: TransitionDeck {
     /// stall (or a start with nothing buffered yet) waits and shows as buffering; what ends that
     /// wait is ``startIfBuffered()``, not AVPlayer's guess at the link.
     private func startPlayer() {
+        logPlaybackStage("playImmediately begin")
+        let started = ContinuousClock.now
         player.automaticallyWaitsToMinimizeStalling = true
         player.playImmediately(atRate: player.defaultRate > 0 ? player.defaultRate : 1)
+        logPlaybackStage("playImmediately returned in \(TrackLog.ms(since: started))ms")
     }
 
     /// Audio in hand before a stream that is waiting on its bytes is started anyway, and after a
@@ -351,6 +376,13 @@ final class PlaybackDeck: TransitionDeck {
         if let reason = player.reasonForWaitingToPlay { line += " reason=\(reason.rawValue)" }
         if let error = item.error { line += " error=\(error)" }
         return line
+    }
+
+    /// State snapshots at startup boundaries; no per-audio-buffer logging or processing changes.
+    func logPlaybackStage(_ event: String, entry explicit: DeckEntry? = nil) {
+        guard let entry = explicit ?? current else { return }
+        let attached = entry.diagnosticAttachedAt.map { "\(TrackLog.ms(since: $0))ms" } ?? "not-attached"
+        PlaybackLog.info("playback stage deck=\(id) \(event); entryAge=\(TrackLog.ms(since: entry.diagnosticCreatedAt))ms attachedAge=\(attached) wantsPlay=\(wantsToPlay) rate=\(player.rate) pendingSeek=\(pendingSeek.map { String($0) } ?? "none"); \(bufferReport(entry))", about: entry.item.trackID)
     }
 
     /// Where the loaded range holding `time` ends, in seconds; nil when nothing is loaded there. A
@@ -520,6 +552,7 @@ final class PlaybackDeck: TransitionDeck {
     }
 
     func play() {
+        logPlaybackStage("deck play requested")
         wantsToPlay = true
         prerolling = false
         guard current != nil, !isHeldForBytes else { return }
@@ -555,6 +588,7 @@ final class PlaybackDeck: TransitionDeck {
     }
 
     func pause() {
+        logPlaybackStage("deck pause requested")
         wantsToPlay = false
         stopHolding()
         player.pause()
@@ -581,6 +615,7 @@ final class PlaybackDeck: TransitionDeck {
 
     private func seekFinished(_ entry: DeckEntry) {
         guard current === entry else { return }
+        logPlaybackStage("initial/explicit seek completed", entry: entry)
         pendingSeek = nil
         attemptPreroll()
         startIfBuffered()
@@ -733,17 +768,28 @@ final class PlaybackDeck: TransitionDeck {
     private func watch(_ entry: DeckEntry) {
         let key = ObjectIdentifier(entry.playerItem)
         itemObservations[key] = [
-            entry.playerItem.observe(\.status, options: [.new]) { [weak self, weak entry] _, _ in
+            entry.playerItem.observe(\.status, options: [.new]) { [weak self, weak entry] _, change in
+                let observed = change.newValue?.rawValue ?? -1
+                let observedAt = ContinuousClock.now
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated {
                         guard let self, let entry else { return }
+                        self.logPlaybackStage("itemStatus observed=\(observed) callbackDelay=\(TrackLog.ms(since: observedAt))ms (0 unknown, 1 ready, 2 failed)", entry: entry)
                         self.statusChanged(entry)
                     }
                 }
             },
             // Bytes arriving while the player waits are what lets it start (see `startIfBuffered`).
-            entry.playerItem.observe(\.loadedTimeRanges, options: [.new]) { [weak self] _, _ in
-                DispatchQueue.main.async { MainActor.assumeIsolated { self?.startIfBuffered() } }
+            entry.playerItem.observe(\.loadedTimeRanges, options: [.new]) { [weak self, weak entry] _, _ in
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        if let entry, !entry.diagnosticLoggedBuffer, !entry.playerItem.loadedTimeRanges.isEmpty {
+                            entry.diagnosticLoggedBuffer = true
+                            self?.logPlaybackStage("first loaded range", entry: entry)
+                        }
+                        self?.startIfBuffered()
+                    }
+                }
             },
         ]
         // Bytes arriving are what ends a hold.
@@ -784,6 +830,7 @@ final class PlaybackDeck: TransitionDeck {
 
     private func statusChanged(_ entry: DeckEntry) {
         guard entry === current || entry === queued else { return }
+        logPlaybackStage("item status handled", entry: entry)
         switch entry.playerItem.status {
         case .readyToPlay:
             if entry === current {

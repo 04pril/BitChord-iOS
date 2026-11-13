@@ -336,6 +336,7 @@ public final class AudioPlayerEngine {
     /// false to restore a queue on launch without starting it. If `item` is the preloaded next
     /// item, it starts at once from the preloaded copy.
     public func load(_ item: PlayableItem, startingAt start: TimeInterval = 0, playWhenReady play: Bool? = nil) {
+        PlaybackLog.info("playback load requested \(item.id) at=\(start)s requestedPlay=\(play.map { String($0) } ?? "inherit") previousIntent=\(playWhenReady)", about: item.trackID)
         cancelSwap()
         crossfade.onSkipRequested()
         if let play { setPlayWhenReady(play) }
@@ -551,6 +552,7 @@ public final class AudioPlayerEngine {
     }
 
     func setPlayWhenReady(_ value: Bool) {
+        PlaybackLog.info("playback intent=\(value)", about: currentItem?.trackID)
         playWhenReady = value
         #if os(iOS)
         if value { audioSession?.activate() }
@@ -574,9 +576,10 @@ public final class AudioPlayerEngine {
         // item with nothing to play yet.
         if playing, let item = currentItem, let opened = awaitingFirstAudio, opened.itemID == item.id,
            active.current?.playerItem.status == .readyToPlay {
-            PlaybackLog.info("first audio for \(item.id) \(TrackLog.ms(since: opened.since))ms after it was asked for", about: item.trackID)
+            PlaybackLog.info("player ready and playing for \(item.id) \(TrackLog.ms(since: opened.since))ms after it was asked for (state marker, not measured audible output)", about: item.trackID)
             awaitingFirstAudio = nil
-            logClock("first audio", on: active)
+            active.logPlaybackStage("ready-and-playing marker")
+            logClock("ready-and-playing marker", on: active)
         }
         if playing != isPlaying {
             isPlaying = playing

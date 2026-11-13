@@ -198,9 +198,10 @@ enum SettingsCatalog {
             SettingsGroupSpec(id: "advanced", header: L10n.advancedOptions, rows: [
                 row(.smartVersionAlignment, L10n.smartVersionAlignment, "alignment", "sync", "waveform", "video", "audio", "skit", "intro"),
                 row(.showNerdStats, L10n.showNerdStats, "debug", "bitrate", "codec"),
-                row(.keepDiagnosticLog, L10n.keepDiagnosticLog, "debug", "logs", "bug report", "support"),
-            ] + (v.diagnosticLog ? [row(.shareDiagnosticLog, L10n.shareDiagnosticLog, "debug", "logs", "bug report", "support", "export")] : [])
-              + (v.alternateIcons ? [row(.appIcon, L10n.appIcon, "icon", "launcher", "logo")] : [])),
+            ] + (v.alternateIcons ? [row(.appIcon, L10n.appIcon, "icon", "launcher", "logo")] : [])),
+            SettingsGroupSpec(id: "diagnostics", header: L10n.tr("full_logs_section"), rows: [
+                row(.keepDiagnosticLog, L10n.tr("full_logs_title"), "debug", "logs", "record", "export", "로그", "기록", "진단", "공유"),
+            ]),
         ]
     }
 }

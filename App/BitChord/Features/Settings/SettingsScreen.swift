@@ -22,6 +22,7 @@ struct SettingsScreen: View {
     @Environment(AppRouter.self) private var router
     @Environment(PlayerController.self) private var player
 
+    @State private var openingDiagnosticLogs = false
     @State private var openingLyricsTypography = false
     @State private var openingProxy = false
     @State private var query = ""
@@ -95,6 +96,7 @@ struct SettingsScreen: View {
         .navigationTitle(L10n.settings)
         .navigationBarTitleDisplayMode(.large)
         .navigationDestination(isPresented: $openingLyricsTypography) { LyricsTypographyScreen() }
+        .navigationDestination(isPresented: $openingDiagnosticLogs) { DiagnosticLogsScreen() }
         .navigationDestination(isPresented: $openingProxy) { ProxySettingsScreen() }
         .navigationDestination(isPresented: $openingSpotifyCanvas) { SpotifyCanvasSetupScreen() }
         .task {
@@ -395,18 +397,9 @@ struct SettingsScreen: View {
         case .showNerdStats:
             SettingsToggleRow(symbol: "chart.bar.xaxis", title: L10n.showNerdStats,
                               subtitle: L10n.showNerdStatsSubtitle, isOn: $settings.showNerdStats)
-        case .keepDiagnosticLog:
-            SettingsToggleRow(symbol: "doc.text", title: L10n.keepDiagnosticLog,
-                              subtitle: L10n.keepDiagnosticLogSubtitle, isOn: $settings.keepDiagnosticLog)
-        case .shareDiagnosticLog:
-            // Both files once the log has rotated. Turning the log on writes its first line at
-            // once, so the current file is there to share even when this row was drawn before it.
-            let files = DiagnosticLog.shared.existingFileURLs
-            ShareLink(items: files.isEmpty ? [DiagnosticLog.shared.fileURL] : files) {
-                SettingsRow(symbol: "square.and.arrow.up", title: L10n.shareDiagnosticLog,
-                            subtitle: L10n.shareDiagnosticLogSubtitle)
-            }
-            .buttonStyle(SettingsRowButtonStyle())
+        case .keepDiagnosticLog, .shareDiagnosticLog:
+            SettingsRow(symbol: "doc.text", title: L10n.tr("full_logs_title"),
+                        subtitle: L10n.tr("full_logs_subtitle")) { openingDiagnosticLogs = true }
         case .appIcon:
             AppIconPickerRow()
         }

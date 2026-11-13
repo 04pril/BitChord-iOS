@@ -1,4 +1,5 @@
 import AVFoundation
+import BitChordCore
 import PlaybackPolicy
 
 /// Audio-session events the engine reacts to. On iOS the engine observes `AVAudioSession` itself
@@ -81,17 +82,23 @@ final class AudioSessionController {
     /// Activated when playback starts rather than at launch, so opening the app doesn't stop what
     /// another app is playing.
     func activate() {
-        guard !isActive else { return }
+        let started = ContinuousClock.now
+        guard !isActive else {
+            logSession("activation already active")
+            return
+        }
+        logSession("activation begin")
         do {
             try session.setActive(true)
             isActive = true
+            logSession("activation completed in \(TrackLog.ms(since: started))ms")
             // A USB rate asked for while inactive only lands now.
             let outputs = currentOutputs()
             if let rate = PreferredSampleRatePolicy.preferredSampleRate(outputs: outputs, trackSampleRate: trackSampleRate) {
                 logSampleRateReadBack(requested: rate, on: outputs)
             }
         } catch {
-            PlaybackLog.warning("audio session activation refused: \(error)")
+            PlaybackLog.warning("audio session activation refused after \(TrackLog.ms(since: started))ms: \(error)")
         }
     }
 
@@ -142,6 +149,11 @@ final class AudioSessionController {
         PlaybackLog.debug("USB route: preferred \(Int(rate)) Hz; session now \(Int(session.sampleRate)) Hz on \(route)\(pending)")
     }
 
+    private func logSession(_ event: String) {
+        let ports = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: "+")
+        PlaybackLog.info("audio session \(event); active=\(isActive) route=\(ports) sampleRate=\(session.sampleRate) outputLatency=\(Int((session.outputLatency * 1000).rounded()))ms ioBuffer=\(Int((session.ioBufferDuration * 1000).rounded()))ms", about: nil)
+    }
+
     private func currentOutputs() -> [AudioRouting.Kind] {
         AudioRouting.currentPorts(session: session).compactMap { AudioRouting.kind(of: $0.type) }
     }
@@ -158,7 +170,10 @@ final class AudioSessionController {
         observers.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: .main) { [weak self] note in
             let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
             let reason = raw.flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
+            let previous = (note.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription)?
+                .outputs.map(\.portType.rawValue).joined(separator: "+") ?? "unknown"
             MainActor.assumeIsolated {
+                self?.logSession("route changed reason=\(raw.map { String($0) } ?? "unknown") previous=\(previous)")
                 // A DAC plugged in or out: follow it with the preferred rate. Not for the change our
                 // own rate request causes, which would only ask again for the same thing.
                 if reason != .categoryChange, reason != .routeConfigurationChange { self?.applyPreferredSampleRate() }

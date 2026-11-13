@@ -113217,6 +113217,182 @@
           }
         }
       }
+    },
+    "full_logs_section" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostics"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "진단"
+          }
+        }
+      }
+    },
+    "full_logs_title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full session log"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 로그 기록"
+          }
+        }
+      }
+    },
+    "full_logs_subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record multiple tracks and share one log file"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여러 곡의 재생 흐름을 기록하고 파일로 공유합니다"
+          }
+        }
+      }
+    },
+    "full_logs_record" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record full session log"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 로그 기록 켜기"
+          }
+        }
+      }
+    },
+    "full_logs_running" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기록 중"
+          }
+        }
+      }
+    },
+    "full_logs_stopped" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped · saved log retained"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기록 중지 · 기존 로그 보관 중"
+          }
+        }
+      }
+    },
+    "full_logs_help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn recording on, play several tracks, then share the log. It includes source lookup, cache, player and audio route events across tracks. Stopping recording keeps the saved log."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기록을 켠 뒤 여러 곡을 재생하고 로그를 공유하세요. 곡별 소스 검색·캐시·플레이어·오디오 출력 기록을 함께 저장합니다. 기록을 꺼도 기존 로그는 보관합니다."
+          }
+        }
+      }
+    },
+    "full_logs_share" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share full log file"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 로그 파일 공유"
+          }
+        }
+      }
+    },
+    "full_logs_clear" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear saved logs"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장된 로그 지우기"
+          }
+        }
+      }
+    },
+    "full_logs_clear_confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear the saved full session logs?"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장된 전체 로그를 지울까요?"
+          }
+        }
+      }
+    },
+    "full_logs_storage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The most recent logs are retained, up to about 16 MiB. The shared file combines both log files in chronological order."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "최근 로그를 최대 약 16MiB까지 보관합니다. 공유 파일에는 보관 중인 로그를 시간순으로 합칩니다."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
