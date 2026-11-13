@@ -39,7 +39,7 @@ final class AudioQualityTests: XCTestCase {
     func testDirectSourceStreamMapsIntoThePlaybackRequestOnly() {
         let s = makeSettings()
         XCTAssertFalse(s.playbackStreamRequest(for: .cellular).waitsForSources)
-        XCTAssertFalse(s.playbackStreamRequest(for: .cellular).readsAheadFromSources)
+        XCTAssertTrue(s.playbackStreamRequest(for: .cellular).readsAheadFromSources)
         s.directSourceStream = .always
         XCTAssertTrue(s.playbackStreamRequest(for: .cellular).waitsForSources)
         XCTAssertTrue(s.playbackStreamRequest(for: .offline).waitsForSources)
@@ -48,6 +48,26 @@ final class AudioQualityTests: XCTestCase {
     }
 
     /// Queue only reads ahead from the sources and never holds a track's start for them.
+    func testFastModeQualityIsYouTubeOnlyAndHasNoAutomaticUpgrade() {
+        for quality in AudioQuality.allCases {
+            let request = StreamRequest.playback(quality, directSource: .off)
+            XCTAssertEqual(request.permittedSources, [.youtube])
+            XCTAssertFalse(request.waitsForSources)
+            XCTAssertFalse(request.readsAheadFromSources)
+            XCTAssertFalse(request.allowsAutomaticSourceSwitch)
+        }
+        XCTAssertEqual(StreamRequest.playback(.medium, directSource: .off).maxKbps, 128)
+        XCTAssertEqual(StreamRequest.playback(.low, directSource: .off).maxKbps, 64)
+    }
+
+    func testQueueIdentitySurvivesSwitchAndBudgetChangesButNotQualityChanges() {
+        let on = StreamRequest.playback(.lossless, directSource: .queueOnly, automaticSourceSwitch: true, sourceWaitSeconds: 12)
+        let off = StreamRequest.playback(.lossless, directSource: .queueOnly, automaticSourceSwitch: false, sourceWaitSeconds: 5)
+        XCTAssertEqual(on.readAheadCacheIdentity, off.readAheadCacheIdentity)
+        XCTAssertNotEqual(on.readAheadCacheIdentity, StreamRequest.playback(.low).readAheadCacheIdentity)
+        XCTAssertNotEqual(on.readAheadCacheIdentity, StreamRequest.playback(.lossless, directSource: .off).readAheadCacheIdentity)
+    }
+
     func testQueueOnlyReadsAheadFromTheSourcesWithoutWaiting() {
         let s = makeSettings()
         s.directSourceStream = .queueOnly

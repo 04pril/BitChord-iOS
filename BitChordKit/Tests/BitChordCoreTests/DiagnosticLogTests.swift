@@ -18,6 +18,16 @@ final class DiagnosticLogTests: XCTestCase {
 
     private func text(_ url: URL) -> String { (try? String(contentsOf: url, encoding: .utf8)) ?? "" }
 
+    func testExportIncludesPolicyContextEvenWhileFileRecordingIsOff() async throws {
+        let log = try makeLog()
+        log.setEnabled(false)
+        let output = try await log.snapshotForSharing(context: "mode=연속 재생 우선 (QUEUE_ONLY); autoSwitch=ON; addonWait=12s")
+        let exported = text(output)
+        XCTAssertTrue(exported.contains("export context: mode=연속 재생 우선 (QUEUE_ONLY)"))
+        XCTAssertTrue(exported.contains("autoSwitch=ON; addonWait=12s"))
+        XCTAssertFalse(log.isEnabled, "exporting must not silently enable recording")
+    }
+
     func testALineCarriesTheTimeLevelCategoryTrackAndMessage() throws {
         let log = try makeLog()
         log.record(.warning, category: "Resolver", track: "abc123", message: "no stream")

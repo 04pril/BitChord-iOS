@@ -79,8 +79,16 @@ public final class PlaybackQualityCeiling: Observable, @unchecked Sendable {
     /// the track to be there, and a start held for the sources would leave this phone behind.
     public var currentRequest: StreamRequest {
         let (directSource, inParty, automatic, wait) = lock.withLock { (directSource, inParty, automaticSourceSwitch, sourceWaitSeconds) }
-        return .playback(effectiveQuality, directSource: inParty ? .off : directSource,
-                         automaticSourceSwitch: automatic, sourceWaitSeconds: wait)
+        // A party disables waits/preparation, not the selected quality ceiling. Fast mode
+        // keeps its YouTube-only policy; the other modes retain their quality/source permissions.
+        var request = StreamRequest.playback(effectiveQuality, directSource: directSource,
+                                             automaticSourceSwitch: automatic, sourceWaitSeconds: wait)
+        if inParty {
+            request.waitsForSources = false
+            request.readsAheadFromSources = false
+            request.automaticSourceSwitch = false
+        }
+        return request
     }
 
     /// Whether this device is in a Listen Together party; the app keeps it in step.
@@ -107,20 +115,27 @@ public final class PlaybackQualityCeiling: Observable, @unchecked Sendable {
         }
     }
 
+    /// Synchronizes a preparation invalidation with the settings that caused it, before a
+    /// loading thread can read the former policy. Unlike follow, this adds no observation.
+    @MainActor
+    public func refresh(from settings: AppSettings) {
+        setCeilings(wifi: settings.audioQualityWifi, cellular: settings.audioQualityCellular)
+        let mode = settings.directSourceStream
+        let automatic = settings.automaticSourceSwitch
+        let wait = settings.addonWaitSeconds
+        lock.withLock {
+            directSource = mode
+            automaticSourceSwitch = automatic
+            sourceWaitSeconds = Double(wait)
+        }
+    }
+
     /// Keeps the ceilings and the direct-source choice in step with `settings` from now on
     /// (re-reading after every change to any of them). Holds the ceiling weakly.
     @MainActor
     public func follow(_ settings: AppSettings) {
         withObservationTracking {
-            setCeilings(wifi: settings.audioQualityWifi, cellular: settings.audioQualityCellular)
-            let mode = settings.directSourceStream
-            let automatic = settings.automaticSourceSwitch
-            let wait = settings.addonWaitSeconds
-            lock.withLock {
-                directSource = mode
-                automaticSourceSwitch = automatic
-                sourceWaitSeconds = Double(wait)
-            }
+            refresh(from: settings)
         } onChange: { [weak self, weak settings] in
             // onChange fires before the new value is stored; read it once the write has landed.
             Task { @MainActor in

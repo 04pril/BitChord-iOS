@@ -24,6 +24,24 @@ final class SettingsStorageTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(freed, Int64(bytes.count))
     }
 
+    @MainActor
+    func testColdPlaybackCacheClearStopsTheEngineKeepsTheQueueAndDropsPreparedSources() async throws {
+        let cache = try makeTestCache(in: makeTemporaryDirectory(self))
+        let h = PlayerHarness(test: self, cache: cache)
+        let song = try h.song("clearForTest", seconds: 8)
+        h.player.play([song])
+        await waitUntil("playing before clear") { h.engine.isPlaying }
+        await h.player.clearPlaybackCache()
+        let usage = await cache.usage()
+        XCTAssertNil(h.engine.currentItem)
+        XCTAssertFalse(h.engine.playWhenReady)
+        XCTAssertEqual(h.player.currentSong?.videoId, song.videoId)
+        XCTAssertFalse(h.player.isClearingPlaybackCache)
+        XCTAssertEqual(usage.cachedBytes, 0)
+        h.player.play()
+        await waitUntil("can play again after clearing") { h.engine.isPlaying }
+    }
+
     func testClearSongCacheWithNoCacheIsANoOp() async {
         let freed = await SettingsStorage.clearSongCache(nil)
         XCTAssertEqual(freed, 0)

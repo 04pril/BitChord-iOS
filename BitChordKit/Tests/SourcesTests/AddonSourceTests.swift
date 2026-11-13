@@ -560,6 +560,52 @@ final class AddonSourceTests: XCTestCase {
         XCTAssertTrue(answers.value.isEmpty)
     }
 
+    func testTransientGatewayFailureRetriesExactlyOnceThenSucceeds() async throws {
+        server.route("/manifest.json", manifest())
+        let count = LockedBox(0)
+        server.route("/stream/t1") { _ in
+            count.value += 1
+            return count.value == 1 ? .status(503) : .json(#"{"url":"https://cdn.test/a.flac","codec":"flac"}"#)
+        }
+        let client = AddonClient(baseUrl: FakeAddonServer.base, session: server.stub.makeSession(), atmosWanted: { false })
+        _ = try await client.stream("t1", tier: "LOSSLESS").get()
+        XCTAssertEqual(count.value, 2)
+    }
+
+    func testRepeatedGatewayFailureRemainsUnavailableNotNotFound() async {
+        server.route("/manifest.json", manifest())
+        let count = LockedBox(0)
+        server.route("/stream/t1") { _ in count.value += 1; return .status(503) }
+        let client = AddonClient(baseUrl: FakeAddonServer.base, session: server.stub.makeSession(), atmosWanted: { false })
+        let answer = await client.stream("t1", tier: "LOSSLESS")
+        guard case .failure(let error) = answer, case .unavailable = error as? AddonError else {
+            return XCTFail("503 must remain a transient server fault")
+        }
+        XCTAssertEqual(count.value, 2)
+    }
+
+    func testNotFoundDoesNotRetry() async {
+        server.route("/manifest.json", manifest())
+        let count = LockedBox(0)
+        server.route("/stream/t1") { _ in count.value += 1; return .status(404) }
+        let client = AddonClient(baseUrl: FakeAddonServer.base, session: server.stub.makeSession(), atmosWanted: { false })
+        let answer = await client.stream("t1", tier: "LOSSLESS")
+        guard case .failure(let error) = answer else { return XCTFail("404 should be a miss") }
+        XCTAssertEqual(error as? AddonError, .notFound)
+        XCTAssertEqual(count.value, 1)
+    }
+
+    func testTransportTimeoutRetriesOnlyOnce() async {
+        server.route("/manifest.json", manifest())
+        let count = LockedBox(0)
+        server.route("/stream/t1") { _ in count.value += 1; return .failure(.timedOut) }
+        let client = AddonClient(baseUrl: FakeAddonServer.base, session: server.stub.makeSession(), atmosWanted: { false })
+        let answer = await client.stream("t1", tier: "LOSSLESS")
+        guard case .failure(let error) = answer else { return XCTFail("timeout should remain an error") }
+        XCTAssertEqual((error as? URLError)?.code, .timedOut)
+        XCTAssertEqual(count.value, 2)
+    }
+
     func testRetryAfterIsBelievedAndBackoffIsCapped() {
         XCTAssertEqual(AddonClient.retryAfter("2", attempt: 0), 2)
         XCTAssertEqual(AddonClient.retryAfter(nil, attempt: 0), 0.5)

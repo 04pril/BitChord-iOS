@@ -44,6 +44,33 @@ final class TrackMatcherTests: XCTestCase {
         XCTAssertFalse(matches(song("Hurt", "Johnny Cash"), "Hurt", "Nine Inch Nails"))
     }
 
+    func testAnExplicitCoverAlbumCannotBorrowTheOriginalArtistsRuntime() {
+        var cover = song("Sour Grapes", "金冬天", "3:16")
+        cover.albumName = "Sour Grapes（Cover LE SSERAFIM）"
+        XCTAssertNil(TrackMatcher.score(cover, .init("Sour Grapes", "LE SSERAFIM", durationSec: 197)))
+        var official = song("Sour Grapes", "LE SSERAFIM", "3:16")
+        official.albumName = "FEARLESS"
+        XCTAssertNotNil(TrackMatcher.score(official, .init("Sour Grapes", "LE SSERAFIM", durationSec: 197)))
+    }
+
+    func testCoverLabelsDoNotDisableLegitimateComposerCreditsOrExplicitCoverRequests() {
+        var original = song("Jhak Maar Ke", "Neeraj Shridhar", "3:53")
+        original.albumName = "Discoveries"
+        XCTAssertNotNil(TrackMatcher.score(original, .init("Jhak Maar Ke", "Pritam", durationSec: 233)))
+        var cover = song("Sour Grapes", "金冬天", "3:16")
+        cover.albumName = "Sour Grapes（Cover LE SSERAFIM）"
+        XCTAssertNotNil(TrackMatcher.score(cover, .init("Sour Grapes", "金冬天", durationSec: 196, album: cover.albumName)))
+    }
+
+    func testKoreanAndChineseTitlesAndArtistsAreNotErasedDuringMatching() {
+        XCTAssertTrue(matches(song("밤소풍", "스텔라장"), "밤소풍", "스텔라장"))
+        XCTAssertFalse(matches(song("다른 노래", "스텔라장"), "밤소풍", "스텔라장"))
+        XCTAssertFalse(matches(song("밤소풍", "다른 가수"), "밤소풍", "스텔라장"))
+        XCTAssertTrue(TrackMatcher.sharesArtist("金冬天", "金冬天"))
+        XCTAssertFalse(TrackMatcher.sharesArtist("LE SSERAFIM", "金冬天"))
+        XCTAssertTrue(TrackMatcher.sharesArtist("비", "비"), "a one-syllable Korean name is a real credit")
+    }
+
     func testAcceptsASharedArtistWhenCataloguesCreditDifferently() {
         XCTAssertTrue(matches(song("Numb / Encore", "Jay-Z & Linkin Park"), "Numb / Encore", "Linkin Park"))
     }

@@ -166,7 +166,7 @@ struct SongActionsSheet: View {
         if fromPlayer {
             // Last, and only from the player: it is about the track playing now.
             SheetActionRow(symbol: "ladybug", label: L10n.copyLog, accent: palette.accentColor, identifier: "songActions.copyLog") {
-                let text = TrackLog.shared.forTrack(song)
+                let text = TrackLog.shared.forTrack(song) + "\ncurrent export context: " + model.settings.playbackDiagnosticSummary + "\n"
                 UIPasteboard.general.string = text
                 let lines = text.split(separator: "\n", omittingEmptySubsequences: false).count
                 player.notice = QueueNotice(message: L10n.logCopiedLineCount(lines), symbol: nil)

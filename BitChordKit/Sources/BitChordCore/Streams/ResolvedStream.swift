@@ -183,6 +183,15 @@ public struct StreamRequest: Codable, Hashable, Sendable {
         self.sourceWaitSeconds = sourceWaitSeconds
     }
 
+    /// Queue lookup identity excludes current-track switching and its foreground wait budget.
+    /// Toggling automatic switching must not throw away an already prepared next-track copy.
+    public var readAheadCacheIdentity: StreamRequest {
+        var copy = self
+        copy.automaticSourceSwitch = nil
+        copy.sourceWaitSeconds = nil
+        return copy
+    }
+
     /// The kbps cap, or nil when uncapped.
     public var maxKbps: Int? {
         if case .capped(let kbps) = tier { return kbps }

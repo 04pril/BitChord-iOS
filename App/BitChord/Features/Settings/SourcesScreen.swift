@@ -24,7 +24,8 @@ struct SourcesScreen: View {
     var body: some View {
         let model = model ?? SourcesModel(registry: app.sourceRegistry)
         SourcesList(model: model, metered: metered, editing: $editing, editingLibrary: $editingLibrary,
-                    confirmJioSaavn: $confirmJioSaavn, tester: { kind, values in try await app.testRemoteLibrary(kind, values) })
+                    confirmJioSaavn: $confirmJioSaavn, tester: { kind, values in try await app.testRemoteLibrary(kind, values) },
+                    clearPlaybackCache: { await app.player.clearPlaybackCache() })
             .navigationTitle(L10n.source)
             .navigationBarTitleDisplayMode(.large)
             .onAppear { if self.model == nil { self.model = model } }
@@ -61,6 +62,9 @@ struct SourcesList: View {
     @Binding var editingLibrary: RemoteLibraryKind?
     @Binding var confirmJioSaavn: Bool
     let tester: RemoteLibraryTester
+    var clearPlaybackCache: (() async -> Int64)? = nil
+    @State private var clearingPlaybackCache = false
+    @State private var playbackCacheResult: String?
     @Environment(AppSettings.self) private var settings
 
     var body: some View {
@@ -69,6 +73,28 @@ struct SourcesList: View {
         let addons = model.addons
         let fixed = model.fixed
         List {
+            if let clearPlaybackCache {
+                SettingsGroup(header: L10n.tr("playback_test_tools"), footer: playbackCacheResult ?? L10n.tr("playback_cache_clear_help")) {
+                    Button {
+                        clearingPlaybackCache = true
+                        playbackCacheResult = nil
+                        Task { @MainActor in
+                            let freed = await clearPlaybackCache()
+                            playbackCacheResult = L10n.tr("playback_cache_cleared") + " · " + ByteCountFormatter.string(fromByteCount: freed, countStyle: .file)
+                            clearingPlaybackCache = false
+                        }
+                    } label: {
+                        HStack {
+                            Label(L10n.tr("playback_cache_clear"), systemImage: "trash")
+                            Spacer()
+                            if clearingPlaybackCache { ProgressView() }
+                        }
+                    }
+                    .disabled(clearingPlaybackCache)
+                    .accessibilityIdentifier("sources.clearPlaybackCache")
+                    .moveDisabled(true)
+                }
+            }
             SettingsGroup(header: L10n.sourcesOrderHeader, footer: model.footer(ceiling: ceiling)) {
                 // One continuously numbered list: the numbers say what order the sources are tried
                 // in, and restarting the count under a second heading would break the one thing

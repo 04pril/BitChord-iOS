@@ -25,7 +25,7 @@ struct DiagnosticLogsScreen: View {
                     errorMessage = nil
                     Task { @MainActor in
                         defer { working = false }
-                        do { share = LogShare(url: try await DiagnosticLog.shared.snapshotForSharing()) }
+                        do { share = LogShare(url: try await DiagnosticLog.shared.snapshotForSharing(context: settings.playbackDiagnosticSummary)) }
                         catch { errorMessage = error.localizedDescription }
                     }
                 } label: {

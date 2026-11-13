@@ -28,6 +28,7 @@ extension AudioPlayerEngine: CrossfadeHost {
 
     func armIncoming(_ item: PlayableItem, cue: TimeInterval, rate: Float) {
         let deck = standby
+        let policy = sourcePolicyGeneration
         armTask?.cancel()
         deck.retire(rate: rate)
         deck.volume = 0
@@ -35,10 +36,12 @@ extension AudioPlayerEngine: CrossfadeHost {
             guard let self else { return }
             do {
                 let entry = try await self.makeEntry(for: item, on: deck, preciselyTimed: cue > 0.05)
-                guard self.crossfade.armedIncomingID == item.id, deck === self.standby else { return }
+                guard !Task.isCancelled, self.sourcePolicyGeneration == policy,
+                      self.crossfade.armedIncomingID == item.id, deck === self.standby else { return }
                 var at = cue
                 if self.skipSilence, cue <= 0.05, let lead = await self.leadingSkipTarget(for: item.id) { at = lead }
-                guard self.crossfade.armedIncomingID == item.id, deck === self.standby else { return }
+                guard !Task.isCancelled, self.sourcePolicyGeneration == policy,
+                      self.crossfade.armedIncomingID == item.id, deck === self.standby else { return }
                 deck.pause()
                 deck.volume = 0
                 deck.rate = rate

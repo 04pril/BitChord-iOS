@@ -359,7 +359,7 @@ final class SourceResolverTests: XCTestCase {
         let (resolver, registry) = resolver([wrong, right], youTube: FakeYouTubeResolver(delay: 1_000))
         seed(registry, [wrong, right])
 
-        let stream = try await resolver.resolveStream(for: song(bangBang, "Nancy Sinatra", "2:42", id: "bQD-mcJUbR4"), request: .playback(.lossless))
+        let stream = try await resolver.resolveStream(for: song(bangBang, "Nancy Sinatra", "2:42", id: "bQD-mcJUbR4"), request: StreamRequest(tier: .lossless))
 
         XCTAssertEqual(stream.sourceConfigId, "Qobuz")
         XCTAssertEqual(wrong.streamedIds, [], "the wrong copy isn't even opened")
@@ -374,7 +374,7 @@ final class SourceResolverTests: XCTestCase {
         let (resolver, registry) = resolver([wrong], youTube: FakeYouTubeResolver(delay: 5))
         seed(registry, [wrong])
 
-        let stream = try await resolver.resolveStream(for: song(bangBang, "Nancy Sinatra", "2:42", id: "bQD-mcJUbR4"), request: .playback(.lossless))
+        let stream = try await resolver.resolveStream(for: song(bangBang, "Nancy Sinatra", "2:42", id: "bQD-mcJUbR4"), request: StreamRequest(tier: .lossless))
 
         XCTAssertEqual(stream.origin, .youtube)
         XCTAssertEqual(wrong.streamedIds, [])
@@ -421,6 +421,103 @@ final class SourceResolverTests: XCTestCase {
         XCTAssertNotNil(ofNoLength)
     }
 
+    @MainActor
+    func testAddonFirstPassesOverTheLoggedSourGrapesCoverForTheOriginal() async throws {
+        var cover = song("Sour Grapes", "金冬天", "3:16", id: "cover-track")
+        cover.albumName = "Sour Grapes（Cover LE SSERAFIM）"
+        let bad = FakeSource("cover", after: 0, format: StreamFormat(codec: "flac"), kind: .addon, candidates: [cover])
+        let official = song("Sour Grapes", "LE SSERAFIM", "3:16", id: "official-track")
+        let good = FakeSource("official", after: 40, format: StreamFormat(codec: "flac"), kind: .addon, candidates: [official])
+        let (resolver, registry) = resolver([bad, good], youTube: FakeYouTubeResolver(delay: 0))
+        seed(registry, [bad, good])
+        let found = try await resolver.resolveStream(for: song("Sour Grapes", "LE SSERAFIM", "3:17", id: "original"),
+            request: .playback(.lossless, directSource: .always, sourceWaitSeconds: 1))
+        XCTAssertEqual(found.sourceConfigId, "official")
+        XCTAssertTrue(bad.streamedIds.isEmpty, "an explicitly different recording is never opened")
+    }
+
+    // Current app policies: exercise actual races rather than only request flags.
+    @MainActor
+    func testFastPlaybackSkipsConnectedAddons() async throws {
+        let addon = FakeSource("addon", after: 0, format: StreamFormat(codec: "flac"), kind: .addon)
+        let (resolver, registry) = resolver([addon], youTube: FakeYouTubeResolver(delay: 5))
+        seed(registry, [addon])
+        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "fast"),
+                                                     request: .playback(.lossless, directSource: .off))
+        XCTAssertEqual(stream.origin, .youtube)
+        XCTAssertFalse(addon.asked)
+        XCTAssertFalse(stream.belowRequest)
+    }
+
+    @MainActor
+    func testContinuityRetainsAnAlreadyFinishedAddonAnswerForTheUpgrade() async throws {
+        let addon = FakeSource("addon", after: 0, format: StreamFormat(codec: "flac"), kind: .addon)
+        let (resolver, registry) = resolver([addon], youTube: FakeYouTubeResolver(delay: 150))
+        seed(registry, [addon])
+        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "early"),
+                                                     request: .playback(.lossless, directSource: .queueOnly))
+        XCTAssertEqual(stream.origin, .youtube)
+        // The decoder needs time to open before the upgrade controller asks for this answer.
+        try await Task.sleep(for: .milliseconds(100))
+        let task = try XCTUnwrap(resolver.takeStillLooking("early"))
+        let found = await task.value
+        XCTAssertEqual(found?.sourceConfigId, "addon")
+        XCTAssertNil(resolver.takeStillLooking("early"))
+    }
+
+    @MainActor
+    func testContinuityWithSwitchOffSkipsCurrentLookupButPreparesTheQueue() async throws {
+        let addon = FakeSource("addon", after: 5, format: StreamFormat(codec: "flac"), kind: .addon)
+        let (resolver, registry) = resolver([addon], youTube: FakeYouTubeResolver(delay: 0))
+        seed(registry, [addon])
+        var asked = StreamRequest.playback(.lossless, directSource: .queueOnly, automaticSourceSwitch: false)
+        let current = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "current"), request: asked)
+        XCTAssertEqual(current.origin, .youtube)
+        XCTAssertFalse(addon.asked)
+        asked.waitsForSources = true
+        let next = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "next"), request: asked)
+        XCTAssertEqual(next.sourceConfigId, "addon")
+    }
+
+    @MainActor
+    func testAddonDeadlineStartsBeforeYouTubeIsReady() async throws {
+        let addon = FakeSource("addon", after: 2_000, format: StreamFormat(codec: "flac"), kind: .addon)
+        let (resolver, registry) = resolver([addon], youTube: FakeYouTubeResolver(delay: 300))
+        seed(registry, [addon])
+        let began = ContinuousClock.now
+        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "deadline"),
+            request: .playback(.lossless, directSource: .always, sourceWaitSeconds: 0.4))
+        XCTAssertEqual(stream.origin, .youtube)
+        XCTAssertLessThan(began.duration(to: .now), .milliseconds(650), "must not add another 400ms after YouTube's 300ms")
+        XCTAssertFalse(stream.belowRequest)
+        XCTAssertNil(resolver.takeStillLooking("deadline"))
+    }
+
+    @MainActor
+    func testLateAddonDoesNotWinWhileYouTubeBackupIsStillPreparing() async throws {
+        let addon = FakeSource("addon", after: 200, format: StreamFormat(codec: "flac"), kind: .addon)
+        let (resolver, registry) = resolver([addon], youTube: FakeYouTubeResolver(delay: 400))
+        seed(registry, [addon])
+        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "late"),
+            request: .playback(.lossless, directSource: .always, sourceWaitSeconds: 0.1))
+        XCTAssertEqual(stream.origin, .youtube)
+        XCTAssertFalse(stream.belowRequest)
+        XCTAssertTrue(addon.cancelled)
+    }
+
+    @MainActor
+    func testNoAddonMatchReleasesTheBackupBeforeItsDeadline() async throws {
+        let addon = FakeSource("addon", after: 10, format: nil, kind: .addon)
+        let (resolver, registry) = resolver([addon], youTube: FakeYouTubeResolver(delay: 0))
+        seed(registry, [addon])
+        let began = ContinuousClock.now
+        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "missing"),
+            request: .playback(.lossless, directSource: .always, sourceWaitSeconds: 5))
+        XCTAssertEqual(stream.origin, .youtube)
+        XCTAssertLessThan(began.duration(to: .now), .seconds(1))
+        XCTAssertFalse(stream.belowRequest)
+    }
+
     /// A YouTube track: a ranked source that answers first wins the race and plays.
     @MainActor
     func testResolveStreamPrefersARankedSourceThatAnswersFirst() async throws {
@@ -428,7 +525,7 @@ final class SourceResolverTests: XCTestCase {
         let youTube = FakeYouTubeResolver(delay: 1_000)
         let (resolver, registry) = resolver([addon], youTube: youTube)
         seed(registry, [addon])
-        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "yt123"), request: .playback(.lossless))
+        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "yt123"), request: StreamRequest(tier: .lossless))
         XCTAssertEqual(stream.format.codec, "flac")
         XCTAssertEqual(stream.sourceConfigId, "addon")
         XCTAssertFalse(stream.belowRequest)
@@ -444,7 +541,7 @@ final class SourceResolverTests: XCTestCase {
         let youTube = FakeYouTubeResolver(delay: 5)
         let (resolver, registry) = resolver([addon], youTube: youTube)
         seed(registry, [addon])
-        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "yt123"), request: .playback(.lossless))
+        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "yt123"), request: StreamRequest(tier: .lossless))
         XCTAssertEqual(stream.origin, .youtube)
         XCTAssertTrue(stream.belowRequest)
 
@@ -464,7 +561,7 @@ final class SourceResolverTests: XCTestCase {
         let (resolver, registry) = resolver([addon], youTube: FakeYouTubeResolver(delay: 5), substituteTimeout: 0.5)
         seed(registry, [addon])
         let started = ContinuousClock.now
-        _ = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "yt123"), request: .playback(.lossless))
+        _ = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "yt123"), request: StreamRequest(tier: .lossless))
 
         let lookup = try XCTUnwrap(resolver.takeStillLooking("yt123"))
         let late = await lookup.value
@@ -474,9 +571,7 @@ final class SourceResolverTests: XCTestCase {
     }
 
     private var waiting: StreamRequest {
-        var request = StreamRequest.playback(.lossless)
-        request.waitsForSources = true
-        return request
+        StreamRequest(tier: .lossless, waitsForSources: true)
     }
 
     /// Direct source stream: YouTube is ready at once, but a ranked source answering inside the cap
@@ -588,7 +683,7 @@ final class SourceResolverTests: XCTestCase {
         let youTube = FakeYouTubeResolver(delay: 0, fails: true)
         let (resolver, registry) = resolver([addon], youTube: youTube)
         seed(registry, [addon])
-        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "yt123"), request: .playback(.lossless))
+        let stream = try await resolver.resolveStream(for: song(raceTitle, raceArtist, "2:00", id: "yt123"), request: StreamRequest(tier: .lossless))
         XCTAssertEqual(stream.sourceConfigId, "addon")
     }
 
@@ -622,7 +717,7 @@ final class SourceResolverTests: XCTestCase {
         let jioId = registry.configs.first { $0.kind == .jioSaavn }!.id
         _ = jio
         let track = song(raceTitle, raceArtist, "2:00", id: SourceRegistry.trackKey(configId: jioId, trackId: "saavn-1"))
-        let stream = try await resolver.resolveStream(for: track, request: .playback(.lossless))
+        let stream = try await resolver.resolveStream(for: track, request: StreamRequest(tier: .lossless))
         XCTAssertEqual(stream.format.codec, "flac")
         XCTAssertEqual(stream.sourceConfigId, "addon")
     }
@@ -662,7 +757,7 @@ final class SourceResolverTests: XCTestCase {
         let other = FakeSource("other", after: 0, format: StreamFormat(codec: "mp4", kbps: 320), kind: .addon)
         let (resolver, registry) = resolver([serving, other])
         seed(registry, [serving, other])
-        let stream = try await resolver.upgradeFor(raceTarget(), playing: StreamFormat(codec: "aac", kbps: 128), servedBy: "serving", request: .playback(.lossless))
+        let stream = try await resolver.upgradeFor(raceTarget(), playing: StreamFormat(codec: "aac", kbps: 128), servedBy: "serving", request: StreamRequest(tier: .lossless))
         XCTAssertEqual(stream?.sourceConfigId, "other")
         XCTAssertFalse(serving.asked)
     }
@@ -677,7 +772,7 @@ final class SourceResolverTests: XCTestCase {
         media.register(host: "first") { _ in .status(502) }
         let (resolver, registry) = resolver([first, second])
         seed(registry, [first, second])
-        let stream = try await resolver.upgradeFor(raceTarget(), playing: StreamFormat(codec: "aac", kbps: 128), request: .playback(.lossless))
+        let stream = try await resolver.upgradeFor(raceTarget(), playing: StreamFormat(codec: "aac", kbps: 128), request: StreamRequest(tier: .lossless))
         XCTAssertEqual(stream?.sourceConfigId, "second")
         XCTAssertTrue(first.asked)
     }
@@ -691,7 +786,7 @@ final class SourceResolverTests: XCTestCase {
         let (resolver, registry) = resolver([dead, quick])
         seed(registry, [dead, quick])
         let started = Date()
-        let stream = try await resolver.upgradeFor(raceTarget(), playing: StreamFormat(codec: "aac", kbps: 128), request: .playback(.lossless))
+        let stream = try await resolver.upgradeFor(raceTarget(), playing: StreamFormat(codec: "aac", kbps: 128), request: StreamRequest(tier: .lossless))
         XCTAssertEqual(stream?.sourceConfigId, "quick")
         XCTAssertLessThan(Date().timeIntervalSince(started), 15, "the second look waited out the dead add-on")
     }

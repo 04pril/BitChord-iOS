@@ -150,6 +150,11 @@ public enum TrackMatcher {
         guard wanted.versions == got.versions else { return nil }
 
         let creditedArtist = artistScore(target.artist, candidate.artist)
+        // An exact runtime can explain composer/singer credits, but cannot override an album
+        // explicitly identifying a different performer's cover. Some addons put this marker
+        // only in albumName, leaving the track title identical to the original.
+        if !artistNames(target.artist).isEmpty, !sharesArtist(target.artist, candidate.artist),
+           hasCoverLabel(candidate.albumName) { return nil }
         // A music video may carry a long visual intro. That drift is credible only when the row
         // names the same artist; duration must never make an unrelated artist into the song.
         guard let duration = durationScore(
@@ -240,7 +245,7 @@ public enum TrackMatcher {
     static func parseTitle(_ raw: String, artist: String = "") -> TitleParts {
         var versions = Set<String>()
         var context = Set<String>()
-        var text = raw.lowercased().replacingOccurrences(of: "&", with: " and ")
+        var text = raw.precomposedStringWithCompatibilityMapping.lowercased().replacingOccurrences(of: "&", with: " and ")
 
         // Bracketed asides, innermost first: `(From "Satyamev Jayate")`, `[Official Audio]`.
         for _ in 0..<bracketPasses {
@@ -338,9 +343,9 @@ public enum TrackMatcher {
     /// "AR Rahman".
     static func artistNames(_ value: String) -> Set<[String]> {
         Set(
-            artistSeparators.split(value.lowercased())
+            artistSeparators.split(value.precomposedStringWithCompatibilityMapping.lowercased())
                 .map { name in
-                    wordSplit.split(name).map { nonAlnum.replacing(in: $0, with: "") }.filter { $0.count > 1 }
+                    wordSplit.split(name).map { nonAlnum.replacing(in: $0, with: "") }.filter { $0.count > 1 || $0.unicodeScalars.contains { $0.value > 127 } }
                 }
                 .filter { !$0.isEmpty }
         )
@@ -390,6 +395,13 @@ public enum TrackMatcher {
             .filter { !$0.isEmpty && !albumNoiseWords.contains($0) }
             .joined()
         return key.isEmpty ? nil : key
+    }
+
+    private static func hasCoverLabel(_ album: String?) -> Bool {
+        guard let album else { return false }
+        let normalized = album.precomposedStringWithCompatibilityMapping.lowercased()
+        return normalized.range(of: #"(?:^|[^\p{L}\p{N}])(?:cover|covers|karaoke|tribute|커버|翻唱)(?:$|[^\p{L}\p{N}])"#,
+                                options: .regularExpression) != nil
     }
 
     /// "3:45" or "1:02:03" as whole seconds; nil for anything else (and for zero).
@@ -449,7 +461,7 @@ public enum TrackMatcher {
     private static let dash = Pattern(#"\s+[-–—|]+\s+"#)
     private static let featuring = Pattern(#"\b(feat|ft|featuring|with)\b.*"#)
     private static let wordSplit = Pattern(#"[\s.·]+"#)
-    private static let nonAlnum = Pattern(#"[^a-z0-9]"#)
+    private static let nonAlnum = Pattern(#"[^\p{L}\p{N}]"#)
     private static let artistSeparators =
         Pattern(#"\s*(?:[,&/;·|]|\band\b|\bx\b|\bvs\.?\b|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b)\s*"#)
 

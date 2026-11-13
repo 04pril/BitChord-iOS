@@ -194,9 +194,14 @@ public final class AudioStreamCache: Sendable {
     /// Opportunistic free space on `url`'s volume, the figure Apple asks caches to size themselves
     /// by.
     public static func availableCapacity(at url: URL) -> Int64? {
-        let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForOpportunisticUsageKey, .volumeAvailableCapacityKey])
-        if let opportunistic = values?.volumeAvailableCapacityForOpportunisticUsage { return opportunistic }
-        return values?.volumeAvailableCapacity.map(Int64.init)
+        // One unsupported resource key must not discard the fallback key as well (macOS
+        // volumes can reject the opportunistic query while still reporting ordinary space).
+        if let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForOpportunisticUsageKey]),
+           let available = values.volumeAvailableCapacityForOpportunisticUsage { return available }
+        if let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityKey]),
+           let available = values.volumeAvailableCapacity { return Int64(available) }
+        let attributes = try? FileManager.default.attributesOfFileSystem(forPath: url.path)
+        return (attributes?[.systemFreeSize] as? NSNumber)?.int64Value
     }
 
     // MARK: Assets

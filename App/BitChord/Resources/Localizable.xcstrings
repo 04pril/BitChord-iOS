@@ -113793,6 +113793,70 @@
           }
         }
       }
+    },
+    "playback_test_tools" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playback testing"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생 테스트"
+          }
+        }
+      }
+    },
+    "playback_cache_clear" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear playback cache"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생 캐시 지우기"
+          }
+        }
+      }
+    },
+    "playback_cache_clear_help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stops playback and clears streamed audio and prepared tracks. Saved downloads and imported files are kept."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생을 멈추고 스트리밍 캐시와 미리 준비한 곡을 지웁니다. 다운로드·가져온 파일은 유지됩니다."
+          }
+        }
+      }
+    },
+    "playback_cache_cleared" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playback cache cleared. Play a track to test a cold start."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생 캐시를 지웠습니다. 곡을 재생해 첫 로딩을 확인하세요."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -229,7 +229,8 @@ final class CacheEvictionTests: XCTestCase {
     func testDefaultCapacityReaderReportsTheVolume() throws {
         let directory = try makeTemporaryDirectory()
         let available = try XCTUnwrap(AudioStreamCache.availableCapacity(at: directory))
-        XCTAssertGreaterThan(available, 0)
+        // The opportunistic allowance can legitimately be zero under storage pressure.
+        XCTAssertGreaterThanOrEqual(available, 0)
     }
 }
 

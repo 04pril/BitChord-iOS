@@ -72,7 +72,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(s.canvasOverCellular)
         XCTAssertTrue(s.spotifyCanvasAutoHide)
         XCTAssertFalse(s.prioritizeSpotifyCanvas)
-        XCTAssertEqual(s.directSourceStream, .off)
+        XCTAssertEqual(s.directSourceStream, .queueOnly)
         XCTAssertTrue(s.syncedLyrics)
         XCTAssertTrue(s.lyricsBlur)
         XCTAssertEqual(s.lyricsOffsetMs, 0)
@@ -540,14 +540,14 @@ final class AppSettingsTests: XCTestCase {
     /// Direct source stream was a switch before Queue only, and still is on Android: on keeps
     /// waiting for the sources (Always), off stays Off, on a relaunch and from a backup made
     /// before the change or on Android.
-    func testTheOldDirectSourceSwitchBecomesAlwaysOrOff() {
+    func testTheOldDirectSourceSwitchBecomesAlwaysOrContinuity() {
         defaults.set(true, forKey: "direct_source_stream")
         XCTAssertEqual(makeSettings().directSourceStream, .always)
         XCTAssertEqual(defaults.string(forKey: "direct_source_stream_mode"), "ALWAYS")
 
         let s = makeSettings()
         s.importPrefs(["direct_source_stream": .bool(false)])
-        XCTAssertEqual(s.directSourceStream, .off)
+        XCTAssertEqual(s.directSourceStream, .queueOnly)
         s.importPrefs(["direct_source_stream": .bool(true)])
         XCTAssertEqual(s.directSourceStream, .always)
     }
@@ -561,6 +561,59 @@ final class AppSettingsTests: XCTestCase {
         s.directSourceStream = .queueOnly
         XCTAssertEqual(defaults.object(forKey: "direct_source_stream") as? Bool, false)
         XCTAssertEqual(makeSettings().directSourceStream, .queueOnly)
+    }
+
+    func testPlaybackDiagnosticsDistinguishSavedAndEffectiveSwitchForEachMode() {
+        let s = makeSettings()
+        s.automaticSourceSwitch = true
+        s.addonWaitSeconds = 15
+        for mode in DirectSourceStream.allCases {
+            s.directSourceStream = mode
+            XCTAssertTrue(s.playbackDiagnosticSummary.contains(mode.rawValue))
+            XCTAssertTrue(s.playbackDiagnosticSummary.contains("addonWait=15s"))
+            XCTAssertTrue(s.playbackDiagnosticSummary.contains("autoSwitch=\(mode == .queueOnly ? "ON" : "OFF") (saved=ON)"))
+        }
+    }
+
+    func testPlaybackModeOptionsPersistAndFastModeSurvivesRelaunch() {
+        let s = makeSettings()
+        XCTAssertEqual(AppSettings.addonWaitChoices, [5, 12, 15, 20])
+        XCTAssertEqual(s.addonWaitSeconds, 12)
+        XCTAssertTrue(s.automaticSourceSwitch)
+        s.directSourceStream = .off
+        s.automaticSourceSwitch = false
+        s.addonWaitSeconds = 20
+        let restored = makeSettings()
+        XCTAssertEqual(restored.directSourceStream, .off, "new Fast is not migrated as legacy Off again")
+        XCTAssertFalse(restored.automaticSourceSwitch)
+        XCTAssertEqual(restored.addonWaitSeconds, 20)
+    }
+
+    func testPlaybackModeBackupKeepsTheSelectedModeAndOptions() {
+        let s = makeSettings()
+        s.directSourceStream = .off
+        s.automaticSourceSwitch = false
+        s.addonWaitSeconds = 15
+        let backup = s.exportPrefs()
+        s.directSourceStream = .always
+        s.importPrefs(backup)
+        XCTAssertEqual(s.directSourceStream, .off)
+        XCTAssertFalse(s.automaticSourceSwitch)
+        XCTAssertEqual(s.addonWaitSeconds, 15)
+    }
+
+    func testLegacyOffMigratesOnceAndInvalidWaitReturnsToTwelve() {
+        defaults.set("OFF", forKey: "direct_source_stream_mode")
+        defaults.set(8, forKey: "addon_wait_seconds")
+        let s = makeSettings()
+        XCTAssertEqual(s.directSourceStream, .queueOnly)
+        XCTAssertEqual(s.addonWaitSeconds, 12)
+        s.addonWaitSeconds = 20
+        s.addonWaitSeconds = 99
+        XCTAssertEqual(s.addonWaitSeconds, 12)
+        XCTAssertEqual(makeSettings().addonWaitSeconds, 12, "a clamped setting must persist the value the UI shows")
+        s.directSourceStream = .off
+        XCTAssertEqual(makeSettings().directSourceStream, .off)
     }
 
     func testUnknownStoredEnumValuesFallBackToDefaults() {

@@ -27,6 +27,10 @@ mkdir -p "$STAGE/Payload"
 cp -R "$APP" "$STAGE/Payload/"
 STAGED="$STAGE/Payload/BitChord.app"
 
+# A prior build-for-testing can leave a test bundle in the shared product directory.
+# It must never ship in a sideload IPA, even when a normal build did not clean it up.
+find "$STAGED" -type d -name '*.xctest' -prune -exec rm -rf {} \;
+
 # Inside out: embedded frameworks, then each extension with its entitlements, then the app.
 find "$STAGED" -name "*.framework" -type d -prune | while read -r fw; do
   codesign --force --sign - --timestamp=none "$fw"

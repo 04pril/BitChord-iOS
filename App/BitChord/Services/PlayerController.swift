@@ -105,6 +105,7 @@ final class PlayerController {
     private(set) var currentStream: ResolvedStream?
     /// The latest queue action's notice, for the toast above the mini player.
     var notice: QueueNotice?
+    private(set) var isClearingPlaybackCache = false
     /// A version swap (song ↔ video, revert, upgrade) is under way.
     private(set) var isSwappingVersion = false
     /// How far the last song ↔ music video switch got lining the two cuts up (fetching,
@@ -364,6 +365,32 @@ final class PlayerController {
     @discardableResult
     func clearQueue() -> QueueEditResult { refusalNotice(queue.clearUserQueue()) }
 
+    /// A cold playback test starts without opened assets, queued downloads or forced renditions.
+    /// Saved downloads and imported files live outside the playback cache and are preserved.
+    @discardableResult
+    func clearPlaybackCache() async -> Int64 {
+        guard !isClearingPlaybackCache else { return 0 }
+        isClearingPlaybackCache = true
+        defer { isClearingPlaybackCache = false }
+        for song in queue.state.songs {
+            qualityUpgrades?.forget(song)
+            sources.facts.forget(itemID: sources.engineItemID(for: song))
+        }
+        engine.stop()
+        sources.resetPlaybackCacheState()
+        engine.sourcePolicyDidChange()
+        currentStream = nil
+        heldStreams.removeAll()
+        heldStreamOrder.removeAll()
+        lastStartedSong = nil
+        observers.values.forEach { $0.playbackDidStop() }
+        _ = await readAheadJob?.value
+        let freed = await SettingsStorage.clearSongCache(sources.cache)
+        TrackLog.i("PlaybackPolicy", "playback cache cleared; freed=\(freed) B; next playback opens afresh; " + settings.playbackDiagnosticSummary)
+        notice = QueueNotice(message: L10n.tr("playback_cache_cleared"), symbol: "trash")
+        return freed
+    }
+
     // MARK: - Transport
 
     func togglePlayPause() {
@@ -383,6 +410,7 @@ final class PlayerController {
     }
 
     private func playNow() {
+        guard !isClearingPlaybackCache else { return }
         guard currentSong != nil else { return }
         if engine.currentItem == nil, let song = currentSong {
             // Restored or failed before it ever opened: load it now.
@@ -844,6 +872,7 @@ final class PlayerController {
     // MARK: - Queue → engine
 
     private func queueDidChangeItem(_ change: QueueItemChange) {
+        guard !isClearingPlaybackCache else { return }
         guard let song = change.song else {
             engine.stop()
             currentStream = nil
@@ -888,10 +917,15 @@ final class PlayerController {
 
     private func bindQueue() {
         trackers.append(ChangeTracker.track({ [weak self] in
-            self.map { [$0.settings.directSourceStream.rawValue, String($0.settings.addonWaitSeconds)] } ?? []
+            self.map { [$0.settings.directSourceStream.rawValue, String($0.settings.addonWaitSeconds),
+                        $0.settings.audioQualityWifi.rawValue, $0.settings.audioQualityCellular.rawValue,
+                        String($0.settings.dolbyAtmos)] } ?? []
         }, initial: false) { [weak self] _ in
             self?.sources.sourcePolicyDidChange()
             self?.engine.sourcePolicyDidChange()
+            // Observation callbacks may arrive in either order. Always make the last cache
+            // plan after synchronizing the new policy, even if prefetchKey fired first.
+            self?.prefetchUpcoming()
         })
         // Any edit can change what follows the current track: the engine asks again, and the
         // cache reads ahead for the new neighbours.
@@ -930,7 +964,7 @@ final class PlayerController {
     /// prefetch.
     private func prefetchUpcoming() {
         guard let cache = sources.cache else { return }
-        let songs = queue.state.currentSong != nil && engine.playWhenReady
+        let songs = !isClearingPlaybackCache && queue.state.currentSong != nil && engine.playWhenReady
             ? Array(queue.state.upcoming.prefix(AudioStreamCache.queueDepth))
             : []
         let items = songs.isEmpty ? [] : sources.prefetchItems(for: songs)
@@ -949,6 +983,7 @@ final class PlayerController {
     }
 
     private func streamResolved(itemID: String, stream: ResolvedStream) {
+        guard !isClearingPlaybackCache else { return }
         // The queued row this answer is for. Nil means the copy the row is on now isn't the one
         // that resolved: a late answer for the copy an upgrade replaced is not it.
         guard let song = song(forEngineItemID: itemID) else { return }

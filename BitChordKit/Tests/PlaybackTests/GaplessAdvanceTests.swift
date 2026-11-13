@@ -70,7 +70,7 @@ final class GaplessAdvanceTests: EngineTestCase {
 
     /// Skip timing is measured from this log line. A preloaded start used to log "at once" as the
     /// skip happened, before anything sounded (a playlist's row was still waiting a second later).
-    func testAPreloadedStartLogsItsFirstAudioWhenItPlaysWithTheDelay() async throws {
+    func testAPreloadedStartLogsItsReadyAndPlayingMarkerOnce() async throws {
         let first = try tone(5, name: "gapless-timed-1")
         let second = try tone(5, frequency: 550, name: "gapless-timed-2")
         let h = harness(queue: [first, second])
@@ -81,11 +81,11 @@ final class GaplessAdvanceTests: EngineTestCase {
 
         XCTAssertTrue(h.engine.skipToNext())
 
-        let logged = { TrackLog.shared.heldLines.map(\.text).filter { $0.contains("first audio for \(second.id) ") } }
+        let logged = { TrackLog.shared.heldLines.map(\.text).filter { $0.contains("player ready and playing for \(second.id) ") } }
         await waitUntil("its first audio is logged") { !logged().isEmpty }
         XCTAssertTrue(h.engine.deck(deckID).isPlaying, "logged only once the player plays")
         XCTAssertEqual(logged().count, 1)
-        XCTAssertTrue(logged().first?.hasSuffix("ms after it was asked for") == true, "the real delay: \(logged())")
+        XCTAssertTrue(logged().first?.hasSuffix("(state marker, not measured audible output)") == true, "the real delay: \(logged())")
     }
 
     func testASeekStillLandingWhenTheNextItemStartsLeavesThePositionToTheNextItem() async throws {

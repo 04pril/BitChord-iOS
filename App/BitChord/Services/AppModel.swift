@@ -307,6 +307,10 @@ final class AppModel {
             atmosAllowed: { DeviceCodecs.shared.playsDolbyAtmos && Self.atmosSetting.value },
             onRefused: { url, status in Task { await resolver.onPlaybackRefused(url: url, statusCode: status) } }
         )
+        sources.synchronizePlaybackPolicy = { [weak settings, weak ceiling] in
+            guard let settings, let ceiling else { return }
+            ceiling.refresh(from: settings)
+        }
         sources.isOffline = { [network] in !network.status.isOnline }
         // An add-on's lossless and Atmos arrive as playlists: laid out as one file each, so the
         // cache fetches them once and keeps them.
@@ -447,6 +451,12 @@ final class AppModel {
         // Stopping recording preserves the session so it can still be exported.
         trackers.append(ChangeTracker.track({ [settings] in settings.keepDiagnosticLog }, initial: false) { on in
             DiagnosticLog.shared.setEnabled(on, header: DiagnosticLog.launchHeader(), deleteFilesWhenDisabled: false)
+        })
+
+        trackers.append(ChangeTracker.track({ [settings] in
+            [String(settings.keepDiagnosticLog), settings.playbackDiagnosticSummary]
+        }) { [settings] _ in
+            TrackLog.i("PlaybackPolicy", settings.playbackDiagnosticSummary)
         })
 
         // Automix measures nothing while it is off or a party is on (every device then moves

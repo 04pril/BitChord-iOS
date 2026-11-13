@@ -106,14 +106,15 @@ public final class DiagnosticLog: @unchecked Sendable {
 
     /// Flush and combine oldest-to-newest on the writer queue. Sharing uses an immutable copy,
     /// so rotation or stopping recording cannot change a file while the share sheet reads it.
-    public func snapshotForSharing() async throws -> URL {
+    public func snapshotForSharing(context: String? = nil) async throws -> URL {
         try await withCheckedThrowingContinuation { continuation in
             queue.async { [self] in
                 do {
                     let folder = FileManager.default.temporaryDirectory.appending(path: "BitChord-Log-Exports", directoryHint: .isDirectory)
                     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                     let output = folder.appending(path: "BitChord-full-log-\(Int(now().timeIntervalSince1970))-\(UUID().uuidString.prefix(6)).log")
-                    var data = Data((Self.launchHeader() + "\n").utf8)
+                    let exportHeader = Self.launchHeader() + (context.map { "\nexport context: " + Self.scrub($0) } ?? "")
+                    var data = Data((exportHeader + "\n").utf8)
                     for file in [rotatedFileURL, fileURL] where FileManager.default.fileExists(atPath: file.path) {
                         data.append(try Data(contentsOf: file))
                     }

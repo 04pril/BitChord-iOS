@@ -28,7 +28,7 @@ final class ReplayAggregationTests: XCTestCase {
         XCTAssertEqual(summary.distinctSongs, 2)
         XCTAssertFalse(summary.isEmpty)
         XCTAssertEqual(summary.since, "2026-08")
-        XCTAssertEqual(summary.label, "August 2026")
+        XCTAssertEqual(summary.label, ReplayPeriod.thisMonth.label(today: at, calendar: replayUTCCalendar()))
     }
 
     func testEmptyWhenNothingRecorded() throws {

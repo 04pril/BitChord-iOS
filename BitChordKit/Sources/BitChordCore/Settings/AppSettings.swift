@@ -155,12 +155,23 @@ public final class AppSettings {
     public static let addonWaitChoices = [5, 12, 15, 20]
     public var addonWaitSeconds: Int = 12 {
         didSet {
-            if !Self.addonWaitChoices.contains(addonWaitSeconds) { addonWaitSeconds = 12; return }
+            if !Self.addonWaitChoices.contains(addonWaitSeconds) { addonWaitSeconds = 12 }
             write(.addonWaitSeconds, addonWaitSeconds)
         }
     }
     public var allowsAutomaticSourceSwitch: Bool {
         directSourceStream == .queueOnly && automaticSourceSwitch
+    }
+
+    /// Human-readable policy captured at export and each mode change, without credentials.
+    public var playbackDiagnosticSummary: String {
+        let mode: String
+        switch directSourceStream {
+        case .off: mode = "빠른 재생 / Fast playback"
+        case .queueOnly: mode = "연속 재생 우선 / Continuous playback"
+        case .always: mode = "애드온 우선 재생 / Addons first"
+        }
+        return "playback settings: mode=\(mode) (\(directSourceStream.rawValue)); autoSwitch=\(allowsAutomaticSourceSwitch ? "ON" : "OFF") (saved=\(automaticSourceSwitch ? "ON" : "OFF")); addonWait=\(addonWaitSeconds)s; wifi=\(audioQualityWifi.rawValue); cellular=\(audioQualityCellular.rawValue)"
     }
 
     /// The app's own stereo widening (not object-based spatial audio).

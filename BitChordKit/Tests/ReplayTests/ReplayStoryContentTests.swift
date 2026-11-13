@@ -165,7 +165,7 @@ final class ReplayStoryContentTests: XCTestCase {
 
     func testHabitsAndRecap() {
         let stats = replayHabitStats(for: summary())
-        XCTAssertEqual(stats.map(\.value), ["4", "14 August", "9 PM"])
+        XCTAssertEqual(stats.map(\.value), ["4", replayFormatDay("2026-08-14"), "9 PM"])
         XCTAssertEqual(stats[1].label, "Your biggest day: 15 min")
         let lines = replayRecapLines(for: summary())
         XCTAssertEqual(lines.map(\.label), ["Minutes", "Top song", "Top artist", "Top album", "Top genre"])

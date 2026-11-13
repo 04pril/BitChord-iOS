@@ -227,6 +227,7 @@ public final class AudioPlayerEngine {
     @ObservationIgnored var preloadTask: Task<Void, Never>?
     /// The item ``preloadTask`` is opening, so a refresh that asks for the same one leaves it be.
     @ObservationIgnored var preloadingItemID: String?
+    @ObservationIgnored var sourcePolicyGeneration = 0
     @ObservationIgnored var preloadGeneration = 0
     @ObservationIgnored var armTask: Task<Void, Never>?
     @ObservationIgnored var statsTask: Task<Void, Never>?
@@ -479,6 +480,10 @@ public final class AudioPlayerEngine {
 
     /// Drop preparations made under a former source policy; the sounding entry stays attached.
     public func sourcePolicyDidChange() {
+        sourcePolicyGeneration += 1
+        // An armed crossfade can own a second preparation of the same upcoming row.
+        // Cancel that preparation too; a transition already sounding is left to finish.
+        crossfade.onUpcomingChanged(to: nil)
         preloadGeneration += 1
         preloadTask?.cancel()
         preloadTask = nil

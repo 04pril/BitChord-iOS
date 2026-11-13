@@ -344,8 +344,7 @@ struct SettingsScreen: View {
         case .clearSongCache:
             SettingsRow(symbol: "trash", title: L10n.clearSongCache, subtitle: L10n.clearSongCacheSubtitle) {
                 Task {
-                    await SettingsStorage.clearSongCache(app.audioCache)
-                    player.notice = QueueNotice(message: L10n.songCacheCleared, symbol: "trash")
+                    await player.clearPlaybackCache()
                 }
             }
         case .clearImageCache:

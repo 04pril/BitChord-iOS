@@ -90,7 +90,7 @@ final class ReplayPosterContentTests: XCTestCase {
             XCTFail("genres card should be a genre list")
         }
         if case .habits(let stats) = replayPosterCard(for: s, page: .habits) {
-            XCTAssertEqual(stats.map(\.value), ["4", "14 August"])
+            XCTAssertEqual(stats.map(\.value), ["4", replayFormatDay("2026-08-14")])
         } else {
             XCTFail("habits card should be habit stats")
         }

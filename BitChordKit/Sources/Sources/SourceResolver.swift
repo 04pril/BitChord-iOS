@@ -167,6 +167,9 @@ public final class SourceResolver: StreamResolving, @unchecked Sendable {
             while let leg = try await group.next() {
                 switch leg {
                 case .substitute(let stream?):
+                    // If the backup failed, there is no playable fallback to release. A source
+                    // may still rescue the start within its own bounded lookup timeout.
+                    if case .failure? = youTubeResult { return stream }
                     if request.waitsForSources, waitExpired || Double(TrackLog.ms(since: started)) >= holdCap * 1_000 {
                         substituteDone = true
                         note("a ranked source answered after the start deadline; keeping YouTube")
@@ -214,7 +217,10 @@ public final class SourceResolver: StreamResolving, @unchecked Sendable {
                     if substituteDone { return try failure.get() }
                 case .waitedLongEnough:
                     waitExpired = true
-                    if !request.allowsAutomaticSourceSwitch { lookup.cancel() }
+                    if !request.allowsAutomaticSourceSwitch {
+                        if case .failure? = youTubeResult { /* The only remaining playable route. */ }
+                        else { lookup.cancel() }
+                    }
                     guard var stream = held else { continue }
                     if request.allowsAutomaticSourceSwitch {
                         stream.belowRequest = true
@@ -232,17 +238,25 @@ public final class SourceResolver: StreamResolving, @unchecked Sendable {
 
     /// The ranked sources' lookup for `videoId` that was still running when YouTube won its race,
     /// handed over once (Android `DirectSourceGate.stillLooking`): whoever takes it owns it, and
-    /// cancels it if it no longer wants the answer. Nil once it has finished untaken.
+    /// cancels it if it no longer wants the answer. Completed answers remain briefly available
+    /// while the decoder opens; the holding map is bounded.
     public func takeStillLooking(_ videoId: String) -> Task<ResolvedStream?, Never>? {
         lookupsLock.withLock { stillLooking.removeValue(forKey: videoId) }
     }
 
     private func handOff(_ lookup: Task<ResolvedStream?, Never>, for videoId: String) {
-        lookupsLock.withLock { stillLooking[videoId] = lookup }
-        // Kept only while it runs, as Android's is: one nobody took finishes into the sources'
-        // caches, where a later search finds its answer.
+        lookupsLock.withLock {
+            if let former = stillLooking[videoId], former != lookup { former.cancel() }
+            if stillLooking.count >= 32, stillLooking[videoId] == nil, let old = stillLooking.keys.first {
+                stillLooking.removeValue(forKey: old)?.cancel()
+            }
+            stillLooking[videoId] = lookup
+        }
+        // A current track can deliberately start on YouTube after the addon already answered.
+        // Keep that result long enough for track analysis and the upgrade controller's handoff.
         Task { [weak self] in
             _ = await lookup.value
+            try? await Task.sleep(for: .seconds(30))
             guard let self else { return }
             self.lookupsLock.withLock {
                 if self.stillLooking[videoId] == lookup { self.stillLooking[videoId] = nil }

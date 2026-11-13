@@ -193,6 +193,7 @@ extension AudioPlayerEngine {
     /// ``AudioOpenFlight``). An explicit `source` (a recovery's) is always opened on its own.
     /// `joined` is a flight the caller already joined, its place as a waiter taken over here.
     func openAudio(for item: PlayableItem, source: PlayableItem.Source?, joined: AudioOpenFlight? = nil) async throws -> OpenedAudio {
+        let policy = sourcePolicyGeneration
         if source == nil, let cached = openedAudio[item.id] {
             joined?.leave()
             return cached
@@ -216,8 +217,10 @@ extension AudioPlayerEngine {
             flight.leave()
         }
         try Task.checkCancellation()
-        openedAudio[item.id] = opened
-        pruneCaches()
+        if policy == sourcePolicyGeneration {
+            openedAudio[item.id] = opened
+            pruneCaches()
+        }
         return opened
     }
 

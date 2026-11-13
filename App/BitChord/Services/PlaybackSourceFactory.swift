@@ -147,8 +147,18 @@ final class PlaybackSourceFactory {
         self.onRefused = onRefused
     }
 
+    var synchronizePlaybackPolicy: () -> Void = {}
+
     func sourcePolicyDidChange() {
+        synchronizePlaybackPolicy()
         readAheadStreams.cancelAll()
+    }
+
+    func resetPlaybackCacheState() {
+        readAheadStreams.cancelAll()
+        renditions.removeAll()
+        upgradeSlotOrigins.removeAll()
+        playingKeys.clear()
     }
 
     /// The engine item for `song`: id per queue slot, lock-screen artwork, the catalogue duration.
@@ -606,6 +616,9 @@ final class PlaybackSourceFactory {
         let soundingWait = self.soundingWait
         return { [weak self] in
             let wanted = request()
+            TrackLog.i(PlaybackSourceFactory.logCategory,
+                       "source request mode=\(wanted.playbackMode?.rawValue ?? "legacy") autoSwitch=\(wanted.allowsAutomaticSourceSwitch) addonWait=\(wanted.sourceWaitSeconds.map { String($0) } ?? "default")s quality=\(wanted.tier)",
+                       about: song.videoId)
             // Fast mode ignores addon caches, forced copies and both lookup/read-ahead caches.
             let resolver: any StreamResolving = wanted.playbackMode == .off && sourceKey == nil ? (youTube ?? baseResolver) : baseResolver
             // Re-read the remaining budget immediately before lookup, after cache metadata and
@@ -1145,7 +1158,7 @@ final class ReadAheadStreams: @unchecked Sendable {
         let now = Date()
         // Stale entries are kept a while, so ``wentStale(_:request:atmosAllowed:)`` can tell.
         entries = entries.filter { now.timeIntervalSince($0.value.foundAt) < Self.staleKept }
-        entries[videoId] = Entry(stream: stream, request: request, atmosAllowed: atmosAllowed, foundAt: now)
+        entries[videoId] = Entry(stream: stream, request: request.readAheadCacheIdentity, atmosAllowed: atmosAllowed, foundAt: now)
     }
 
     /// The stream found for `videoId`, if it was found for this same request and Atmos switch (a
@@ -1156,14 +1169,14 @@ final class ReadAheadStreams: @unchecked Sendable {
 
     /// ``stream(for:request:atmosAllowed:)`` with `lock` held.
     private func kept(_ videoId: String, request: StreamRequest, atmosAllowed: Bool) -> ResolvedStream? {
-        guard let entry = entries[videoId], entry.request == request, entry.atmosAllowed == atmosAllowed, Self.isFresh(entry) else { return nil }
+        guard let entry = entries[videoId], entry.request == request.readAheadCacheIdentity, entry.atmosAllowed == atmosAllowed, Self.isFresh(entry) else { return nil }
         return entry.stream
     }
 
     /// Whether a copy was found for `videoId` under this request, and has gone past its freshness:
     /// the track looks again, rather than playing a dead URL or starting on YouTube.
     func wentStale(_ videoId: String, request: StreamRequest, atmosAllowed: Bool) -> Bool {
-        guard let entry = lock.withLock({ entries[videoId] }), entry.request == request, entry.atmosAllowed == atmosAllowed else { return false }
+        guard let entry = lock.withLock({ entries[videoId] }), entry.request == request.readAheadCacheIdentity, entry.atmosAllowed == atmosAllowed else { return false }
         return !Self.isFresh(entry)
     }
 
@@ -1194,7 +1207,7 @@ final class ReadAheadStreams: @unchecked Sendable {
                 resolve: @escaping @Sendable () async throws -> ResolvedStream,
                 then: (@Sendable (ResolvedStream) async -> Void)? = nil) -> (task: Task<ResolvedStream, Error>, startedAt: ContinuousClock.Instant) {
         lock.withLock {
-            if let running = lookups[videoId], running.request == request, running.atmosAllowed == atmosAllowed {
+            if let running = lookups[videoId], running.request == request.readAheadCacheIdentity, running.atmosAllowed == atmosAllowed {
                 if let then { lookups[videoId]?.then.append(then) }
                 return (running.task, running.startedAt)
             }
@@ -1224,7 +1237,7 @@ final class ReadAheadStreams: @unchecked Sendable {
                 }
             }
             let startedAt = ContinuousClock.now
-            lookups[videoId] = Lookup(task: task, request: request, atmosAllowed: atmosAllowed, startedAt: startedAt, token: token,
+            lookups[videoId] = Lookup(task: task, request: request.readAheadCacheIdentity, atmosAllowed: atmosAllowed, startedAt: startedAt, token: token,
                                       then: then.map { [$0] } ?? [])
             return (task, startedAt)
         }
@@ -1233,7 +1246,7 @@ final class ReadAheadStreams: @unchecked Sendable {
     /// The lookup still running for `videoId` under this request, if any.
     func lookup(for videoId: String, request: StreamRequest, atmosAllowed: Bool) -> Task<ResolvedStream, Error>? {
         lock.withLock {
-            guard let running = lookups[videoId], running.request == request, running.atmosAllowed == atmosAllowed else { return nil }
+            guard let running = lookups[videoId], running.request == request.readAheadCacheIdentity, running.atmosAllowed == atmosAllowed else { return nil }
             return running.task
         }
     }
@@ -1389,6 +1402,13 @@ final class PlayingCacheKeys: @unchecked Sendable {
         lock.withLock {
             guard let known = opened.last(where: { $0.item == item }), known.videoId == videoId else { return }
             remember(known)
+        }
+    }
+
+    func clear() {
+        lock.withLock {
+            opened.removeAll()
+            current.removeAll()
         }
     }
 

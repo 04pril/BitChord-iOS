@@ -106,8 +106,24 @@ final class QualityCeilingTests: XCTestCase {
             XCTAssertEqual(ceiling.currentRequest.tier, .lossless, "the quality ceiling still applies")
 
             ceiling.setInParty(false)
-            XCTAssertEqual(ceiling.currentRequest, .playback(.lossless, directSource: mode), "\(mode)")
+            XCTAssertEqual(ceiling.currentRequest, .playback(.lossless, directSource: mode, sourceWaitSeconds: 12), "\(mode)")
         }
+    }
+
+    @MainActor
+    func testRefreshSynchronizesModeAndBudgetBeforeANewPreparation() {
+        let settings = AppSettings(defaults: makeEphemeralDefaults(), credentials: InMemoryCredentialStore())
+        let ceiling = PlaybackQualityCeiling(settings: settings, network: FakeNetworkMonitor(.wifi))
+        settings.directSourceStream = .always
+        settings.addonWaitSeconds = 5
+        settings.automaticSourceSwitch = false
+        ceiling.refresh(from: settings)
+        XCTAssertEqual(ceiling.currentRequest.playbackMode, .always)
+        XCTAssertEqual(ceiling.currentRequest.sourceWaitSeconds, 5)
+        XCTAssertFalse(ceiling.currentRequest.allowsAutomaticSourceSwitch)
+        settings.directSourceStream = .off
+        ceiling.refresh(from: settings)
+        XCTAssertEqual(ceiling.currentRequest.permittedSources, [.youtube])
     }
 
     /// The lossless follow-up after a lossy upgrade depends on the connection in hand *now*.
