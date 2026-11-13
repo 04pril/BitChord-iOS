@@ -113,7 +113,9 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
         }
         guard shouldStart else { return }
         let end = min(info.contentLength, 1_024 * 1_024)
-        let prefix = await store.cachedLength(key, position: 0, length: end)
+        // cachedLength returns a NEGATIVE hole length for an uncached opening, not an offset.
+        // The prefix helper maps that to zero and preserves a partially cached prefix.
+        let prefix = min(end, await store.cachedPrefixBytes(key))
         guard prefix < end else { return }
         do {
             // Install the anchor before serving the first two-byte probe; its cancellation must
@@ -125,7 +127,7 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
             let task = Task {
                 await TrackLog.about(key.trackID) {
                     let started = ContinuousClock.now
-                    TrackLog.i(AudioCacheStore.category, "YouTube AAC opening warmup [0, \(end)) started", about: key.trackID)
+                    TrackLog.i(AudioCacheStore.category, "YouTube AAC opening warmup [\(prefix), \(end)) started", about: key.trackID)
                     do {
                         do {
                             try Task.checkCancellation()

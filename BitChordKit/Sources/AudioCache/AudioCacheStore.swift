@@ -581,7 +581,7 @@ actor AudioCacheStore {
         guard let entry = entries[key], let length = entry.contentLength else {
             throw source == nil ? AudioCacheError.notCached(key) : AudioCacheError.badResponse("\(key) has no length yet")
         }
-        guard position < length else {
+        guard position >= 0, position < length else {
             throw AudioCacheError.unexpectedEndOfStream(key: key, position: position)
         }
         let target = min(length, max(wantEnd, position + 1))
