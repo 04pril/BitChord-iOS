@@ -32,8 +32,13 @@ struct GoogleSignInScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            GoogleSignInWebView(controller: session.controller)
-                .ignoresSafeArea(edges: .bottom)
+            if session.browserProxyReady {
+                GoogleSignInWebView(controller: session.controller)
+                    .ignoresSafeArea(edges: .bottom)
+            } else {
+                ContentUnavailableView(L10n.tr("login_proxy_unavailable"), systemImage: "network.slash",
+                                       description: Text(L10n.tr("login_proxy_unavailable_help")))
+            }
         }
         .background(Color(.systemBackground))
         .task {
@@ -41,7 +46,7 @@ struct GoogleSignInScreen: View {
         }
         // Both ends of one pair: whatever takes the screen off and back on (a tab switch) must not
         // leave the page stopped.
-        .onAppear { session.controller.resume() }
+        .onAppear { if session.browserProxyReady { session.controller.resume() } }
         .onDisappear { session.controller.tearDown() }
     }
 
@@ -107,20 +112,31 @@ struct GoogleSignInScreen: View {
 @Observable
 final class GoogleSignInModel {
     let controller: YouTubeLoginWebController
+    let browserProxyReady: Bool
     private(set) var pageReady = false
     private(set) var confirming = false
     private(set) var captureFailed = false
     private var started = false
 
     init(controller: YouTubeLoginWebController? = nil) {
-        self.controller = controller ?? YouTubeLoginWebController(mode: .signIn)
+        if let controller {
+            self.controller = controller
+            browserProxyReady = true
+        } else {
+            let store = WKWebsiteDataStore.default()
+            // Set before the web view is created: URLSession's proxy settings do
+            // not carry into WebKit's separate network process.
+            browserProxyReady = YTMUWGConfigureBrowserDataStore(store)
+            self.controller = YouTubeLoginWebController(mode: .signIn, dataStore: store)
+            DebugLog.d("InnerTube", "login browser network configured=\(browserProxyReady) appProxyActive=\(YTMUWGActiveThisLaunch())")
+        }
         self.controller.onPageReadyChange = { [weak self] ready in self?.pageReady = ready }
     }
 
     /// Clears the browser's Google cookies (never visiting Google's logout, which would sign a
     /// saved account out on Google's side) and opens the sign-in page. Once only.
     func start() async {
-        guard !started else { return }
+        guard !started, browserProxyReady else { return }
         started = true
         await controller.start()
     }

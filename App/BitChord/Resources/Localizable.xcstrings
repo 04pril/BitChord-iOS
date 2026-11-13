@@ -113601,6 +113601,38 @@
           }
         }
       }
+    },
+    "login_proxy_unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login proxy is not ready"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 프록시를 준비하지 못했습니다"
+          }
+        }
+      }
+    },
+    "login_proxy_unavailable_help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your proxy settings, fully close BitChord, then reopen it and try signing in again. The login page has not been opened."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프록시 설정을 확인하고 BitChord를 완전히 종료한 뒤 다시 열어 로그인해 주세요. 로그인 페이지는 열지 않았습니다."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

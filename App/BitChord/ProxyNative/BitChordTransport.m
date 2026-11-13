@@ -6,7 +6,7 @@
 void YTMUWGInstallTransportPatches(void) {}
 NSArray<NSString *> *YTMUWGTransportReportLines(void) {
     return @[@"transport: BitChord URLSession / HTTPAudioSource (app-local proxy)",
-             @"scope: URLSession API and cached HTTP audio; system AVFoundation HLS, canvas, WebKit and SMB are outside this proxy scope"];
+             @"scope: URLSession API, cached HTTP audio and the configured Google login WebKit data store; system AVFoundation HLS, other WebKit data stores, canvas and SMB are outside this proxy scope"];
 }
 NSArray<NSString *> *YTMUWGScanTransportClasses(void) {
     return YTMUWGTransportReportLines();

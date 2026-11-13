@@ -47,6 +47,10 @@ YTMUWGState YTMUWGCurrentState(void);
 BOOL YTMUWGActiveThisLaunch(void);
 NSString *YTMUWGStateDescription(YTMUWGState state);
 
+// Apply this launch's proxy to a WKWebsiteDataStore before creating/loading the
+// login web view. Off returns YES without changing it. NO means do not navigate.
+BOOL YTMUWGConfigureBrowserDataStore(id dataStore);
+
 // Profile (Keychain, this device only). Summaries never contain keys.
 BOOL YTMUWGHasProfile(void);
 NSDictionary *_Nullable YTMUWGInspectProfile(NSString *text, NSString *_Nullable *_Nullable reason);

@@ -37,6 +37,7 @@ static dispatch_queue_t gQueue;
 static atomic_uint gConfigsProxied, gSessionsProxied, gBackgroundConfigs, gSharedReplaced;
 static atomic_uint gProxyFailures, gBlockedRequests, gHTTP3Cleared, gDataURLFetches;
 static atomic_uint gRebinds;
+static atomic_uint gBrowserConfigsProxied, gBrowserConfigFailures;
 static BOOL gFFmpegProxy;
 static NSString *gFFmpegMode = @"not set";
 
@@ -242,6 +243,43 @@ static void ApplyProxy(NSURLSessionConfiguration *config) {
     }
 }
 
+BOOL YTMUWGConfigureBrowserDataStore(id dataStore) {
+    // The network process used by WebKit does not inherit URLSession hooks.
+    // Keep the same mode, per-launch authentication and no-direct-failover policy.
+    if (!gActive) {
+        if (!YTMUWGSettingEnabled() || !YTMUMasterEnabled()) return YES;
+        // Just enabled, or unsupported: restart/configure instead of silently
+        // opening an unproxied login page.
+        atomic_fetch_add(&gBrowserConfigFailures, 1);
+        return NO;
+    }
+    @try {
+        if (!YTMUWGIsSupportedOS() || ![dataStore respondsToSelector:sSetProxyConfigurations] ||
+            ![dataStore respondsToSelector:sProxyConfigurations]) {
+            atomic_fetch_add(&gBrowserConfigFailures, 1);
+            return NO;
+        }
+        id proxy = CreateProxyConfig();
+        if (!proxy) {
+            atomic_fetch_add(&gBrowserConfigFailures, 1);
+            return NO;
+        }
+        pSetFailover((__bridge void *)proxy, false);
+        ((void (*)(id, SEL, id))objc_msgSend)(dataStore, sSetProxyConfigurations, @[proxy]);
+        id applied = ((id (*)(id, SEL))objc_msgSend)(dataStore, sProxyConfigurations);
+        if (![applied isKindOfClass:NSArray.class] || [applied count] != 1 ||
+            pGetFailover((__bridge void *)[applied firstObject])) {
+            atomic_fetch_add(&gBrowserConfigFailures, 1);
+            return NO;
+        }
+        atomic_fetch_add(&gBrowserConfigsProxied, 1);
+        return YES;
+    } @catch (NSException *exception) {
+        atomic_fetch_add(&gBrowserConfigFailures, 1);
+        return NO;
+    }
+}
+
 #pragma mark - Hooks
 
 static IMP ReplaceMethod(Class cls, SEL sel, IMP replacement) {
@@ -398,6 +436,8 @@ NSDictionary *YTMUWGProxyCounters(void) {
         @"ffmpegProxy": @(gFFmpegProxy),
         @"ffmpegMode": gFFmpegMode,
         @"rebinds": @(atomic_load(&gRebinds)),
+        @"browserConfigs": @(atomic_load(&gBrowserConfigsProxied)),
+        @"browserConfigFailures": @(atomic_load(&gBrowserConfigFailures)),
     };
 }
 
@@ -811,6 +851,8 @@ NSString *YTMUWGDiagnosticsReport(NSDictionary<NSString *, NSString *> *checks) 
     NSDictionary *p = YTMUWGProxyCounters();
     [lines addObject:[NSString stringWithFormat:@"proxy.applied: configs %@ sessions %@ background %@ sharedSession %@ | failures %@ blocked %@",
         p[@"configs"], p[@"sessions"], p[@"backgroundConfigs"], p[@"sharedReplaced"], p[@"proxyFailures"], p[@"blockedRequests"]]];
+    [lines addObject:[NSString stringWithFormat:@"proxy.browser: data stores configured %@ | setup failures %@ (configuration counters, not an egress IP check)",
+        p[@"browserConfigs"], p[@"browserConfigFailures"]]];
     [lines addObject:[NSString stringWithFormat:@"proxy.other: http3 requests cleared %@ | NSData URL loads tunnelled %@ | FFmpeg %@ | rebinds %@",
         p[@"http3Cleared"], p[@"dataURLFetches"], [p[@"ffmpegProxy"] boolValue] ? p[@"ffmpegMode"] : @"not set", p[@"rebinds"]]];
     [lines addObjectsFromArray:YTMUWGTransportReportLines()];
