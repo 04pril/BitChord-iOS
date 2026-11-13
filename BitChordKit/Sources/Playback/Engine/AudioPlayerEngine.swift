@@ -215,6 +215,8 @@ public final class AudioPlayerEngine {
     /// A ``replaceCurrent(with:)`` in flight, and which one (a newer swap supersedes it).
     @ObservationIgnored var swapTask: Task<Void, Never>?
     @ObservationIgnored var swapGeneration = 0
+    /// An optional quality replacement that was left unapplied to preserve current playback.
+    @ObservationIgnored public internal(set) var deferredReplacementID: String?
     /// How the last swap's crossover began: how far the better copy was from the playing one, in
     /// the track's seconds (positive is ahead, a span skipped; negative behind, a span heard twice),
     /// and whether it was started in step by the host clock. Nil until the latest swap has crossed over
@@ -336,6 +338,7 @@ public final class AudioPlayerEngine {
     /// false to restore a queue on launch without starting it. If `item` is the preloaded next
     /// item, it starts at once from the preloaded copy.
     public func load(_ item: PlayableItem, startingAt start: TimeInterval = 0, playWhenReady play: Bool? = nil) {
+        deferredReplacementID = nil
         PlaybackLog.info("playback load requested \(item.id) at=\(start)s requestedPlay=\(play.map { String($0) } ?? "inherit") previousIntent=\(playWhenReady)", about: item.trackID)
         cancelSwap()
         crossfade.onSkipRequested()

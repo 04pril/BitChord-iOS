@@ -754,14 +754,15 @@ final class PlayerController {
 
     /// Puts the playing row onto another copy of the same recording at the current position: a
     /// quality upgrade's `stream` under `tag`, or (nil tag) back onto its ordinary copy.
-    func reopenCurrent(onRendition tag: String?, stream: ResolvedStream?) {
+    func reopenCurrent(onRendition tag: String?, stream: ResolvedStream?, allowCutover: Bool = true, skipIfAlreadyCurrent: Bool = false) {
         guard let song = currentSong else { return }
         if let tag {
             sources.setRendition(tag, stream: stream, for: song)
         } else {
             sources.clearRendition(for: song)
         }
-        reopenCurrent()
+        if skipIfAlreadyCurrent, engine.currentItem?.id == sources.engineItemID(for: song) { return }
+        reopenCurrent(allowCutover: allowCutover)
     }
 
     private func updateTransitionSuspension() {
@@ -770,10 +771,10 @@ final class PlayerController {
 
     /// Same row, same timeline, another copy: crossed over without a gap while it plays (see
     /// ``AudioPlayerEngine/replaceCurrent(with:)``), reopened in place while it's paused.
-    private func reopenCurrent() {
+    private func reopenCurrent(allowCutover: Bool = true) {
         guard let song = currentSong else { return }
         currentStream = nil
-        engine.replaceCurrent(with: sources.item(for: song))
+        engine.replaceCurrent(with: sources.item(for: song), allowCutover: allowCutover)
     }
 
     /// A copy above YouTube (a substitute, an upgrade) that died mid-play is not retried: the row

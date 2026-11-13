@@ -83,6 +83,9 @@ final class DeckEntry {
     /// still arriving shows its playlist's length while AVFoundation, counting only the fragments
     /// it has read, says less; once whole, AVFoundation's own figure stands.
     var duration: TimeInterval? {
+        // Native duration access while a precise FLAC item is still preparing can wait on a
+        // frame scan. Use immutable known/catalogue length until readiness is reported.
+        guard playerItem.status == .readyToPlay else { return knownLength ?? item.duration }
         if let knownLength, isStillArriving { return knownLength }
         let decoded = playerItem.duration
         if decoded.isNumeric, decoded.seconds.isFinite, decoded.seconds > 0 { return decoded.seconds }
@@ -99,6 +102,7 @@ final class DeckEntry {
     /// Whether AVFoundation knows less of this segmented copy than its playlist says there is.
     var isStillArriving: Bool {
         guard let knownLength else { return false }
+        guard playerItem.status == .readyToPlay else { return true }
         let decoded = playerItem.duration
         guard decoded.isNumeric, decoded.seconds.isFinite, decoded.seconds > 0 else { return true }
         return decoded.seconds < knownLength - Self.arrivingMargin
@@ -169,6 +173,11 @@ final class PlaybackDeck: TransitionDeck {
     private(set) var current: DeckEntry? {
         didSet {
             if current !== oldValue {
+                seekGeneration += 1
+                pendingInitialSeek = false
+                let cancelledSeek = pendingSeekCallback
+                pendingSeekCallback = nil
+                cancelledSeek?(false)
                 stopHolding()
                 oldValue?.stopOpeningWarmup()
             }
@@ -184,10 +193,14 @@ final class PlaybackDeck: TransitionDeck {
     /// track" is armed, so the next track is never heard.
     var advancesAutomatically = true { didSet { updateActionAtItemEnd() } }
     private var pendingSeek: TimeInterval?
+    private var pendingInitialSeek = false
+    private var seekGeneration = 0
+    private var pendingSeekCallback: (@MainActor (Bool) -> Void)?
     /// Preroll state for a deck armed to start a crossfade: requested, running, done.
     private var wantsPreroll = false
     private var prerolling = false
     private var prerolled = false
+    private var prerollGeneration = 0
     private var filter = TransitionFilterCutoffs.open
     /// The current entry has stalled since it started (or was last sought): it then waits for
     /// ``resumeBuffer`` rather than ``startBuffer`` before it is started again.
@@ -280,14 +293,12 @@ final class PlaybackDeck: TransitionDeck {
         failure = nil
         pendingSeek = nil
         forgetBuffering()
+        pendingSeek = time > 0 ? time : nil
+        pendingInitialSeek = time > 0
         watch(entry)
-        if time > 0 {
-            pendingSeek = time
-            entry.playerItem.seek(to: CMTime(seconds: time, preferredTimescale: 1_000), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
-                DispatchQueue.main.async { MainActor.assumeIsolated { self?.seekFinished(entry) } }
-            }
-        }
+        if pendingSeek != nil { player.pause() }
         player.insert(entry.playerItem, after: nil)
+        issueInitialSeekIfReady(entry)
         logPlaybackStage("attach inserted", entry: entry)
         player.volume = storedVolume
         updateActionAtItemEnd()
@@ -300,6 +311,7 @@ final class PlaybackDeck: TransitionDeck {
     /// stall (or a start with nothing buffered yet) waits and shows as buffering; what ends that
     /// wait is ``startIfBuffered()``, not AVPlayer's guess at the link.
     private func startPlayer() {
+        guard pendingSeek == nil else { logPlaybackStage("play deferred until seek completes"); return }
         logPlaybackStage("playImmediately begin")
         let started = ContinuousClock.now
         player.automaticallyWaitsToMinimizeStalling = true
@@ -476,21 +488,23 @@ final class PlaybackDeck: TransitionDeck {
         guard wantsPreroll, !prerolling, !prerolled, !wantsToPlay, pendingSeek == nil,
               let entry = current, entry.playerItem.status == .readyToPlay, player.status == .readyToPlay else { return }
         prerolling = true
+        prerollGeneration += 1
+        let generation = prerollGeneration
         let rate = player.defaultRate > 0 ? player.defaultRate : 1
-        player.preroll(atRate: rate) { [weak self] _ in
+        player.preroll(atRate: rate) { [weak self] finished in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    guard let self, self.prerolling, self.current === entry else { return }
+                    guard let self, self.prerolling, self.current === entry, self.prerollGeneration == generation else { return }
                     self.prerolling = false
-                    // Finished or interrupted (a play or a seek cancels it), the deck is as ready
-                    // as it is going to get.
-                    self.prerolled = true
+                    self.prerolled = finished
+                    self.logPlaybackStage("preroll completed success=\(finished)")
                 }
             }
         }
     }
 
     private func resetPreroll() {
+        prerollGeneration += 1
         if prerolling { player.cancelPendingPrerolls() }
         wantsPreroll = false
         prerolling = false
@@ -594,32 +608,61 @@ final class PlaybackDeck: TransitionDeck {
         player.pause()
     }
 
-    func seek(to time: TimeInterval, completion: (@MainActor (Bool) -> Void)? = nil) {
-        guard let entry = current else { return }
-        hasEnded = false
-        pendingSeek = time
-        forgetBuffering()
-        if isHeldForBytes {
-            stopHolding()
-            startPlayer()
-        }
-        player.seek(to: CMTime(seconds: max(time, 0), preferredTimescale: 1_000), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+    private func issueInitialSeekIfReady(_ entry: DeckEntry) {
+        guard current === entry, pendingInitialSeek, let target = pendingSeek,
+              player.currentItem === entry.playerItem, entry.playerItem.status == .readyToPlay else { return }
+        pendingInitialSeek = false
+        let generation = seekGeneration
+        let completion = pendingSeekCallback
+        pendingSeekCallback = nil
+        let began = ContinuousClock.now
+        logPlaybackStage("seek begin target=\(target)s generation=\(generation)", entry: entry)
+        player.seek(to: CMTime(seconds: target, preferredTimescale: 1_000), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    self?.seekFinished(entry)
-                    completion?(finished)
+                    guard let self, self.current === entry, self.seekGeneration == generation else {
+                        completion?(false)
+                        return
+                    }
+                    self.logPlaybackStage("seek returned success=\(finished) target=\(target)s actual=\(entry.playerItem.currentTime().seconds)s elapsed=\(TrackLog.ms(since: began))ms generation=\(generation)", entry: entry)
+                    guard finished else {
+                        self.pendingSeek = nil
+                        self.failed(entry, NSError(domain: "BitChordPlayback", code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: "Playback seek was interrupted before reaching its target"]))
+                        completion?(false)
+                        return
+                    }
+                    self.pendingSeek = nil
+                    self.attemptPreroll()
+                    if self.wantsToPlay { self.startPlayer() }
+                    self.startIfBuffered()
+                    self.resumeIfBytesArrived()
+                    completion?(true)
                 }
             }
         }
+        logPlaybackStage("seek submitted in \(TrackLog.ms(since: began))ms", entry: entry)
     }
 
-    private func seekFinished(_ entry: DeckEntry) {
-        guard current === entry else { return }
-        logPlaybackStage("initial/explicit seek completed", entry: entry)
-        pendingSeek = nil
-        attemptPreroll()
-        startIfBuffered()
-        resumeIfBytesArrived()
+    func seek(to time: TimeInterval, completion: (@MainActor (Bool) -> Void)? = nil) {
+        guard let entry = current else { completion?(false); return }
+        hasEnded = false
+        let cancelledSeek = pendingSeekCallback
+        pendingSeekCallback = completion
+        seekGeneration += 1
+        pendingSeek = max(time, 0)
+        pendingInitialSeek = true
+        cancelledSeek?(false)
+        forgetBuffering()
+        let needsPreroll = wantsPreroll
+        resetPreroll()
+        wantsPreroll = needsPreroll
+        if isHeldForBytes { stopHolding() }
+        if entry.playerItem.status != .readyToPlay || player.currentItem !== entry.playerItem {
+            player.pause()
+            logPlaybackStage("seek deferred until item ready target=\(max(time, 0))s", entry: entry)
+        }
+        issueInitialSeekIfReady(entry)
     }
 
     // MARK: - Bytes still arriving
@@ -751,6 +794,7 @@ final class PlaybackDeck: TransitionDeck {
 
     private func currentItemChanged() {
         let now = player.currentItem
+        if let entry = current, now === entry.playerItem { issueInitialSeekIfReady(entry) }
         guard now !== current?.playerItem else { return }
         if let queued, now === queued.playerItem, let previous = current {
             // The queue player advanced by itself.
@@ -834,6 +878,7 @@ final class PlaybackDeck: TransitionDeck {
         switch entry.playerItem.status {
         case .readyToPlay:
             if entry === current {
+                issueInitialSeekIfReady(entry)
                 attemptPreroll()
                 startIfBuffered()
             }

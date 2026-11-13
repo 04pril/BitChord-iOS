@@ -659,14 +659,20 @@ final class QualityUpgradeController {
         // The engine says how it landed: crossed over with no gap, or cut over (and its first audio).
         Self.log("upgrade swap at \(String(format: "%.1f", player.engine.position)) s, "
             + "\(TrackLog.ms(since: warming))ms after the warm began", song)
-        player.reopenCurrent(onRendition: tag, stream: found)
+        player.reopenCurrent(onRendition: tag, stream: found, allowCutover: false)
         candidate = nil
         upgrade.unshelve(song.videoId)
         nerdStats.onLosslessRaceEnd(song.videoId)
-        status = QualityUpgradeStatus(videoId: song.videoId, phase: .upgraded(from: floor, to: found.format))
-        TrackLog.d("PlaybackPolicy", "upgraded '\(song.title)' to \(found.format.summary)", about: song.videoId)
+        Self.log("upgrade replacement requested; waiting for the engine to apply it", song)
 
         guard await watch(song, previousSeconds: reference) else {
+            if player.engine.deferredReplacementID == player.sources.engineItemID(for: song) {
+                Self.log("upgrade deferred: keeping the existing playback; candidate retained for another visit", song)
+                player.reopenCurrent(onRendition: previousTag, stream: previousStream, skipIfAlreadyCurrent: true)
+                shelve(song, stream: found)
+                if status?.videoId == song.videoId { status = nil }
+                return
+            }
             TrackLog.w("PlaybackPolicy", "upgrade reverted: the replacement's length disagrees", about: song.videoId)
             upgrade.forget(song.videoId)
             upgrade.refuseUpgrades(song.videoId)
@@ -674,6 +680,9 @@ final class QualityUpgradeController {
             finish(song, phase: .unavailable)
             return
         }
+        guard isStillPlaying(song) else { shelve(song, stream: found); return }
+        status = QualityUpgradeStatus(videoId: song.videoId, phase: .upgraded(from: floor, to: found.format))
+        TrackLog.d("PlaybackPolicy", "upgraded '\(song.title)' to \(found.format.summary)", about: song.videoId)
         // A lossy win while lossless was asked for: one more look, with this stream as the floor.
         if generation < 2, upgrade.continueAfterLossySwap(song.videoId) {
             await lookForBetterCopy(song, playing: found.format, generation: generation + 1, adoptCached: false)
@@ -937,7 +946,6 @@ final class QualityUpgradeController {
     /// After the swap: true once the new copy reports a length within the slack; false if it
     /// disagrees, fails, or never says (Android `watchUpgrade`).
     private func watch(_ song: Song, previousSeconds: TimeInterval?) async -> Bool {
-        guard let previousSeconds, previousSeconds > 0 else { return true }
         // The copy becomes current when the engine's crossover lands, seconds after the request
         // (``AudioPlayerEngine/replaceCurrent(with:)``): its ``watchTimeout`` starts then.
         var deadline = ContinuousClock.now + Self.swapTimeout + Self.watchTimeout
@@ -945,13 +953,17 @@ final class QualityUpgradeController {
         while ContinuousClock.now < deadline {
             guard let player, isStillPlaying(song) else { return true }
             if player.engine.lastError?.itemID == player.engine.currentItem?.id, player.engine.lastError?.isPermanent == true { return false }
+            if player.engine.deferredReplacementID == player.sources.engineItemID(for: song) { return false }
             let current = player.engine.currentItem?.id == player.sources.engineItemID(for: song)
             if current, !landed {
                 landed = true
                 deadline = ContinuousClock.now + Self.watchTimeout
             }
             if current, !player.engine.isBuffering, player.engine.duration > 0 {
-                return lengthsAgree(player.engine.duration, previousSeconds)
+                if let previousSeconds, previousSeconds > 0 {
+                    return lengthsAgree(player.engine.duration, previousSeconds)
+                }
+                return true
             }
             guard (try? await Task.sleep(for: .milliseconds(100))) != nil else { return true }
         }

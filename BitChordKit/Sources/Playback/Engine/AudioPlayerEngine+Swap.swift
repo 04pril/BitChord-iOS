@@ -33,12 +33,19 @@ extension AudioPlayerEngine {
     /// Paused, or mid-transition, it reopens as `load` does: there is nothing to hear, or the
     /// standby deck is the blend's. A copy that isn't ready within ``swapDeadline`` (a dead server,
     /// a playhead stuck buffering) is cut over to the same way; if the queue moves on first, the
-    /// copy is dropped.
-    public func replaceCurrent(with item: PlayableItem) {
+    /// copy is dropped. With `allowCutover: false`, a failed/slow optional upgrade preserves
+    /// the playing copy instead of reopening it at a sampled clock.
+    public func replaceCurrent(with item: PlayableItem, allowCutover: Bool = true) {
         cancelSwap()
         lastSwap = nil
+        deferredReplacementID = nil
         guard let replacing = currentItem?.id, isPlaying, active.current?.item.id == replacing, !crossfade.isTransitioning else {
-            load(item, startingAt: position, playWhenReady: nil)
+            if !allowCutover, playWhenReady, currentItem != nil {
+                deferredReplacementID = item.id
+                PlaybackLog.info("replacement deferred \(item.id): current playback is not ready for a seamless swap", about: item.trackID)
+                return
+            }
+            load(item, startingAt: active.current == nil ? position : active.position, playWhenReady: nil)
             return
         }
         swapGeneration += 1
@@ -57,8 +64,17 @@ extension AudioPlayerEngine {
             }
             if deck === self.standby { deck.retire(rate: self.rate) }
             guard self.currentItem?.id == replacing else { return }
-            PlaybackLog.warning("\(item.id) wasn't ready to swap in after \(TrackLog.ms(since: started))ms; cutting over", about: item.trackID)
-            self.load(item, startingAt: self.position, playWhenReady: nil)
+            let sampled = ContinuousClock.now
+            let livePosition = self.active.position
+            if !allowCutover {
+                self.deferredReplacementID = item.id
+                PlaybackLog.info("replacement deferred \(item.id) after \(TrackLog.ms(since: started))ms; keeping \(replacing), cachedClock=\(self.position)s liveClock=\(livePosition)s clockRead=\(TrackLog.ms(since: sampled))ms", about: item.trackID)
+                self.active.volume = 1
+                self.updatePlayingState()
+                return
+            }
+            PlaybackLog.warning("\(item.id) wasn't ready to swap in after \(TrackLog.ms(since: started))ms; cutting over at live clock \(livePosition)s", about: item.trackID)
+            self.load(item, startingAt: livePosition, playWhenReady: nil)
         }
     }
 
@@ -89,7 +105,12 @@ extension AudioPlayerEngine {
             // waiting out the deadline.
             if !playWhenReady || (cue != nil && deck.isIdle) { return false }
             let session = active
+            let sampling = ContinuousClock.now
             let at = session.position
+            let sampleMs = TrackLog.ms(since: sampling)
+            if sampleMs > 20 {
+                PlaybackLog.info("replacement clock sample took \(sampleMs)ms; live=\(at)s published=\(position)s", about: item.trackID)
+            }
             // A deck told to play is heard this long after, in the track's own seconds; and no less
             // than the time a synchronized start needs to be scheduled in (see `handOver`).
             let latency = max(crossfade.startLatency, Self.swapSyncLead) * Double(rate)
@@ -109,7 +130,8 @@ extension AudioPlayerEngine {
                 let next = at + lead
                 // Too near the end to cue ahead of the playhead: the cut, now, rather than a cue
                 // past the end that never gets ready while transitions are held.
-                if let end = entry.effectiveEnd, next >= end - 1 { return false }
+                let end = entry.trimmedEnd ?? entry.knownLength ?? entry.item.duration ?? (duration > 0 ? duration : nil)
+                if let end, next >= end - 1 { return false }
                 cue = next
                 deck.pause()
                 deck.volume = 0
