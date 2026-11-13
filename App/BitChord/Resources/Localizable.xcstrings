@@ -17607,13 +17607,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Direct source stream"
+            "value" : "Playback source mode"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "우선 음원으로 재생 시작"
+            "value" : "음원 재생 방식"
           }
         }
       }
@@ -17624,13 +17624,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Always"
+            "value" : "Addons first"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "항상"
+            "value" : "애드온 우선 재생"
           }
         }
       }
@@ -17641,13 +17641,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Every track waits up to 12 seconds for a higher priority source; YouTube remains the fallback."
+            "value" : "Wait for an addon first; fall back to YouTube if unavailable or late."
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "우선순위가 높은 음원을 최대 12초 동안 찾습니다. 없으면 YouTube로 재생합니다."
+            "value" : "애드온 음원을 먼저 기다립니다. 없거나 늦으면 YouTube로 재생합니다."
           }
         }
       }
@@ -17658,13 +17658,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Every track starts on YouTube at once; a higher priority source takes over while it plays."
+            "value" : "Use YouTube only, without addon lookup or waiting."
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "YouTube로 바로 재생한 뒤 더 좋은 음원이 있으면 전환합니다."
+            "value" : "애드온 조회·대기 없이 YouTube 음원만 빠르게 재생합니다."
           }
         }
       }
@@ -17675,13 +17675,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Queue only"
+            "value" : "Continuous playback first"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "대기 목록의 곡만"
+            "value" : "연속 재생 우선"
           }
         }
       }
@@ -17692,13 +17692,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tracks coming up in the queue start on a higher priority source found ahead of time; anything else starts on YouTube at once."
+            "value" : "Start promptly and prepare better copies of upcoming tracks. A ready copy plays from the start."
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "다음 곡은 미리 찾은 우선 음원으로 시작하고, 직접 선택한 곡은 YouTube로 바로 재생합니다."
+            "value" : "바로 재생하고 다음 곡의 더 좋은 음원을 미리 준비합니다. 준비된 음원은 처음부터 사용합니다."
           }
         }
       }
@@ -17709,13 +17709,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start on a higher priority source; YouTube remains the fallback."
+            "value" : "Choose a fast start, continuous playback, or addon-first playback"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "우선순위가 높은 음원으로 시작하고, 없으면 YouTube로 재생합니다"
+            "value" : "빠른 시작·연속 재생·애드온 우선 중 선택합니다"
           }
         }
       }
@@ -113630,6 +113630,166 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "프록시 설정을 확인하고 BitChord를 완전히 종료한 뒤 다시 열어 로그인해 주세요. 로그인 페이지는 열지 않았습니다."
+          }
+        }
+      }
+    },
+    "playback_modes_help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No eligible addons connected? YouTube plays automatically. Downloads and local files keep their own playback path."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 가능한 애드온이 없으면 YouTube로 재생합니다. 다운로드·로컬 파일은 그대로 재생합니다."
+          }
+        }
+      }
+    },
+    "playback_mode_fast" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fast playback"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "빠른 재생"
+          }
+        }
+      }
+    },
+    "playback_auto_switch" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch playback source automatically"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생 중 자동 음원 전환"
+          }
+        }
+      }
+    },
+    "playback_auto_switch_help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try a safe switch when a better copy is ready. Off keeps the current copy; upcoming tracks are still prepared."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "더 좋은 음원이 준비되면 안전한 교체를 시도합니다. 꺼도 다음 곡은 계속 미리 준비합니다."
+          }
+        }
+      }
+    },
+    "playback_addon_wait" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Addon wait time"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "애드온 대기 시간"
+          }
+        }
+      }
+    },
+    "playback_seconds_suffix" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "s"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "초"
+          }
+        }
+      }
+    },
+    "playback_addon_wait_help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counted from the playback request while YouTube also prepares. Once playback falls back, this track will not switch automatically."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생 요청부터 계산하며 YouTube도 함께 준비합니다. 폴백한 이번 곡은 자동 전환하지 않습니다."
+          }
+        }
+      }
+    },
+    "playback_fast_low" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "YouTube up to 64 kbps"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "YouTube 최대 64kbps"
+          }
+        }
+      }
+    },
+    "playback_fast_medium" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "YouTube up to 128 kbps"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "YouTube 최대 128kbps"
+          }
+        }
+      }
+    },
+    "playback_fast_high" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Best available quality from YouTube"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "YouTube에서 제공하는 최고 음질"
           }
         }
       }

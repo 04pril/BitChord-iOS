@@ -154,19 +154,33 @@ public struct StreamRequest: Codable, Hashable, Sendable {
     /// for starts on that copy (Direct source stream's Queue only). The player's to act on; the
     /// resolver doesn't read it. Playback only.
     public var readsAheadFromSources: Bool
+    /// Optional for compatibility with requests from older backups and non-playback clients.
+    public var playbackMode: DirectSourceStream?
+    public var automaticSourceSwitch: Bool?
+    public var sourceWaitSeconds: TimeInterval?
+    public var allowsAutomaticSourceSwitch: Bool {
+        guard let playbackMode else { return true }
+        return playbackMode == .queueOnly && automaticSourceSwitch != false
+    }
 
     public init(
         tier: Tier,
         purpose: Purpose = .playback,
         permittedSources: Set<SourceKind> = Set(SourceKind.allCases),
         waitsForSources: Bool = false,
-        readsAheadFromSources: Bool = false
+        readsAheadFromSources: Bool = false,
+        playbackMode: DirectSourceStream? = nil,
+        automaticSourceSwitch: Bool? = nil,
+        sourceWaitSeconds: TimeInterval? = nil
     ) {
         self.tier = tier
         self.purpose = purpose
         self.permittedSources = permittedSources
         self.waitsForSources = waitsForSources
         self.readsAheadFromSources = readsAheadFromSources
+        self.playbackMode = playbackMode
+        self.automaticSourceSwitch = automaticSourceSwitch
+        self.sourceWaitSeconds = sourceWaitSeconds
     }
 
     /// The kbps cap, or nil when uncapped.
@@ -183,9 +197,12 @@ public struct StreamRequest: Codable, Hashable, Sendable {
     /// Lossless → lossless tier; Medium/High → best; Low → capped. Sources filtered by
     /// ``AudioQuality/permits(_:)``. `directSource` sets ``waitsForSources`` (Always) or
     /// ``readsAheadFromSources`` (Queue only).
-    public static func playback(_ quality: AudioQuality, directSource: DirectSourceStream = .off) -> StreamRequest {
+    public static func playback(_ quality: AudioQuality, directSource: DirectSourceStream = .queueOnly,
+                                automaticSourceSwitch: Bool = true, sourceWaitSeconds: TimeInterval? = nil) -> StreamRequest {
         let tier: Tier
-        if quality == .lossless {
+        if directSource == .off, quality == .medium {
+            tier = .capped(kbps: 128)
+        } else if quality == .lossless, directSource != .off {
             tier = .lossless
         } else if let cap = quality.maxKbps {
             tier = .capped(kbps: cap)
@@ -195,9 +212,12 @@ public struct StreamRequest: Codable, Hashable, Sendable {
         return StreamRequest(
             tier: tier,
             purpose: .playback,
-            permittedSources: Set(SourceKind.allCases.filter(quality.permits)),
+            permittedSources: directSource == .off ? [.youtube] : Set(SourceKind.allCases.filter(quality.permits)),
             waitsForSources: directSource == .always,
-            readsAheadFromSources: directSource == .queueOnly
+            readsAheadFromSources: directSource == .queueOnly,
+            playbackMode: directSource,
+            automaticSourceSwitch: automaticSourceSwitch,
+            sourceWaitSeconds: sourceWaitSeconds
         )
     }
 

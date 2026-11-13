@@ -362,5 +362,73 @@
   "login_proxy_unavailable_help": {
     "en": "Check your proxy settings, fully close BitChord, then reopen it and try signing in again. The login page has not been opened.",
     "ko": "프록시 설정을 확인하고 BitChord를 완전히 종료한 뒤 다시 열어 로그인해 주세요. 로그인 페이지는 열지 않았습니다."
+  },
+  "direct_source_stream": {
+    "en": "Playback source mode",
+    "ko": "음원 재생 방식"
+  },
+  "direct_source_stream_subtitle": {
+    "en": "Choose a fast start, continuous playback, or addon-first playback",
+    "ko": "빠른 시작·연속 재생·애드온 우선 중 선택합니다"
+  },
+  "playback_modes_help": {
+    "en": "No eligible addons connected? YouTube plays automatically. Downloads and local files keep their own playback path.",
+    "ko": "사용 가능한 애드온이 없으면 YouTube로 재생합니다. 다운로드·로컬 파일은 그대로 재생합니다."
+  },
+  "playback_mode_fast": {
+    "en": "Fast playback",
+    "ko": "빠른 재생"
+  },
+  "direct_source_stream_off_subtitle": {
+    "en": "Use YouTube only, without addon lookup or waiting.",
+    "ko": "애드온 조회·대기 없이 YouTube 음원만 빠르게 재생합니다."
+  },
+  "direct_source_stream_queue_only": {
+    "en": "Continuous playback first",
+    "ko": "연속 재생 우선"
+  },
+  "direct_source_stream_queue_only_subtitle": {
+    "en": "Start promptly and prepare better copies of upcoming tracks. A ready copy plays from the start.",
+    "ko": "바로 재생하고 다음 곡의 더 좋은 음원을 미리 준비합니다. 준비된 음원은 처음부터 사용합니다."
+  },
+  "direct_source_stream_always": {
+    "en": "Addons first",
+    "ko": "애드온 우선 재생"
+  },
+  "direct_source_stream_always_subtitle": {
+    "en": "Wait for an addon first; fall back to YouTube if unavailable or late.",
+    "ko": "애드온 음원을 먼저 기다립니다. 없거나 늦으면 YouTube로 재생합니다."
+  },
+  "playback_auto_switch": {
+    "en": "Switch playback source automatically",
+    "ko": "재생 중 자동 음원 전환"
+  },
+  "playback_auto_switch_help": {
+    "en": "Try a safe switch when a better copy is ready. Off keeps the current copy; upcoming tracks are still prepared.",
+    "ko": "더 좋은 음원이 준비되면 안전한 교체를 시도합니다. 꺼도 다음 곡은 계속 미리 준비합니다."
+  },
+  "playback_addon_wait": {
+    "en": "Addon wait time",
+    "ko": "애드온 대기 시간"
+  },
+  "playback_seconds_suffix": {
+    "en": "s",
+    "ko": "초"
+  },
+  "playback_addon_wait_help": {
+    "en": "Counted from the playback request while YouTube also prepares. Once playback falls back, this track will not switch automatically.",
+    "ko": "재생 요청부터 계산하며 YouTube도 함께 준비합니다. 폴백한 이번 곡은 자동 전환하지 않습니다."
+  },
+  "playback_fast_low": {
+    "en": "YouTube up to 64 kbps",
+    "ko": "YouTube 최대 64kbps"
+  },
+  "playback_fast_medium": {
+    "en": "YouTube up to 128 kbps",
+    "ko": "YouTube 최대 128kbps"
+  },
+  "playback_fast_high": {
+    "en": "Best available quality from YouTube",
+    "ko": "YouTube에서 제공하는 최고 음질"
   }
 }

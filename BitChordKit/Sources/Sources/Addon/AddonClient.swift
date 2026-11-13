@@ -257,7 +257,9 @@ final class AddonClient: @unchecked Sendable {
     /// busy addon); `Retry-After` is believed, otherwise the wait doubles, both capped.
     private func body(_ url: URL) async throws -> Data {
         var attempt = 0
+        var transientRetries = 0
         while true {
+            try Task.checkCancellation()
             let wait = quietLock.withLock { quietUntil.timeIntervalSinceNow }
             if wait > 0 { try await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000)) }
 
@@ -265,8 +267,17 @@ final class AddonClient: @unchecked Sendable {
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             request.setValue(BitChordHTTP.UserAgent.addon, forHTTPHeaderField: "User-Agent")
             request.timeoutInterval = Self.callTimeout
-            let (data, response) = try await withDeadline(Self.callTimeout) { [session, request] in
-                try await session.data(for: request)
+            let data: Data
+            let response: URLResponse
+            do {
+                (data, response) = try await withDeadline(Self.callTimeout) { [session, request] in
+                    try await session.data(for: request)
+                }
+            } catch let error as URLError where error.code == .timedOut && transientRetries < 1 {
+                transientRetries += 1
+                SourcesLog.d("addon \(Self.redact(baseUrl)) timed out; retrying once")
+                try await Task.sleep(for: .milliseconds(500))
+                continue
             }
             let status = (response as? HTTPURLResponse)?.statusCode ?? 200
             switch status {
@@ -279,6 +290,10 @@ final class AddonClient: @unchecked Sendable {
                 throw AddonError.notFound
             // A 5xx is a bad minute and will be tried again next track; a 4xx is the app asking for
             // something it will never be given. The Sources screen renders the two differently.
+            case let status where [502, 503, 504].contains(status) && transientRetries < 1:
+                transientRetries += 1
+                SourcesLog.d("addon \(Self.redact(baseUrl)) temporarily unavailable (HTTP \(status)); retrying once")
+                try await Task.sleep(for: .milliseconds(500))
             case 500...:
                 throw AddonError.unavailable("HTTP \(status)")
             case 429 where attempt < Self.maxRetries:

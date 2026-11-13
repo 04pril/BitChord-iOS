@@ -71,6 +71,11 @@ final class PlaybackSourceFactory {
     var isUnmetered: () -> Bool = { false }
     /// Whether `videoId` is still the track playing.
     var isPlaying: (String) -> Bool = { _ in false }
+    private let playbackRequestClock = PlaybackRequestClock()
+
+    func playbackRequested(_ song: Song) {
+        playbackRequestClock.record(Self.itemID(for: song))
+    }
     /// How long a segmented copy plays before its missing parts are fetched: past the start, and
     /// past a skip.
     var completionDelay: Duration = .seconds(10)
@@ -140,6 +145,10 @@ final class PlaybackSourceFactory {
         self.request = request
         self.atmosAllowed = atmosAllowed
         self.onRefused = onRefused
+    }
+
+    func sourcePolicyDidChange() {
+        readAheadStreams.cancelAll()
     }
 
     /// The engine item for `song`: id per queue slot, lock-screen artwork, the catalogue duration.
@@ -285,7 +294,8 @@ final class PlaybackSourceFactory {
             let file = FileAudioSource(url: saved.url, mimeType: "audio/mp4", requiresYouTubeDurationFix: true)
             return .asset { cache.makeAsset(for: key, source: file) }
         }
-        if let rendition = renditions[Self.itemID(for: song)], let stream = rendition.stream {
+        if request().playbackMode != .off,
+           let rendition = renditions[Self.itemID(for: song)], let stream = rendition.stream {
             return .asset(forcedAssetFactory(for: song, stream: stream, tag: rendition.tag))
         }
         return .resolvedAsset(streamAssetFactory(for: song))
@@ -589,11 +599,24 @@ final class PlaybackSourceFactory {
         let playingKeys = self.playingKeys
         let readAheadStreams = self.readAheadStreams
         let lookupJoinWait = self.lookupJoinWait
+        let baseResolver = resolver
+        let playbackRequestClock = self.playbackRequestClock
         let canSubstitute = self.canSubstitute
         let quickCopy = self.quickCopy
         let soundingWait = self.soundingWait
         return { [weak self] in
             let wanted = request()
+            // Fast mode ignores addon caches, forced copies and both lookup/read-ahead caches.
+            let resolver: any StreamResolving = wanted.playbackMode == .off && sourceKey == nil ? (youTube ?? baseResolver) : baseResolver
+            // Re-read the remaining budget immediately before lookup, after cache metadata and
+            // any preload hold. Those earlier waits cannot add time to a foreground deadline.
+            let resolve: @Sendable (StreamRequest) async throws -> ResolvedStream = { asked in
+                var timed = asked
+                if timed.waitsForSources, !timed.readsAheadFromSources, let budget = wanted.sourceWaitSeconds {
+                    timed.sourceWaitSeconds = playbackRequestClock.remaining(for: Self.itemID(for: song), budget: budget)
+                }
+                return try await resolver.resolveStream(for: song, request: timed)
+            }
             let atmos = atmosAllowed()
             let started = ContinuousClock.now
             // A track already whole on disk plays without resolving anything (airplane mode), from
@@ -601,7 +624,7 @@ final class PlaybackSourceFactory {
             // every rendition the row owns, with whether each is whole.
             if let cache {
                 var cachedKey: AudioCacheKey?
-                if let sourceKey {
+                if let sourceKey, wanted.playbackMode != .off {
                     let key = AudioCacheKey.source(sourceKey.configId, track: sourceKey.trackId)
                     if await cache.isFullyCached(key) { cachedKey = key }
                 } else {
@@ -610,9 +633,13 @@ final class PlaybackSourceFactory {
                     let fromBackup = song.playbackSourceId == LocalBrowseID.offlineBackup
                     let asksFirst = wanted.waitsForSources && canSubstitute(wanted) && !fromBackup
                     let known = await cache.renditions(ofTrack: song.videoId)
-                    cachedKey = PlaybackSourceFactory.cachedCopy(
-                        among: known, videoId: song.videoId, pinned: pinned,
-                        wantsLossless: wanted.wantsLossless, atmosAllowed: atmos, offline: isOffline(), asksSourcesFirst: asksFirst)
+                    if wanted.playbackMode == .off {
+                        cachedKey = known.first { $0.isComplete && $0.key == .youtube(videoId: song.videoId) }?.key
+                    } else {
+                        cachedKey = PlaybackSourceFactory.cachedCopy(
+                            among: known, videoId: song.videoId, pinned: pinned,
+                            wantsLossless: wanted.wantsLossless, atmosAllowed: atmos, offline: isOffline(), asksSourcesFirst: asksFirst)
+                    }
                     if cachedKey == nil, asksFirst, known.contains(where: { $0.isComplete && $0.key == .youtube(videoId: song.videoId) }) {
                         TrackLog.d(PlaybackSourceFactory.logCategory, "'\(song.title)': YouTube's copy is whole on disk; the ranked sources are asked first (Always)",
                                    about: song.videoId)
@@ -632,7 +659,7 @@ final class PlaybackSourceFactory {
                         factory?.onOpenedFromDisk?(itemID)
                     }
                     let lazy = HTTPAudioSource(session: session, onRefused: onRefused) {
-                        try await resolver.resolveStream(for: song, request: wanted)
+                        try await resolve(wanted)
                     }
                     return (cache.makeAsset(for: cachedKey, source: lazy), nil)
                 }
@@ -641,14 +668,14 @@ final class PlaybackSourceFactory {
             let readsAhead = wanted.readsAheadFromSources && !pinned
             // Off: the quick sources' copy (JioSaavn) of a row opened ahead, shared with read-ahead,
             // which puts that same copy's bytes on disk.
-            let quickFind = pinned || sourceKey != nil || isOffline() || wanted.waitsForSources || wanted.readsAheadFromSources
+            let quickFind = wanted.playbackMode == .off || pinned || sourceKey != nil || isOffline() || wanted.waitsForSources || wanted.readsAheadFromSources
                 || !canSubstitute(wanted) ? nil : PlaybackSourceFactory.quickFind(quickCopy, song: song, request: wanted)
             // The ranked sources' copy asked for again, at play-time limits.
             let waitingRace: HTTPAudioSource.Resolver = {
                 var asked = wanted
                 asked.waitsForSources = true
                 asked.readsAheadFromSources = false
-                return try await TrackLog.about(song.videoId) { try await resolver.resolveStream(for: song, request: asked) }
+                return try await TrackLog.about(song.videoId) { try await resolve(asked) }
             }
             // How a copy found ahead of time is found again once it is past its freshness: by the
             // time a long track hands over to it, its URL may be dead (see `refresh` below).
@@ -685,13 +712,13 @@ final class PlaybackSourceFactory {
                         let lookup = readAheadStreams.lookUp(song.videoId, request: wanted, atmosAllowed: atmos) {
                             var asked = wanted
                             asked.waitsForSources = true
-                            return try await TrackLog.about(song.videoId) { try await resolver.resolveStream(for: song, request: asked) }
+                            return try await TrackLog.about(song.videoId) { try await resolve(asked) }
                         }
                         // As long as the lookup takes while nobody is listening yet; once the row is
                         // playing, until `lookupJoinWait` after the lookup started.
                         var found = await PlaybackSourceFactory.waitedFor(lookup.task, until: { await MainActor.run { factory?.isPlaying(song.videoId) ?? true } })
                         try Task.checkCancellation()
-                        if found == nil {
+                        if found == nil, wanted.playbackMode != .queueOnly {
                             let left = lookupJoinWait - (ContinuousClock.now - lookup.startedAt)
                             if left > .zero {
                                 let task = lookup.task
@@ -706,7 +733,7 @@ final class PlaybackSourceFactory {
                             // The sources had nothing, or not in time: it starts now, as a tapped
                             // row does, and the upgrade can still swap their copy in.
                             TrackLog.d(PlaybackSourceFactory.logCategory, "'\(song.title)' starts without its sources' copy", about: song.videoId)
-                            picked = try await TrackLog.about(song.videoId) { try await resolver.resolveStream(for: song, request: wanted) }
+                            picked = try await TrackLog.about(song.videoId) { try await resolve(wanted) }
                         }
                     } else if let quickFind, ahead {
                         // Off: the quick sources are asked first, until the row is reached. Their copy
@@ -721,12 +748,12 @@ final class PlaybackSourceFactory {
                             // Let go of, so a late answer isn't kept and fetched under the key this
                             // row's own copy fills.
                             readAheadStreams.forget(song.videoId)
-                            picked = try await TrackLog.about(song.videoId) { try await resolver.resolveStream(for: song, request: wanted) }
+                            picked = try await TrackLog.about(song.videoId) { try await resolve(wanted) }
                         }
                     } else {
                         // Off: a quick lookup still running for a row that races now is let go of, as above.
                         if quickFind != nil { readAheadStreams.forget(song.videoId) }
-                        picked = try await TrackLog.about(song.videoId) { try await resolver.resolveStream(for: song, request: wanted) }
+                        picked = try await TrackLog.about(song.videoId) { try await resolve(wanted) }
                         // Always: the next row resolved while the playing one runs.
                         if ahead, wanted.waitsForSources, !pinned { refind = waitingRace }
                     }
@@ -1223,6 +1250,16 @@ final class ReadAheadStreams: @unchecked Sendable {
         }
     }
 
+    func cancelAll() {
+        let pending = lock.withLock {
+            let pending = lookups.values.map(\.task)
+            lookups.removeAll()
+            entries.removeAll()
+            return pending
+        }
+        for task in pending { task.cancel() }
+    }
+
     /// Drops what was found for `videoId`, and a lookup still running: a retry neither rejoins it
     /// nor has its answer put back.
     func forget(_ videoId: String) {
@@ -1376,5 +1413,24 @@ final class PlayingCacheKeys: @unchecked Sendable {
     private func playing(_ videoId: String) -> Opened? {
         guard let item = current[videoId] else { return nil }
         return opened.last { $0.item == item }
+    }
+}
+
+/// Playback request timestamps are shared with factories opened on loading threads. Only the
+/// request that selected the row starts its foreground addon budget; preloads do not reset it.
+private final class PlaybackRequestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var starts: [String: ContinuousClock.Instant] = [:]
+    func record(_ id: String) {
+        lock.withLock {
+            if starts.count > 64 { starts.removeAll() }
+            starts[id] = .now
+        }
+    }
+    func remaining(for id: String, budget: TimeInterval) -> TimeInterval {
+        guard let start = lock.withLock({ starts[id] }) else { return budget }
+        let elapsed = ContinuousClock.now - start
+        let seconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+        return max(0, budget - seconds)
     }
 }

@@ -26,6 +26,9 @@ extension AppSettings {
         /// when the three-way choice was never stored.
         case directSourceStreamLegacy = "direct_source_stream"
         case directSourceStream = "direct_source_stream_mode"
+        case playbackModesMigrated = "playback_modes_v1_migrated"
+        case automaticSourceSwitch = "automatic_source_switch"
+        case addonWaitSeconds = "addon_wait_seconds"
         case spatialAudio = "spatial_audio"
         case playbackSpeed = "playback_speed"
         case autoplay = "autoplay"
@@ -138,7 +141,7 @@ extension AppSettings {
             switch self {
             case .upgradeLengthSlackSeconds, .crossfadeSeconds, .repeatMode, .equalizerToneX,
                  .equalizerToneY, .lyricsOffsetMs, .scrobbleMinDuration, .scrobbleDelaySeconds,
-                 .lastVersionCode:
+                 .lastVersionCode, .addonWaitSeconds:
                 return .int
             case .audioCacheLimitBytes:
                 return .long

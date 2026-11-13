@@ -202,6 +202,7 @@ final class QualityUpgradeController {
         self.prove = prove ?? { _, _, _ in nil }
         if prove == nil { usesDefaultProof = true }
         self.crossfadeOverride = crossfade
+        observePlaybackMode()
     }
 
     /// Stands in for the engine's crossfade state, for a test that cannot run a real blend.
@@ -214,6 +215,7 @@ final class QualityUpgradeController {
     /// The playing row's stream resolved. A stream that came back below the request (a ranked
     /// source was still searching when YouTube answered) makes the track a candidate.
     func streamResolved(_ stream: ResolvedStream, for song: Song) {
+        guard settings.allowsAutomaticSourceSwitch else { return }
         // A copy the row was forced onto (an upgrade landing) is not the row resolving afresh.
         guard player?.sources.forcedStream(for: song) == nil else { return }
         guard stream.belowRequest, !song.isVideo, !isPinned(song.videoId) else {
@@ -253,6 +255,7 @@ final class QualityUpgradeController {
     /// track is left alone, and the cached-track decision does not touch the cache at all — only the
     /// job that follows, once the decoder has reported the item, does.
     func lookForBetterCopy() {
+        guard settings.allowsAutomaticSourceSwitch else { return }
         guard let player, let song = player.currentSong else { return }
         if job != nil, jobVideoId == song.videoId { return }
         // Nothing found now could be swapped in: the question waits for a replay, rather than
@@ -345,6 +348,7 @@ final class QualityUpgradeController {
 
     /// "Upgrade quality" pressed (Android `upgradeQualityNow`).
     func requestByHand(for song: Song, playing: ResolvedStream?) -> ManualUpgradeResult {
+        guard settings.directSourceStream != .off else { return .nothingToSearch }
         switch upgrade.requestByHand(song.videoId, nowMs: nowMs(), upgradeRunning: jobVideoId == song.videoId) {
         case .alreadyRunning: return .alreadyRunning
         case .coolingDown(let remaining): return .coolingDown(remainingMs: remaining)
@@ -364,6 +368,23 @@ final class QualityUpgradeController {
         }
         start(for: song, playing: playing?.format, generation: generation(for: song), afresh: true)
         return .searching
+    }
+
+    /// A policy change cancels optional work immediately; it never pauses the active deck.
+    private func observePlaybackMode() {
+        let allows = withObservationTracking {
+            settings.allowsAutomaticSourceSwitch
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observePlaybackMode() }
+        }
+        guard !allows else { return }
+        if let id = jobVideoId { nerdStats.onLosslessRaceEnd(id) }
+        job?.cancel()
+        job = nil
+        jobVideoId = nil
+        candidate = nil
+        player?.engine.cancelPendingReplacement()
+        if status?.isUpgrading == true { status = nil }
     }
 
     // MARK: The ceiling
@@ -431,6 +452,7 @@ final class QualityUpgradeController {
     // MARK: The second look
 
     private func start(for song: Song, playing: StreamFormat?, generation: Int, adoptCached: Bool = false, afresh: Bool = false) {
+        guard settings.directSourceStream != .off, afresh || settings.allowsAutomaticSourceSwitch else { return }
         job?.cancel()
         candidate = nil
         jobVideoId = song.videoId
@@ -681,7 +703,16 @@ final class QualityUpgradeController {
             player.reopenCurrent(onRendition: tag, stream: found, allowCutover: false)
             Self.log("upgrade replacement attempt \(attempt); waiting for the engine to apply it", song)
             applied = await watch(song, previousSeconds: reference)
-            guard !Task.isCancelled, isStillPlaying(song) else { shelve(song, stream: found); return }
+            guard !Task.isCancelled, isStillPlaying(song) else {
+                // A cancelled optional swap may already have changed the factory's tag. Restore
+                // it only while that candidate still owns the tag and has not landed in the engine.
+                if isStillPlaying(song), player.sources.renditionTag(for: song) == tag,
+                   player.engine.currentItem?.id != player.sources.engineItemID(for: song) {
+                    player.reopenCurrent(onRendition: previousTag, stream: previousStream, skipIfAlreadyCurrent: true)
+                }
+                shelve(song, stream: found)
+                return
+            }
             if applied { break }
             deferred = player.engine.deferredReplacementID == player.sources.engineItemID(for: song)
             if deferred {

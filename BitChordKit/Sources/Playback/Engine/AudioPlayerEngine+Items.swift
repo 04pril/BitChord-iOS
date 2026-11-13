@@ -215,6 +215,7 @@ extension AudioPlayerEngine {
         } onCancel: {
             flight.leave()
         }
+        try Task.checkCancellation()
         openedAudio[item.id] = opened
         pruneCaches()
         return opened
@@ -394,11 +395,13 @@ extension AudioPlayerEngine {
             defer { if generation == self.preloadGeneration { self.preloadingItemID = nil } }
             do {
                 let entry = try await self.makeEntry(for: next, on: deck)
-                guard self.upcomingItem?.id == next.id, deck === self.active, deck.current === currentEntry else { return }
+                guard !Task.isCancelled, self.preloadGeneration == generation,
+                      self.upcomingItem?.id == next.id, deck === self.active, deck.current === currentEntry else { return }
                 if self.skipSilence, let target = self.silenceMaps[next.id]?.startPosition(policy: self.configuration.skipSilencePolicy) {
                     // Pre-seeked while queued, so the gapless advance lands past the silent intro.
                     await entry.playerItem.seek(to: CMTime(seconds: target, preferredTimescale: 1_000), toleranceBefore: .zero, toleranceAfter: .zero)
-                    guard self.upcomingItem?.id == next.id, deck === self.active, deck.current === currentEntry else { return }
+                    guard !Task.isCancelled, self.preloadGeneration == generation,
+                      self.upcomingItem?.id == next.id, deck === self.active, deck.current === currentEntry else { return }
                 }
                 deck.enqueue(entry)
             } catch is CancellationError {

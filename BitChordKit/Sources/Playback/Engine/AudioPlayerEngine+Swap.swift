@@ -80,6 +80,9 @@ extension AudioPlayerEngine {
         }
     }
 
+    /// Cancels an optional rendition change while preserving current playback.
+    public func cancelPendingReplacement() { cancelSwap(deferReplacement: true) }
+
     /// Drops a swap in flight (for a new one, a load, a stop): the standby deck it held is emptied
     /// and the session deck back at full volume, whatever point the crossover had reached.
     func cancelSwap(deferReplacement: Bool = false) {

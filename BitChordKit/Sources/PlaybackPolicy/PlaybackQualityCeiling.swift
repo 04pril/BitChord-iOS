@@ -26,6 +26,8 @@ public final class PlaybackQualityCeiling: Observable, @unchecked Sendable {
     private var wifi: AudioQuality
     private var cellular: AudioQuality
     private var directSource: DirectSourceStream
+    private var automaticSourceSwitch = true
+    private var sourceWaitSeconds: TimeInterval = 12
     private var inParty = false
     private let registrar = ObservationRegistrar()
 
@@ -34,7 +36,7 @@ public final class PlaybackQualityCeiling: Observable, @unchecked Sendable {
     ///   - wifi, cellular: the starting ceilings; ``follow(_:)`` keeps them in step with settings.
     ///   - directSource: the starting "Direct source stream" choice, likewise followed.
     public init(network: NetworkStatusProviding, wifi: AudioQuality = .lossless, cellular: AudioQuality = .lossless,
-                directSource: DirectSourceStream = .off) {
+                directSource: DirectSourceStream = .queueOnly) {
         self.network = network
         self.wifi = wifi
         self.cellular = cellular
@@ -76,8 +78,9 @@ public final class PlaybackQualityCeiling: Observable, @unchecked Sendable {
     /// `DirectSourceGate.isActive`): a party seeks every member to the host's position and expects
     /// the track to be there, and a start held for the sources would leave this phone behind.
     public var currentRequest: StreamRequest {
-        let (directSource, inParty) = lock.withLock { (directSource, inParty) }
-        return .playback(effectiveQuality, directSource: inParty ? .off : directSource)
+        let (directSource, inParty, automatic, wait) = lock.withLock { (directSource, inParty, automaticSourceSwitch, sourceWaitSeconds) }
+        return .playback(effectiveQuality, directSource: inParty ? .off : directSource,
+                         automaticSourceSwitch: automatic, sourceWaitSeconds: wait)
     }
 
     /// Whether this device is in a Listen Together party; the app keeps it in step.
@@ -110,7 +113,14 @@ public final class PlaybackQualityCeiling: Observable, @unchecked Sendable {
     public func follow(_ settings: AppSettings) {
         withObservationTracking {
             setCeilings(wifi: settings.audioQualityWifi, cellular: settings.audioQualityCellular)
-            lock.withLock { directSource = settings.directSourceStream }
+            let mode = settings.directSourceStream
+            let automatic = settings.automaticSourceSwitch
+            let wait = settings.addonWaitSeconds
+            lock.withLock {
+                directSource = mode
+                automaticSourceSwitch = automatic
+                sourceWaitSeconds = Double(wait)
+            }
         } onChange: { [weak self, weak settings] in
             // onChange fires before the new value is stored; read it once the write has landed.
             Task { @MainActor in

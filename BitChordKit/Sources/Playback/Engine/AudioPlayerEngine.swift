@@ -477,6 +477,18 @@ public final class AudioPlayerEngine {
         refreshUpcoming()
     }
 
+    /// Drop preparations made under a former source policy; the sounding entry stays attached.
+    public func sourcePolicyDidChange() {
+        preloadGeneration += 1
+        preloadTask?.cancel()
+        preloadTask = nil
+        preloadingItemID = nil
+        active.removeQueued()
+        openedAudio.removeAll()
+        openingAudio.removeAll()
+        refreshUpcoming()
+    }
+
     /// Call when a DSP setting changes (EQ, widening, normalization, Automix): each loaded item is
     /// asked again whether it needs its tap, so a lossless track gains one the moment the EQ goes
     /// on and loses it again when the EQ goes off.

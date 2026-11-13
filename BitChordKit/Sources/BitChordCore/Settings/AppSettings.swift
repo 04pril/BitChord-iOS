@@ -141,11 +141,26 @@ public final class AppSettings {
 
     /// When a track starts on a ranked source instead of on YouTube with the upgrade partway through
     /// (``StreamRequest/waitsForSources``, ``StreamRequest/readsAheadFromSources``). Playback only.
-    public var directSourceStream: DirectSourceStream = .off {
+    public var directSourceStream: DirectSourceStream = .queueOnly {
         didSet {
             write(.directSourceStream, directSourceStream.rawValue)
             write(.directSourceStreamLegacy, directSourceStream == .always)
         }
+    }
+
+    /// Only the current rendition swap; queue preparation is independent of this switch.
+    public var automaticSourceSwitch: Bool = true {
+        didSet { write(.automaticSourceSwitch, automaticSourceSwitch) }
+    }
+    public static let addonWaitChoices = [5, 12, 15, 20]
+    public var addonWaitSeconds: Int = 12 {
+        didSet {
+            if !Self.addonWaitChoices.contains(addonWaitSeconds) { addonWaitSeconds = 12; return }
+            write(.addonWaitSeconds, addonWaitSeconds)
+        }
+    }
+    public var allowsAutomaticSourceSwitch: Bool {
+        directSourceStream == .queueOnly && automaticSourceSwitch
     }
 
     /// The app's own stereo widening (not object-based spatial audio).
@@ -704,7 +719,8 @@ public final class AppSettings {
 
     /// What to ask the resolver for, for a stream started now on `network`.
     public func playbackStreamRequest(for network: NetworkStatus) -> StreamRequest {
-        .playback(effectiveAudioQuality(for: network), directSource: directSourceStream)
+        .playback(effectiveAudioQuality(for: network), directSource: directSourceStream,
+                  automaticSourceSwitch: automaticSourceSwitch, sourceWaitSeconds: Double(addonWaitSeconds))
     }
 
     /// What to ask the resolver for, for a download (independent of the connection).
@@ -906,7 +922,17 @@ public final class AppSettings {
         loudnessNormalization = readBool(.loudnessNormalization, default: true)
         dolbyAtmos = readBool(.dolbyAtmos, default: true)
         migrateDirectSourceStream()
-        directSourceStream = readEnum(.directSourceStream, default: .off)
+        // Old Off already searched and upgraded. Preserve that behaviour as continuity mode.
+        if !readBool(.playbackModesMigrated, default: false) {
+            if defaults.string(forKey: Key.directSourceStream.rawValue) == DirectSourceStream.off.rawValue {
+                defaults.set(DirectSourceStream.queueOnly.rawValue, forKey: Key.directSourceStream.rawValue)
+            }
+            defaults.set(true, forKey: Key.playbackModesMigrated.rawValue)
+        }
+        directSourceStream = readEnum(.directSourceStream, default: .queueOnly)
+        automaticSourceSwitch = readBool(.automaticSourceSwitch, default: true)
+        let storedWait = readInt(.addonWaitSeconds, default: 12)
+        addonWaitSeconds = Self.addonWaitChoices.contains(storedWait) ? storedWait : 12
         spatialAudio = readBool(.spatialAudio, default: false)
         playbackSpeed = readFloat(.playbackSpeed, default: 1.0)
         autoplay = readBool(.autoplay, default: true)

@@ -386,6 +386,7 @@ final class PlayerController {
         guard currentSong != nil else { return }
         if engine.currentItem == nil, let song = currentSong {
             // Restored or failed before it ever opened: load it now.
+            sources.playbackRequested(song)
             engine.load(sources.item(for: song), startingAt: 0, playWhenReady: true)
             return
         }
@@ -881,10 +882,17 @@ final class PlayerController {
         if engineBase != itemID { currentStream = nil }
         let start = TimeInterval(max(change.startPositionMs, 0)) / 1_000
         let play = change.reason == .restored ? false : playWhenReady
+        sources.playbackRequested(song)
         engine.load(sources.item(for: song), startingAt: start, playWhenReady: play)
     }
 
     private func bindQueue() {
+        trackers.append(ChangeTracker.track({ [weak self] in
+            self.map { [$0.settings.directSourceStream.rawValue, String($0.settings.addonWaitSeconds)] } ?? []
+        }, initial: false) { [weak self] _ in
+            self?.sources.sourcePolicyDidChange()
+            self?.engine.sourcePolicyDidChange()
+        })
         // Any edit can change what follows the current track: the engine asks again, and the
         // cache reads ahead for the new neighbours.
         trackers.append(ChangeTracker.track({ [weak self] in self?.upcomingKey ?? [] }, initial: false) { [weak self] _ in
@@ -911,7 +919,7 @@ final class PlayerController {
         // same rows (Queue only's whole next-track copy needs an unmetered one), so a change in
         // either re-plans it.
         return ["playing:\(engine.playWhenReady)", "unmetered:\(sources.isUnmetered())",
-                "direct:\(settings.directSourceStream)", Self.itemID(for: current)]
+                "direct:\(settings.directSourceStream)", "wait:\(settings.addonWaitSeconds)", Self.itemID(for: current)]
             + state.upcoming.prefix(AudioStreamCache.queueDepth).map(Self.itemID(for:))
     }
 

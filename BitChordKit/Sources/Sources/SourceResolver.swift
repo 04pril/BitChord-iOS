@@ -69,13 +69,17 @@ public final class SourceResolver: StreamResolving, @unchecked Sendable {
     ///   not cancelled but handed to that second look (``takeStillLooking(_:)``), which takes its
     ///   answer before searching again.
     ///   With ``StreamRequest/waitsForSources`` YouTube's stream is held instead, for up to
-    ///   ``directSourceWait`` after it is ready: a ranked source that answers in that time starts the
+    ///   the remaining playback deadline from the race's start: a ranked source that answers in that time starts the
     ///   track, ranked sources that find nothing release YouTube's stream at once, and the cap running
     ///   out releases it ``ResolvedStream/belowRequest``.
     /// - A download (`request.purpose == .download`) asks ``forDownload(_:request:)`` first.
     public func resolveStream(for song: Song, request: StreamRequest) async throws -> ResolvedStream {
         let target = TrackMatcher.targetOf(song)
         if let key = SourceRegistry.parseTrackKey(song.videoId) {
+            if request.playbackMode == .off {
+                if let stream = try await youtubeFallback(target, tier: request.tier) { return stream }
+                throw SourceResolutionError.noSource(song.title)
+            }
             if let stream = try await resolve(configId: key.configId, trackId: key.trackId, target: target, request: request) {
                 return stream
             }
@@ -102,6 +106,9 @@ public final class SourceResolver: StreamResolving, @unchecked Sendable {
             if let stream = try await substituteForYouTube(target, request: request) { return stream }
             throw SourceResolutionError.noSource(song.title)
         }
+        if request.playbackMode == .queueOnly, !request.waitsForSources, !request.allowsAutomaticSourceSwitch {
+            return try await resolver.resolveStream(for: song, request: request)
+        }
         guard canSubstituteForYouTube(request), !target.isVideo, target.title.nonBlank != nil else {
             return try await resolver.resolveStream(for: song, request: request)
         }
@@ -121,7 +128,8 @@ public final class SourceResolver: StreamResolving, @unchecked Sendable {
         // Ahead, the hold is counted from the race's start, as the sources' limit is, and runs out
         // before it: a look that gives up still marks YouTube's copy for the upgrade however late
         // YouTube was ready.
-        let holdCap = ahead ? self.aheadSourceWait : self.directSourceWait
+        let configuredWait = request.sourceWaitSeconds ?? self.directSourceWait
+        let holdCap = ahead ? self.aheadSourceWait : max(0, configuredWait)
         let sourcesTimeout = ahead ? self.aheadSourceWait + (self.substituteTimeout - self.directSourceWait) : self.substituteTimeout
         // The sources' lookup runs outside the race, so a YouTube win can hand it, still running, to
         // the second look (Android `DirectSourceGate.startedOnYouTube`) instead of cancelling it.
@@ -144,13 +152,35 @@ public final class SourceResolver: StreamResolving, @unchecked Sendable {
                 do { return .youTube(.success(try await resolver.resolveStream(for: song, request: request))) }
                 catch { return .youTube(.failure(error)) }
             }
+            if request.waitsForSources {
+                group.addTask {
+                    try await Task.sleep(nanoseconds: UInt64(holdCap * 1_000_000_000))
+                    return .waitedLongEnough
+                }
+            }
             defer { group.cancelAll() }
+            var waitExpired = false
             var youTubeResult: Result<ResolvedStream, Error>?
             var substituteDone = false
+            var earlySubstitute: ResolvedStream?
             var held: ResolvedStream?
             while let leg = try await group.next() {
                 switch leg {
                 case .substitute(let stream?):
+                    if request.waitsForSources, waitExpired || Double(TrackLog.ms(since: started)) >= holdCap * 1_000 {
+                        substituteDone = true
+                        note("a ranked source answered after the start deadline; keeping YouTube")
+                        if let youTubeResult { return try youTubeResult.get() }
+                        continue
+                    }
+                    if request.playbackMode == .queueOnly, !request.waitsForSources {
+                        // A fresh current track starts on YouTube. A prepared queue copy is
+                        // selected by the factory; this answer remains available to the upgrade.
+                        earlySubstitute = stream
+                        if case .failure? = youTubeResult { return stream }
+                        note("ranked copy ready; YouTube starts this track first")
+                        continue
+                    }
                     note("a ranked source won with \(stream.format.summary)")
                     return stream
                 case .substitute(nil):
@@ -162,37 +192,36 @@ public final class SourceResolver: StreamResolving, @unchecked Sendable {
                         return held
                     }
                 case .youTube(.success(var stream)):
-                    if request.waitsForSources, !substituteDone {
+                    if request.waitsForSources, !substituteDone, !waitExpired {
                         held = stream
-                        note("YouTube ready with \(stream.format.summary); holding it for the ranked sources")
-                        let spent = started.duration(to: .now)
-                        let hold = ahead ? max(0, holdCap - Double(spent.components.seconds) - Double(spent.components.attoseconds) / 1e18) : holdCap
-                        group.addTask {
-                            try await Task.sleep(nanoseconds: UInt64(hold * 1_000_000_000))
-                            return .waitedLongEnough
-                        }
+                        note("YouTube ready with \(stream.format.summary); holding it until the playback deadline")
                         continue
                     }
                     // The sources are still looking: sound now, quality shortly after.
-                    if !substituteDone {
+                    if !substituteDone, request.allowsAutomaticSourceSwitch {
                         stream.belowRequest = true
                         handOff(lookup, for: song.videoId)
                         handedOff = true
                     }
-                    note("YouTube won with \(stream.format.summary)" + (substituteDone ? "" : "; ranked sources still looking, handed to the second look"))
+                    note("YouTube won with \(stream.format.summary)" + (stream.belowRequest ? "; upgrade lookup retained" : "; no late automatic switch"))
                     return stream
                 case .youTube(let failure):
                     // A YouTube walk that ended without a URL has not won anything: an age-gated
                     // track YouTube will never serve may be one a catalogue has.
                     youTubeResult = failure
+                    if let earlySubstitute { return earlySubstitute }
                     note("YouTube failed" + (substituteDone ? "" : "; waiting on the ranked sources"))
                     if substituteDone { return try failure.get() }
                 case .waitedLongEnough:
+                    waitExpired = true
+                    if !request.allowsAutomaticSourceSwitch { lookup.cancel() }
                     guard var stream = held else { continue }
-                    stream.belowRequest = true
-                    handOff(lookup, for: song.videoId)
-                    handedOff = true
-                    note("no ranked source in time; YouTube plays and the upgrade carries on with their lookup")
+                    if request.allowsAutomaticSourceSwitch {
+                        stream.belowRequest = true
+                        handOff(lookup, for: song.videoId)
+                        handedOff = true
+                    }
+                    note("start deadline reached; YouTube plays" + (request.allowsAutomaticSourceSwitch ? "; upgrade lookup retained" : "; no late automatic switch"))
                     return stream
                 }
             }
@@ -319,11 +348,11 @@ public final class SourceResolver: StreamResolving, @unchecked Sendable {
 
     /// The reliable last rung for a source-backed item whose stream failed in the player: YouTube
     /// only (the failed source must not return the same URL), found by metadata, strictly.
-    public func youtubeFallback(_ target: TrackMatcher.Target) async throws -> ResolvedStream? {
+    public func youtubeFallback(_ target: TrackMatcher.Target, tier: StreamRequest.Tier = .best) async throws -> ResolvedStream? {
         guard target.title.nonBlank != nil, !target.isVideo else { return nil }
         guard let youtube = registry.active().first(where: { $0.kind == .youtube }) else { return nil }
         let stream = try await matchAndStream(
-            youtube, target, .best,
+            youtube, target, tier,
             strictLength: target.durationSec != nil,
             requireSharedArtist: true
         )
@@ -793,8 +822,8 @@ public final class SourceResolver: StreamResolving, @unchecked Sendable {
     /// (`StreamURLProbe.timeout`). A server slower than that to start can't keep a track playing.
     static let firstBytesTimeout: TimeInterval = 6
     /// How long a ``StreamRequest/waitsForSources`` track holds YouTube's ready stream for a ranked
-    /// source, counted from when YouTube's stream is ready. Past it YouTube plays and the upgrade
-    /// takes over, so a slow catalogue costs a wait, never a stall.
+    /// source, counted from the playback lookup start. An app request can supply the remaining
+    /// budget after work preceding this resolver. Addon-first fallback never auto-upgrades.
     static let directSourceWait: TimeInterval = 12
     /// How long a look ahead in Queue only waits for the ranked sources (both their search and
     /// holding YouTube's stream for them): a track ahead isn't playing, so the wait costs nothing

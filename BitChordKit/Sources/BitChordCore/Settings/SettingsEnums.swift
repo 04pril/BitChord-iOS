@@ -142,12 +142,11 @@ public enum EqualizerMode: String, Codable, Hashable, Sendable, CaseIterable {
 /// When a track starts on a ranked source (an add-on) rather than on YouTube with the quality
 /// upgrade following (the "Direct source stream" setting).
 public enum DirectSourceStream: String, Codable, Hashable, Sendable, CaseIterable {
-    /// YouTube starts every track at once; the upgrade swaps a better copy in.
+    /// Fast playback: YouTube only, without source lookup or automatic rendition swaps.
     case off = "OFF"
-    /// Read-ahead asks the ranked sources for the tracks ahead, and a track it found a copy for
-    /// starts on that copy. Any other track (a search result, an album, a link) starts on YouTube.
+    /// Continuity: start on YouTube, prepare the queue's better copies, optionally swap the current one.
     case queueOnly = "QUEUE_ONLY"
-    /// Every track waits for the ranked sources, up to ``StreamRequest/waitsForSources``'s cap.
+    /// Addon first: wait from playback request, then settle on YouTube without an automatic late swap.
     case always = "ALWAYS"
 }
 

@@ -190,11 +190,11 @@ struct SettingsScreen: View {
                 router.open(.sources)
             }
         case .onWifi:
-            SettingsRow(symbol: "wifi", title: L10n.onWifi, value: settings.audioQualityWifi.settingsLabel,
+            SettingsRow(symbol: "wifi", title: L10n.onWifi, value: (settings.directSourceStream == .off && settings.audioQualityWifi == .lossless ? AudioQuality.high : settings.audioQualityWifi).settingsLabel,
                         badge: metered == false ? L10n.inUse : nil) { picking = .wifi }
         case .onMobileData:
             SettingsRow(symbol: "antenna.radiowaves.left.and.right", title: L10n.onMobileData,
-                        value: settings.audioQualityCellular.settingsLabel,
+                        value: (settings.directSourceStream == .off && settings.audioQualityCellular == .lossless ? AudioQuality.high : settings.audioQualityCellular).settingsLabel,
                         badge: metered == true ? L10n.inUse : nil) { picking = .cellular }
         case .dolbyAtmos:
             // Greyed rather than hidden where the device can't decode E-AC-3: a missing row reads as
@@ -424,14 +424,18 @@ struct SettingsScreen: View {
     // MARK: - Sheets
 
     private func qualitySheet(_ target: QualityTarget) -> some View {
-        let selected = target == .wifi ? settings.audioQualityWifi : settings.audioQualityCellular
+        let stored = target == .wifi ? settings.audioQualityWifi : settings.audioQualityCellular
+        let fast = settings.directSourceStream == .off
+        let selected: AudioQuality = fast && stored == .lossless ? .high : stored
         // Best first — the option most people want shouldn't be last.
         return SettingsChoiceSheet(
             symbol: target.symbol,
             title: L10n.audioQuality,
             subtitle: L10n.audioQualityConnection(target.title.lowercased(with: LanguageBundle.locale)),
-            options: AudioQuality.allCases.reversed().map {
-                SettingsChoice(value: $0, label: $0.settingsLabel, detail: L10n.qualityHourly($0.detail, $0.hourly))
+            options: AudioQuality.allCases.reversed().filter { !fast || $0 != .lossless }.map {
+                SettingsChoice(value: $0, label: $0.settingsLabel,
+                               detail: fast ? L10n.tr($0 == .low ? "playback_fast_low" : $0 == .medium ? "playback_fast_medium" : "playback_fast_high")
+                                            : L10n.qualityHourly($0.detail, $0.hourly))
             },
             selected: selected
         ) { quality in
@@ -458,15 +462,7 @@ struct SettingsScreen: View {
     }
 
     private var directSourceStreamSheet: some View {
-        SettingsChoiceSheet(
-            symbol: "arrow.triangle.branch",
-            title: L10n.directSourceStream,
-            subtitle: L10n.directSourceStreamSubtitle,
-            options: DirectSourceStream.allCases.map {
-                SettingsChoice(value: $0, label: $0.settingsLabel, detail: $0.settingsDetail)
-            },
-            selected: settings.directSourceStream
-        ) { settings.directSourceStream = $0 }
+        PlaybackModeSheet(settings: settings)
     }
 
     private var automixPerformanceSheet: some View {
@@ -527,7 +523,7 @@ extension ThemeMode {
 extension DirectSourceStream {
     var settingsLabel: String {
         switch self {
-        case .off: return L10n.off
+        case .off: return L10n.tr("playback_mode_fast")
         case .queueOnly: return L10n.directSourceStreamQueueOnly
         case .always: return L10n.directSourceStreamAlways
         }
