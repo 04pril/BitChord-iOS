@@ -35,7 +35,8 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
     private var openReads: [ObjectIdentifier: Range<Int64>] = [:]
     private var hasOpened = false
     private var openingWarmupStarted = false
-    private var openingWarmupCancelled = false
+    private var openingWarmupUsers = 0
+    private var openingWarmupGeneration = 0
     private var openingWarmup: Task<Void, Never>?
 
     init(key: AudioCacheKey, source: (any AudioRangeDataSource)?, store: AudioCacheStore, retryDelays: [Duration] = []) {
@@ -90,13 +91,27 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
         for task in running { task.cancel() }
     }
 
-    /// Independent of AVFoundation's short-lived probes, but owned by this asset/playback.
-    func cancelOpeningWarmup() {
-        let task = lock.withLock {
-            openingWarmupCancelled = true
-            return openingWarmup
+    /// Each entry/open owns a lease. Cancelling a preload must not cancel the same asset's
+    /// active playback, and a later user can restart a previously abandoned opening.
+    func acquireOpeningWarmup() -> AudioCacheOpeningWarmupLease {
+        let users = lock.withLock {
+            openingWarmupUsers += 1
+            return openingWarmupUsers
         }
-        task?.cancel()
+        TrackLog.d(AudioCacheStore.category, "opening warmup playback users \(users)", about: key.trackID)
+        return AudioCacheOpeningWarmupLease { [self] in
+            let result: (Int, Task<Void, Never>?) = lock.withLock {
+                openingWarmupUsers -= 1
+                guard openingWarmupUsers == 0 else { return (openingWarmupUsers, nil) }
+                openingWarmupGeneration += 1
+                openingWarmupStarted = false
+                let task = openingWarmup
+                openingWarmup = nil
+                return (0, task)
+            }
+            result.1?.cancel()
+            TrackLog.d(AudioCacheStore.category, "opening warmup playback users \(result.0)", about: key.trackID)
+        }
     }
 
     private func startOpeningWarmupIfNeeded(info: AudioContentInfo) async {
@@ -106,12 +121,12 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
               (stream.mimeType ?? info.mimeType ?? "").lowercased()
                 .components(separatedBy: ";")[0].trimmingCharacters(in: .whitespaces) == "audio/mp4",
               info.contentLength > 0 else { return }
-        let shouldStart = lock.withLock {
-            guard !openingWarmupStarted, !openingWarmupCancelled else { return false }
+        let generation: Int? = lock.withLock {
+            guard openingWarmupUsers > 0, !openingWarmupStarted else { return nil }
             openingWarmupStarted = true
-            return true
+            return openingWarmupGeneration
         }
-        guard shouldStart else { return }
+        guard let generation else { return }
         let prefixLimit: Int64 = 1_024 * 1_024
         let smallFileLimit = 4 * prefixLimit
         // Fragmented AAC probing may scan past the first MiB. Keep a small rendition's whole
@@ -153,8 +168,9 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
                 }
             }
             let cancelled = lock.withLock {
+                guard openingWarmupGeneration == generation, openingWarmupUsers > 0 else { return true }
                 openingWarmup = task
-                return openingWarmupCancelled
+                return false
             }
             if cancelled { task.cancel() }
         } catch {
@@ -207,6 +223,11 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
             try await store.contentInfo(for: key, source: source, opening: opening)
         }
         if opening {
+            if let stream = (source as? HTTPAudioSource)?.resolvedStream {
+                TrackLog.d(AudioCacheStore.category,
+                           "opening warmup policy: origin \(stream.origin), codec \(stream.format.codec ?? "unknown"), mime \(stream.mimeType ?? info.mimeType ?? "unknown")",
+                           about: key.trackID)
+            }
             TrackLog.i(AudioCacheStore.category,
                        "first AV resource content info took \(TrackLog.ms(since: infoStarted))ms (\(info.contentLength) bytes, type \(info.contentType ?? "unknown"))",
                        about: key.trackID)

@@ -43,8 +43,11 @@ final class DeckEntry {
         self.knownLength = AudioStreamCache.knownDuration(of: asset)
     }
 
-    deinit {
-        AudioStreamCache.cancelOpeningWarmup(of: asset)
+    var openingWarmup: AudioCacheOpeningWarmupLease?
+
+    func stopOpeningWarmup() {
+        openingWarmup?.finish()
+        openingWarmup = nil
     }
 
     /// Puts the item on `path`: a tap calling `context` for ``PlaybackSignalPath/processed``, no
@@ -164,9 +167,7 @@ final class PlaybackDeck: TransitionDeck {
         didSet {
             if current !== oldValue {
                 stopHolding()
-                if let oldValue, oldValue.asset !== current?.asset {
-                    AudioStreamCache.cancelOpeningWarmup(of: oldValue.asset)
-                }
+                oldValue?.stopOpeningWarmup()
             }
         }
     }
@@ -376,7 +377,7 @@ final class PlaybackDeck: TransitionDeck {
     func removeQueued() {
         guard let queued else { return }
         self.queued = nil
-        AudioStreamCache.cancelOpeningWarmup(of: queued.asset)
+        queued.stopOpeningWarmup()
         unwatch(queued)
         player.remove(queued.playerItem)
         updateActionAtItemEnd()
@@ -389,7 +390,7 @@ final class PlaybackDeck: TransitionDeck {
     func stopAdvancingToQueued() {
         guard let queued else { return }
         self.queued = nil
-        AudioStreamCache.cancelOpeningWarmup(of: queued.asset)
+        queued.stopOpeningWarmup()
         unwatch(queued)
         updateActionAtItemEnd()
     }
@@ -466,11 +467,11 @@ final class PlaybackDeck: TransitionDeck {
 
     private func detachAll() {
         if let current {
-            AudioStreamCache.cancelOpeningWarmup(of: current.asset)
+            current.stopOpeningWarmup()
             unwatch(current)
         }
         if let queued {
-            AudioStreamCache.cancelOpeningWarmup(of: queued.asset)
+            queued.stopOpeningWarmup()
             unwatch(queued)
         }
         queued = nil

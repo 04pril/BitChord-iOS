@@ -232,9 +232,9 @@ public final class AudioStreamCache: Sendable {
         return asset
     }
 
-    /// Stops only the bounded YouTube AAC opening download when playback abandons an asset.
-    public static func cancelOpeningWarmup(of asset: AVAsset) {
-        resourceLoader(of: asset)?.cancelOpeningWarmup()
+    /// One playback consumer of an asset's bounded YouTube AAC opening download.
+    public static func acquireOpeningWarmup(of asset: AVAsset) -> AudioCacheOpeningWarmupLease? {
+        resourceLoader(of: asset)?.acquireOpeningWarmup()
     }
 
     /// The whole length the source behind `asset` knows ahead of its bytes

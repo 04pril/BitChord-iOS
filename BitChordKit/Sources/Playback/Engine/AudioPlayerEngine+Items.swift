@@ -84,8 +84,9 @@ extension AudioPlayerEngine {
         let sourceOpenStarted = ContinuousClock.now
         let opened = try await openAudio(for: item, source: source, joined: joined)
         PlaybackLog.info("\(item.id) source asset open took \(TrackLog.ms(since: sourceOpenStarted))ms", about: item.trackID)
+        let openingWarmup = AudioStreamCache.acquireOpeningWarmup(of: opened.asset)
         var handedOff = false
-        defer { if !handedOff { AudioStreamCache.cancelOpeningWarmup(of: opened.asset) } }
+        defer { if !handedOff { openingWarmup?.finish() } }
         try Task.checkCancellation()
         // An HLS asset has no asset-level tracks (they live on the player item's variants), so an
         // empty list only means "no audio" for a non-playlist asset.
@@ -95,7 +96,7 @@ extension AudioPlayerEngine {
         var track = try await withTaskCancellationHandler {
             try await openingAsset.loadTracks(withMediaType: .audio).first
         } onCancel: {
-            AudioStreamCache.cancelOpeningWarmup(of: openingAsset)
+            openingWarmup?.finish()
         }
         PlaybackLog.info("\(item.id) AVAsset.loadTracks(audio) took \(TrackLog.ms(since: loadTracksStarted))ms", about: item.trackID)
         guard track != nil || asset.isStreamingPlaylist else { throw PlaybackSourceError.noAudioTrack }
@@ -122,6 +123,7 @@ extension AudioPlayerEngine {
             loudnessDb: opened.loudnessDb ?? item.loudnessDb,
             declaredFormat: opened.settlesFormat ? opened.declaredFormat : opened.declaredFormat ?? item.declaredFormat
         )
+        entry.openingWarmup = openingWarmup
         entry.isPreciselyTimed = isPrecise
         if entry.content == .dolbyAtmos {
             // Let the system render the object mix spatially (multichannel out over HDMI/AirPlay,
