@@ -19,6 +19,6 @@ jobs:
         run: scripts/make-ipa.sh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: BitChord-KR-Proxy-IPA
-          path: build/*-KR-Proxy.ipa
+          name: BitChord-IPA
+          path: build/BitChord-*.ipa
           if-no-files-found: error

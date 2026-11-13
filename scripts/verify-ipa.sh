@@ -2,7 +2,7 @@
 # Check a sideload IPA the way a sideloader will read it: the signature verifies, and the app and
 # each extension carry the app-group entitlement (the sideloader remaps it; without it the widget
 # and share extension can't see the app's data). Prints the signature and entitlements for the log.
-#   scripts/verify-ipa.sh build/BitChord-<version>-<build>.ipa
+#   scripts/verify-ipa.sh build/BitChord-<version>.ipa
 set -euo pipefail
 IPA=${1:?usage: verify-ipa.sh <ipa>}
 [ -f "$IPA" ] || { echo "no IPA at $IPA" >&2; exit 1; }

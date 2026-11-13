@@ -2,7 +2,7 @@
 # Build a Release IPA for testers to sideload (AltStore, SideStore, Sideloadly, …): the app and its
 # two extensions, ad-hoc signed with their entitlements so the sideloader re-signs them with the
 # tester's own Apple ID and remaps the shared app group. No Apple Developer account is needed here.
-#   scripts/make-ipa.sh            → build/BitChord-<version>-<build>.ipa
+#   scripts/make-ipa.sh            → build/BitChord-<version>.ipa
 # JOBS=n caps parallel compile jobs (default 3), as in the other scripts.
 set -euo pipefail
 export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}
@@ -42,7 +42,7 @@ codesign --force --sign - --timestamp=none --entitlements App/Config/BitChordSha
 codesign --force --sign - --timestamp=none --entitlements App/Config/BitChord.entitlements "$STAGED"
 
 mkdir -p build
-OUT="build/BitChord-$VERSION-$BUILD-KR-Proxy.ipa"
+OUT="build/BitChord-$VERSION.ipa"
 rm -f "$OUT"
 (cd "$STAGE" && zip -qry - Payload) > "$OUT"
 echo "$OUT ($(du -h "$OUT" | cut -f1))"

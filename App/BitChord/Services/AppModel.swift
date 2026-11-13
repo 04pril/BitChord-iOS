@@ -124,16 +124,20 @@ final class AppModel {
         return DownloadLyrics(plain: LRCFormat.lrc(from: result.lines), enhanced: result.isWordSynced ? LRCFormat.enhancedLRC(from: result.lines) : nil)
     }
 
-    /// Downloads: a background URLSession plus the library in Application Support. Created on
-    /// first use, and at the latest shortly after launch (``start()``), before iOS can ask about
-    /// finished background transfers.
+    /// Downloads use an app-local session with a proxy, or a system background session without
+    /// one. Created by startup before iOS can ask about finished background transfers.
     @ObservationIgnored private(set) lazy var downloads: DownloadManager = {
         let resolver = streamResolver
+        let appProxyActive = YTMUWGActiveThisLaunch()
+        let transport: URLSessionDownloadTransport? = appProxyActive
+            ? .appLocal(stagingDirectory: downloadLibrary.store.stagingDirectory) : nil
+        TrackLog.i("Downloads", "download transport: \(appProxyActive ? "app-local proxy session" : "system background session")")
         let manager = DownloadManager.live(
             settings: settings,
             resolver: sourceResolver,
             network: network,
             library: downloadLibrary,
+            transport: transport,
             lyricsProvider: downloadLyrics,
             refusalHandler: { url, status in await resolver.onPlaybackRefused(url: url, statusCode: status) }
         )

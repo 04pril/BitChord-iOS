@@ -109,6 +109,19 @@ public final class URLSessionDownloadTransport: NSObject, DownloadTransport, URL
         URLSessionDownloadTransport(configuration: backgroundConfiguration(identifier: identifier), stagingDirectory: stagingDirectory)
     }
 
+    /// A proxy running inside the app cannot outlive its process. Keep its transfers in the
+    /// same process as URL resolution/playback instead of handing them to nsurlsessiond.
+    /// The queue still checkpoints completed ranges and resumes them on the next launch.
+    public static func appLocal(stagingDirectory: URL) -> URLSessionDownloadTransport {
+        URLSessionDownloadTransport(configuration: appLocalConfiguration(), stagingDirectory: stagingDirectory)
+    }
+
+    static func appLocalConfiguration() -> URLSessionConfiguration {
+        let configuration = BitChordHTTP.makeConfiguration()
+        configuration.timeoutIntervalForResource = 60 * 60
+        return configuration
+    }
+
     /// The app's background session configuration.
     static func backgroundConfiguration(identifier: String) -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.background(withIdentifier: identifier)
@@ -243,6 +256,10 @@ public final class URLSessionDownloadTransport: NSObject, DownloadTransport, URL
     }
 
     public func handleBackgroundEvents(completion: @escaping @Sendable () -> Void) {
+        guard session.configuration.identifier != nil else {
+            completion()
+            return
+        }
         lock.withLock { backgroundCompletion = completion }
     }
 
