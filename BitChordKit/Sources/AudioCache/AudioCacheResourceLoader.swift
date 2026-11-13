@@ -112,7 +112,11 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
             return true
         }
         guard shouldStart else { return }
-        let end = min(info.contentLength, 1_024 * 1_024)
+        let prefixLimit: Int64 = 1_024 * 1_024
+        let smallFileLimit = 4 * prefixLimit
+        // Fragmented AAC probing may scan past the first MiB. Keep a small rendition's whole
+        // bounded fetch alive; larger files retain the original one-MiB opening budget.
+        let end = info.contentLength <= smallFileLimit ? info.contentLength : prefixLimit
         // cachedLength returns a NEGATIVE hole length for an uncached opening, not an offset.
         // The prefix helper maps that to zero and preserves a partially cached prefix.
         let prefix = min(end, await store.cachedPrefixBytes(key))
