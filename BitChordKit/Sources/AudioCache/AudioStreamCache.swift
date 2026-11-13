@@ -232,6 +232,11 @@ public final class AudioStreamCache: Sendable {
         return asset
     }
 
+    /// Stops only the bounded YouTube AAC opening download when playback abandons an asset.
+    public static func cancelOpeningWarmup(of asset: AVAsset) {
+        resourceLoader(of: asset)?.cancelOpeningWarmup()
+    }
+
     /// The whole length the source behind `asset` knows ahead of its bytes
     /// (``AudioRangeDataSource/knownDuration``); nil for an asset this cache didn't make.
     public static func knownDuration(of asset: AVAsset) -> TimeInterval? {

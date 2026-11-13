@@ -84,12 +84,19 @@ extension AudioPlayerEngine {
         let sourceOpenStarted = ContinuousClock.now
         let opened = try await openAudio(for: item, source: source, joined: joined)
         PlaybackLog.info("\(item.id) source asset open took \(TrackLog.ms(since: sourceOpenStarted))ms", about: item.trackID)
+        var handedOff = false
+        defer { if !handedOff { AudioStreamCache.cancelOpeningWarmup(of: opened.asset) } }
         try Task.checkCancellation()
         // An HLS asset has no asset-level tracks (they live on the player item's variants), so an
         // empty list only means "no audio" for a non-playlist asset.
         var asset = opened.asset
         let loadTracksStarted = ContinuousClock.now
-        var track = try await asset.loadTracks(withMediaType: .audio).first
+        let openingAsset = asset
+        var track = try await withTaskCancellationHandler {
+            try await openingAsset.loadTracks(withMediaType: .audio).first
+        } onCancel: {
+            AudioStreamCache.cancelOpeningWarmup(of: openingAsset)
+        }
         PlaybackLog.info("\(item.id) AVAsset.loadTracks(audio) took \(TrackLog.ms(since: loadTracksStarted))ms", about: item.trackID)
         guard track != nil || asset.isStreamingPlaylist else { throw PlaybackSourceError.noAudioTrack }
         var isPrecise = asset.isStreamingPlaylist
@@ -126,6 +133,7 @@ extension AudioPlayerEngine {
             startSilenceScan(for: item, asset: opened.asset)
             applySilenceMap(to: entry)
         }
+        handedOff = true
         return entry
     }
 

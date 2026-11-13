@@ -34,6 +34,9 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
     /// The byte ranges AVFoundation asked for and hasn't been handed in full yet.
     private var openReads: [ObjectIdentifier: Range<Int64>] = [:]
     private var hasOpened = false
+    private var openingWarmupStarted = false
+    private var openingWarmupCancelled = false
+    private var openingWarmup: Task<Void, Never>?
 
     init(key: AudioCacheKey, source: (any AudioRangeDataSource)?, store: AudioCacheStore, retryDelays: [Duration] = []) {
         self.key = key
@@ -82,8 +85,75 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
     }
 
     deinit {
+        openingWarmup?.cancel()
         let running = lock.withLock { tasks.values }
         for task in running { task.cancel() }
+    }
+
+    /// Independent of AVFoundation's short-lived probes, but owned by this asset/playback.
+    func cancelOpeningWarmup() {
+        let task = lock.withLock {
+            openingWarmupCancelled = true
+            return openingWarmup
+        }
+        task?.cancel()
+    }
+
+    private func startOpeningWarmupIfNeeded(info: AudioContentInfo) async {
+        guard let http = source as? HTTPAudioSource, let stream = http.resolvedStream,
+              stream.origin == .youtube, stream.format.codec == "aac", !stream.isHLS,
+              ["http", "https"].contains(stream.url.scheme?.lowercased() ?? ""),
+              (stream.mimeType ?? info.mimeType ?? "").lowercased()
+                .components(separatedBy: ";")[0].trimmingCharacters(in: .whitespaces) == "audio/mp4",
+              info.contentLength > 0 else { return }
+        let shouldStart = lock.withLock {
+            guard !openingWarmupStarted, !openingWarmupCancelled else { return false }
+            openingWarmupStarted = true
+            return true
+        }
+        guard shouldStart else { return }
+        let end = min(info.contentLength, 1_024 * 1_024)
+        let prefix = await store.cachedLength(key, position: 0, length: end)
+        guard prefix < end else { return }
+        do {
+            // Install the anchor before serving the first two-byte probe; its cancellation must
+            // not leave the fetch without a subscriber between AVFoundation's reads.
+            let first = try await store.subscribe(key, at: prefix, wantEnd: end, source: http,
+                                                  info: info, exact: true, openingWarmup: true)
+            let store = self.store
+            let key = self.key
+            let task = Task {
+                await TrackLog.about(key.trackID) {
+                    let started = ContinuousClock.now
+                    TrackLog.i(AudioCacheStore.category, "YouTube AAC opening warmup [0, \(end)) started", about: key.trackID)
+                    do {
+                        do {
+                            try Task.checkCancellation()
+                            for try await _ in first.stream { try Task.checkCancellation() }
+                        } catch {
+                            await store.release(first, cancelled: true)
+                            throw error
+                        }
+                        await store.release(first, cancelled: Task.isCancelled)
+                        // Existing cache islands or an HTTP chunk boundary can split the fill.
+                        try Task.checkCancellation()
+                        try await store.fill(key, range: 0..<end, source: http, info: info,
+                                             exact: true, openingWarmup: true)
+                        TrackLog.i(AudioCacheStore.category, "YouTube AAC opening warmup complete in \(TrackLog.ms(since: started))ms", about: key.trackID)
+                    } catch {
+                        let outcome = Task.isCancelled || AudioCacheStore.isCancellation(error) ? "cancelled" : "failed"
+                        TrackLog.i(AudioCacheStore.category, "YouTube AAC opening warmup \(outcome) after \(TrackLog.ms(since: started))ms", about: key.trackID)
+                    }
+                }
+            }
+            let cancelled = lock.withLock {
+                openingWarmup = task
+                return openingWarmupCancelled
+            }
+            if cancelled { task.cancel() }
+        } catch {
+            TrackLog.w(AudioCacheStore.category, "YouTube AAC opening warmup could not start", error: error, about: key.trackID)
+        }
     }
 
     // MARK: Serving
@@ -136,6 +206,7 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
                        about: key.trackID)
         }
         let fullyCached = await store.cachedLength(key, position: 0, length: info.contentLength) >= info.contentLength
+        if !Task.isCancelled { await startOpeningWarmupIfNeeded(info: info) }
         request.answer(info, entireLengthAvailable: fullyCached)
         guard let range = request.dataRange(length: info.contentLength) else { return }
         let read = ObjectIdentifier(request)

@@ -43,6 +43,10 @@ final class DeckEntry {
         self.knownLength = AudioStreamCache.knownDuration(of: asset)
     }
 
+    deinit {
+        AudioStreamCache.cancelOpeningWarmup(of: asset)
+    }
+
     /// Puts the item on `path`: a tap calling `context` for ``PlaybackSignalPath/processed``, no
     /// tap for anything else. Swapping a playing item's audio mix is supported by AVFoundation and
     /// takes effect within a render cycle, so a DSP setting switched on mid-track reaches a
@@ -157,7 +161,14 @@ final class PlaybackDeck: TransitionDeck {
     var onEvent: ((PlaybackDeck, DeckEvent) -> Void)?
 
     private(set) var current: DeckEntry? {
-        didSet { if current !== oldValue { stopHolding() } }
+        didSet {
+            if current !== oldValue {
+                stopHolding()
+                if let oldValue, oldValue.asset !== current?.asset {
+                    AudioStreamCache.cancelOpeningWarmup(of: oldValue.asset)
+                }
+            }
+        }
     }
     private(set) var queued: DeckEntry?
     private(set) var hasEnded = false
@@ -365,6 +376,7 @@ final class PlaybackDeck: TransitionDeck {
     func removeQueued() {
         guard let queued else { return }
         self.queued = nil
+        AudioStreamCache.cancelOpeningWarmup(of: queued.asset)
         unwatch(queued)
         player.remove(queued.playerItem)
         updateActionAtItemEnd()
@@ -377,6 +389,7 @@ final class PlaybackDeck: TransitionDeck {
     func stopAdvancingToQueued() {
         guard let queued else { return }
         self.queued = nil
+        AudioStreamCache.cancelOpeningWarmup(of: queued.asset)
         unwatch(queued)
         updateActionAtItemEnd()
     }
@@ -452,8 +465,14 @@ final class PlaybackDeck: TransitionDeck {
     }
 
     private func detachAll() {
-        if let current { unwatch(current) }
-        if let queued { unwatch(queued) }
+        if let current {
+            AudioStreamCache.cancelOpeningWarmup(of: current.asset)
+            unwatch(current)
+        }
+        if let queued {
+            AudioStreamCache.cancelOpeningWarmup(of: queued.asset)
+            unwatch(queued)
+        }
         queued = nil
         player.removeAllItems()
     }

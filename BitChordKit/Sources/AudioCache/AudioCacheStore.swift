@@ -112,6 +112,8 @@ actor AudioCacheStore {
         /// Stopped because its last subscriber was cancelled: never joined again.
         var cancelled = false
         var receivedAny = false
+        /// A bounded YouTube AAC opening subscriber keeps this fetch useful across AV probes.
+        var openingWarmupEnd: Int64?
         /// Started by a background fill, not a player's read. Its source finding another file only
         /// stops it: a player may hold the header of the file on disk, and removing that file
         /// put another's bytes under it, which it decoded to silence.
@@ -566,7 +568,8 @@ actor AudioCacheStore {
         source: (any AudioRangeDataSource)?,
         info: AudioContentInfo? = nil,
         exact: Bool = false,
-        background: Bool = false
+        background: Bool = false,
+        openingWarmup: Bool = false
     ) async throws -> Subscription {
         await ensureLoaded()
         if entries[key]?.contentLength == nil, let info, source != nil {
@@ -586,10 +589,21 @@ actor AudioCacheStore {
 
         if let joinable = live.first(where: {
             !$0.cancelled && $0.generation == entry.generation
-                && $0.position <= position && position < $0.requestEnd && position - $0.position <= Self.joinSlackBytes
+                && $0.position <= position && position < $0.requestEnd
+                && (position < ($0.openingWarmupEnd ?? 0) || position - $0.position <= Self.joinSlackBytes)
         }) {
+            if openingWarmup { joinable.openingWarmupEnd = max(joinable.openingWarmupEnd ?? 0, target) }
+            if position < (joinable.openingWarmupEnd ?? 0) {
+                TrackLog.i(Self.category, "YouTube AAC opening fetch shared at \(position), available through \(joinable.position)", about: key.trackID)
+            }
             let desiredStop = exact ? target : Self.plannedStop(start: joinable.start, target: target, length: length)
-            joinable.stopAt = max(joinable.stopAt, min(joinable.requestEnd, desiredStop))
+            if let warmupEnd = joinable.openingWarmupEnd {
+                // An AV "to end" probe must not expand the independent opening fill to the
+                // whole file. Longer reads resume with a normal fetch after this bounded one.
+                joinable.stopAt = min(joinable.requestEnd, warmupEnd)
+            } else {
+                joinable.stopAt = max(joinable.stopAt, min(joinable.requestEnd, desiredStop))
+            }
             return addSubscriber(to: joinable, at: position, wantEnd: target)
         }
         let desiredStop = exact ? target : Self.plannedStop(start: position, target: target, length: length)
@@ -618,6 +632,7 @@ actor AudioCacheStore {
             id: nextID, key: key, generation: entry.generation, start: position,
             requestEnd: bounded, stopAt: min(bounded, desiredStop), persist: source.isCacheable
         )
+        fetch.openingWarmupEnd = openingWarmup ? target : nil
         fetch.keepsEntryWhenFileDiffers = background
         fetches[fetch.id] = fetch
         refreshCeiling()
@@ -796,7 +811,7 @@ actor AudioCacheStore {
     /// ``lingerBytes`` (a warm-up of a header or a swap point, where the bytes past it are not
     /// about to be read).
     func fill(_ key: AudioCacheKey, range: Range<Int64>, source: (any AudioRangeDataSource)?, info: AudioContentInfo? = nil,
-              exact: Bool = false) async throws {
+              exact: Bool = false, openingWarmup: Bool = false) async throws {
         await ensureLoaded()
         var position = range.lowerBound
         while position < range.upperBound {
@@ -805,7 +820,7 @@ actor AudioCacheStore {
                 position = run.upperBound
                 continue
             }
-            let subscription = try await subscribe(key, at: position, wantEnd: range.upperBound, source: source, info: info, exact: exact, background: true)
+            let subscription = try await subscribe(key, at: position, wantEnd: range.upperBound, source: source, info: info, exact: exact, background: true, openingWarmup: openingWarmup)
             do {
                 for try await piece in subscription.stream {
                     position += Int64(piece.count)
