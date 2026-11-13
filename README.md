@@ -3,7 +3,11 @@
 [maanya145/BitChord-iOS](https://github.com/maanya145/BitChord-iOS)를 기반으로 한 개인 포크입니다.
 원래 BitChord의 디자인을 유지하면서 한국어 선택, 가사 폰트·표시 설정, 앱 내부 프록시와 재생 위젯 앱 열기 패치를 추가했습니다.
 
-**[IPA 다운로드 / 릴리즈](https://github.com/04pril/BitChord-iOS/releases)** · [원본 README](docs/UPSTREAM-README.md)
+**[최신 IPA 다운로드 / 릴리즈](https://github.com/04pril/BitChord-iOS/releases/latest)** · [원본 README](docs/UPSTREAM-README.md)
+
+## 컬러 위젯 예시
+
+![컬러 4×2 위젯 실제 사용 예시](docs/images/widget-preview.jpg)
 
 ## 추가한 기능
 
