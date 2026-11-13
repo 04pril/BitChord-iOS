@@ -220,8 +220,8 @@ final class PlaybackDeck: TransitionDeck {
                 }
             }
         })
-        playerObservations.append(player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, change in
-            let observed = change.newValue?.rawValue ?? -1
+        playerObservations.append(player.observe(\.timeControlStatus, options: [.new]) { [weak self] observedPlayer, _ in
+            let observed = observedPlayer.timeControlStatus.rawValue
             let observedAt = ContinuousClock.now
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -382,7 +382,7 @@ final class PlaybackDeck: TransitionDeck {
     func logPlaybackStage(_ event: String, entry explicit: DeckEntry? = nil) {
         guard let entry = explicit ?? current else { return }
         let attached = entry.diagnosticAttachedAt.map { "\(TrackLog.ms(since: $0))ms" } ?? "not-attached"
-        PlaybackLog.info("playback stage deck=\(id) \(event); entryAge=\(TrackLog.ms(since: entry.diagnosticCreatedAt))ms attachedAge=\(attached) wantsPlay=\(wantsToPlay) rate=\(player.rate) pendingSeek=\(pendingSeek.map { String($0) } ?? "none"); \(bufferReport(entry))", about: entry.item.trackID)
+        PlaybackLog.info("playback stage deck=\(id) \(event); entryAge=\(TrackLog.ms(since: entry.diagnosticCreatedAt))ms attachedAge=\(attached) wantsPlay=\(wantsToPlay) preciseTiming=\(entry.isPreciselyTimed) rate=\(player.rate) pendingSeek=\(pendingSeek.map { String($0) } ?? "none"); \(bufferReport(entry))", about: entry.item.trackID)
     }
 
     /// Where the loaded range holding `time` ends, in seconds; nil when nothing is loaded there. A
@@ -768,8 +768,8 @@ final class PlaybackDeck: TransitionDeck {
     private func watch(_ entry: DeckEntry) {
         let key = ObjectIdentifier(entry.playerItem)
         itemObservations[key] = [
-            entry.playerItem.observe(\.status, options: [.new]) { [weak self, weak entry] _, change in
-                let observed = change.newValue?.rawValue ?? -1
+            entry.playerItem.observe(\.status, options: [.new]) { [weak self, weak entry] observedItem, _ in
+                let observed = observedItem.status.rawValue
                 let observedAt = ContinuousClock.now
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated {

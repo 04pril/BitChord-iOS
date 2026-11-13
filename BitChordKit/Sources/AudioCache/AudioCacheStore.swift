@@ -418,6 +418,7 @@ actor AudioCacheStore {
             TrackLog.w(Self.category, "\(key)'s new source is \(stated) bytes, not \(recorded); discarding the old copy", about: key.trackID)
             removeKey(key)
         }
+        if opening, let entry = entries[key] { inspectCachedFLACOpening(entry) }
         if let entry = entries[key], let length = entry.contentLength, let type = entry.contentType {
             return AudioContentInfo(contentLength: length, mimeType: entry.mimeType, contentType: type)
         }
@@ -468,6 +469,7 @@ actor AudioCacheStore {
         if entry.contentType == nil {
             entry.contentType = try await sniffType(key, length: info.contentLength, source: source)
         }
+        if opening { inspectCachedFLACOpening(entry) }
         markDirty(entry, persistNow: true)
         return AudioContentInfo(
             contentLength: info.contentLength,
@@ -475,6 +477,24 @@ actor AudioCacheStore {
             // Nothing recognisable: MPEG-4 is what almost every stream this app sees is.
             contentType: entry.contentType ?? AudioContentType.mpeg4Audio
         )
+    }
+
+    /// Validate a new asset's type from bytes already on disk. A server MIME or URL suffix can
+    /// claim MP3 while the actual file is FLAC. Inspect only for a new asset opening, with no
+    /// additional network fetch and no modification of the encoded file.
+    private func inspectCachedFLACOpening(_ entry: Entry) {
+        guard let run = availableRuns(entry.key).first, run.lowerBound == 0, run.upperBound >= 4,
+              let magic = readFromDisk(entry.key, at: 0, length: 4, touch: false),
+              magic == Data("fLaC".utf8),
+              let prefix = readFromDisk(entry.key, at: 0, length: min(run.upperBound, 256 * 1_024), touch: false),
+              let opening = FLACOpeningInfo(prefix) else { return }
+        if entry.contentType != AudioContentType.flac || entry.mimeType != "audio/flac" {
+            TrackLog.i(Self.category, "FLAC cached header verified; correcting type \(entry.contentType ?? "unknown") / \(entry.mimeType ?? "unknown") to org.xiph.flac / audio/flac", about: entry.key.trackID)
+            entry.contentType = AudioContentType.flac
+            entry.mimeType = "audio/flac"
+            markDirty(entry, persistNow: true)
+        }
+        TrackLog.i(Self.category, "FLAC cached header: \(opening.summary)", about: entry.key.trackID)
     }
 
     private func sniffType(_ key: AudioCacheKey, length: Int64, source: (any AudioRangeDataSource)?) async throws -> String? {

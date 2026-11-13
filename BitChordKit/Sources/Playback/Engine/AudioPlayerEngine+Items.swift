@@ -104,6 +104,8 @@ extension AudioPlayerEngine {
         var isPrecise = asset.isStreamingPlaylist
         if !isPrecise { isPrecise = (try? await asset.load(.providesPreciseDurationAndTiming)) == true }
         if preciselyTimed, !isPrecise {
+            let heldBytes = await AudioStreamCache.bytesOnDisk(of: asset)
+            PlaybackLog.info("precise timing reopen for \(item.id); cached=\(heldBytes) B, requested for mid-track entry", about: item.trackID)
             asset = AudioStreamCache.preciselyTimed(asset)
             let preciseTracksStarted = ContinuousClock.now
             track = try await asset.loadTracks(withMediaType: .audio).first
