@@ -36,10 +36,10 @@ struct NowPlayingSnapshot: Codable, Hashable {
     static let defaultsKey = "now_playing_snapshot"
     static let artworkFileName = "now_playing_artwork.jpg"
 
-    static var sharedDefaults: UserDefaults? { UserDefaults(suiteName: SharedConstants.appGroup) }
+    static var sharedDefaults: UserDefaults? { SharedAppGroup.defaults }
 
     static var containerURL: URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: SharedConstants.appGroup)
+        SharedAppGroup.containerURL
     }
 
     /// The snapshot last written, or nil (nothing played yet, or an unknown version).
@@ -58,6 +58,51 @@ struct NowPlayingSnapshot: Codable, Hashable {
     /// Nothing is playing any more (the queue was cleared).
     static func clear(from defaults: UserDefaults? = sharedDefaults) {
         defaults?.removeObject(forKey: defaultsKey)
+    }
+
+    private static var snapshotFileURL: URL? { containerURL?.appending(path: "now-playing-v1.json") }
+    static var widgetReceiptURL: URL? { containerURL?.appending(path: "widget-read-v1.json") }
+
+    /// Atomic file first, legacy defaults second, so another process sees a complete new snapshot.
+    static func loadShared() -> NowPlayingSnapshot? {
+        if let file = snapshotFileURL, let data = try? Data(contentsOf: file),
+           let snapshot = try? JSONDecoder().decode(Self.self, from: data), snapshot.version == currentVersion {
+            return snapshot
+        }
+        return load()
+    }
+
+    func saveShared() throws {
+        guard let file = Self.snapshotFileURL else {
+            throw NSError(domain: "BitChordWidget", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "App Group shared container is unavailable"])
+        }
+        let data = try JSONEncoder().encode(self)
+        try data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        save()
+    }
+
+    static func clearShared() {
+        if let file = snapshotFileURL { try? FileManager.default.removeItem(at: file) }
+        clear()
+    }
+
+    static func recordWidgetRead(_ snapshot: NowPlayingSnapshot?) {
+        guard let file = widgetReceiptURL else { return }
+        let receipt: [String: Any] = ["at": Date().timeIntervalSince1970,
+                                     "widgetBundle": Bundle.main.bundleIdentifier ?? "unknown",
+                                     "group": SharedAppGroup.selection?.identifier ?? "none",
+                                     "track": snapshot?.videoId ?? "none",
+                                     "snapshotAt": snapshot?.updatedAt.timeIntervalSince1970 ?? 0]
+        if let data = try? JSONSerialization.data(withJSONObject: receipt, options: [.sortedKeys]) {
+            try? data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        }
+    }
+
+    static var widgetReadReceipt: String {
+        guard let file = widgetReceiptURL, let data = try? Data(contentsOf: file),
+              let text = String(data: data, encoding: .utf8) else { return "none" }
+        return text
     }
 
     /// The saved cover, when there is one.

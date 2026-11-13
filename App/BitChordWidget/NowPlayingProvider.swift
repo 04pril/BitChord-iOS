@@ -20,7 +20,7 @@ struct NowPlayingProvider: TimelineProvider {
 
     func getSnapshot(in context: Context, completion: @escaping (NowPlayingEntry) -> Void) {
         // The gallery shows the stand-in track until something has actually played.
-        if context.isPreview, NowPlayingSnapshot.load() == nil {
+        if context.isPreview, NowPlayingSnapshot.loadShared() == nil {
             completion(placeholder(in: context))
             return
         }
@@ -28,11 +28,13 @@ struct NowPlayingProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NowPlayingEntry>) -> Void) {
-        completion(Timeline(entries: [current()], policy: .never))
+        let entry = current()
+        completion(Timeline(entries: [entry], policy: entry.snapshot == nil ? .after(Date().addingTimeInterval(60)) : .never))
     }
 
     private func current() -> NowPlayingEntry {
-        let snapshot = NowPlayingSnapshot.load()
+        let snapshot = NowPlayingSnapshot.loadShared()
+        NowPlayingSnapshot.recordWidgetRead(snapshot)
         return NowPlayingEntry(date: .now, snapshot: snapshot, art: WidgetArt.load(for: snapshot))
     }
 }

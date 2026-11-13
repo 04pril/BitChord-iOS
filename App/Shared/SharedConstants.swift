@@ -3,7 +3,7 @@ import Foundation
 /// Code compiled into the app, the widget extension and the Share Extension.
 enum SharedConstants {
     /// App Group shared by the app and its extensions (the now-playing snapshot, the share inbox).
-    static let appGroup = "group.com.music.bitchord"
+    static var appGroup: String { SharedAppGroup.selection?.identifier ?? SharedAppGroup.declaredIdentifier }
 
     /// The app's own URL scheme (`CFBundleURLSchemes` in BitChord-Info.plist).
     static let urlScheme = "bitchord"

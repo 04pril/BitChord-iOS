@@ -360,13 +360,17 @@ final class WidgetSnapshotObserver: PlaybackEventObserver {
     private weak var player: PlayerController?
     private let defaults: UserDefaults?
     private let reloadsWidgets: Bool
+    private let usesSharedStorage: Bool
+    private var lastStorageError: String?
+    private var lastSharedWriteAt = Date.distantPast
     private var lastArtworkURL: String?
     private(set) var lastWritten: NowPlayingSnapshot?
     private var queueShapeTracker: ChangeTracker?
 
-    init(player: PlayerController, defaults: UserDefaults? = NowPlayingSnapshot.sharedDefaults, reloadsWidgets: Bool = true) {
+    init(player: PlayerController, defaults: UserDefaults? = nil, reloadsWidgets: Bool = true) {
         self.player = player
-        self.defaults = defaults
+        self.defaults = defaults ?? NowPlayingSnapshot.sharedDefaults
+        self.usesSharedStorage = defaults == nil
         self.reloadsWidgets = reloadsWidgets
         // Shuffle, repeat and the ends of the queue change the widget's face (the 4x1's Shuffle,
         // which buttons are dimmed) but aren't playback events, so they are watched here.
@@ -423,7 +427,8 @@ final class WidgetSnapshotObserver: PlaybackEventObserver {
     func write(playing: Bool? = nil) {
         guard let player else { return }
         guard var snapshot = Self.snapshot(of: player, playing: playing) else {
-            NowPlayingSnapshot.clear(from: defaults)
+            if usesSharedStorage { NowPlayingSnapshot.clearShared() }
+            else { NowPlayingSnapshot.clear(from: defaults) }
             lastWritten = nil
             reload()
             return
@@ -433,14 +438,33 @@ final class WidgetSnapshotObserver: PlaybackEventObserver {
         } else {
             saveArtwork(snapshot.artworkURL)
         }
-        snapshot.save(to: defaults)
+        store(snapshot)
         let changedVisibly = lastWritten.map { !$0.sameFace(as: snapshot) } ?? true
         lastWritten = snapshot
         if changedVisibly { reload() }
     }
 
+    private func store(_ snapshot: NowPlayingSnapshot, progressOnly: Bool = false) {
+        guard usesSharedStorage else { snapshot.save(to: defaults); return }
+        // The widget extrapolates progress from updatedAt. Avoid an atomic disk write on every
+        // playback tick; track, artwork and transport changes still publish immediately.
+        if progressOnly, Date().timeIntervalSince(lastSharedWriteAt) < 5 { return }
+        lastSharedWriteAt = Date()
+        do {
+            try snapshot.saveShared()
+            lastStorageError = nil
+        } catch {
+            let message = error.localizedDescription
+            if lastStorageError != message {
+                TrackLog.w("Widget", "snapshot write failed: \(message); \(SharedAppGroup.diagnostics)", about: snapshot.videoId)
+                lastStorageError = message
+            }
+        }
+    }
+
     private func reload() {
         guard reloadsWidgets else { return }
+        TrackLog.d("Widget", "reload requested; group=\(SharedAppGroup.selection?.identifier ?? "none") snapshot=\(lastWritten?.videoId ?? "none")", about: lastWritten?.videoId)
         WidgetCenter.shared.reloadAllTimelines()
     }
 
@@ -457,7 +481,7 @@ final class WidgetSnapshotObserver: PlaybackEventObserver {
             let file = container.appending(path: NowPlayingSnapshot.artworkFileName)
             guard (try? data.write(to: file, options: .atomic)) != nil else { return }
             snapshot.artworkFileName = NowPlayingSnapshot.artworkFileName
-            snapshot.save(to: self.defaults)
+            self.store(snapshot)
             self.lastWritten = snapshot
             self.reload()
         }
@@ -475,7 +499,7 @@ final class WidgetSnapshotObserver: PlaybackEventObserver {
         // Position only: saved for extrapolation, but not worth a widget reload.
         guard let player, var snapshot = Self.snapshot(of: player, playing: isPlaying) else { return }
         snapshot.artworkFileName = lastWritten?.artworkFileName
-        snapshot.save(to: defaults)
+        store(snapshot, progressOnly: true)
         lastWritten = snapshot
     }
 

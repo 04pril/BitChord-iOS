@@ -59,7 +59,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(s.equalizerBands, Array(repeating: 0, count: 7))
         XCTAssertEqual(s.themeMode, .dark)
         XCTAssertFalse(s.showNerdStats)
-        XCTAssertTrue(s.keepDiagnosticLog, "the log is on until the owner turns it off")
+        XCTAssertFalse(s.keepDiagnosticLog, "full session recording is opt-in on a fresh install")
         XCTAssertFalse(s.reduceAnimation)
         XCTAssertFalse(s.reduceDynamicBlur)
         XCTAssertFalse(s.hideVolumeBar)

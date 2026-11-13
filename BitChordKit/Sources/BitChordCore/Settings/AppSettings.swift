@@ -277,7 +277,7 @@ public final class AppSettings {
     }
 
     /// Keep a log file on this device (``DiagnosticLog``). On by default; off deletes it.
-    public var keepDiagnosticLog: Bool = true {
+    public var keepDiagnosticLog: Bool = false {
         didSet { write(.keepDiagnosticLog, keepDiagnosticLog) }
     }
 
@@ -933,7 +933,7 @@ public final class AppSettings {
 
         themeMode = readEnum(.themeMode, default: .dark)
         showNerdStats = readBool(.showNerdStats, default: false)
-        keepDiagnosticLog = readBool(.keepDiagnosticLog, default: true)
+        keepDiagnosticLog = readBool(.keepDiagnosticLog, default: false)
         reduceAnimation = readBool(.reduceAnimation, default: false)
         reduceDynamicBlur = readBool(.reduceDynamicBlur, default: false)
         hideVolumeBar = readBool(.hideVolumeBar, default: false)

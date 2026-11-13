@@ -29,7 +29,7 @@ enum SharedLinkHandoff {
         return components.url
     }
 
-    static var sharedDefaults: UserDefaults? { UserDefaults(suiteName: SharedConstants.appGroup) }
+    static var sharedDefaults: UserDefaults? { SharedAppGroup.defaults }
 
     static func save(_ url: URL, to defaults: UserDefaults? = sharedDefaults, now: Date = Date()) {
         defaults?.set(url.absoluteString, forKey: defaultsKey)

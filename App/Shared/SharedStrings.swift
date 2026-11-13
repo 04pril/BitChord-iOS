@@ -24,7 +24,7 @@ enum SharedStrings {
 
     /// The in-app language code, or nil to follow the system.
     static var languageOverride: String? {
-        let defaults = isExtension ? UserDefaults(suiteName: SharedConstants.appGroup) : UserDefaults.standard
+        let defaults = isExtension ? SharedAppGroup.defaults : UserDefaults.standard
         return defaults?.string(forKey: languageOverrideKey)
     }
 

@@ -22,6 +22,7 @@ struct SettingsScreen: View {
     @Environment(AppRouter.self) private var router
     @Environment(PlayerController.self) private var player
 
+    @State private var openingWidgetDiagnostics = false
     @State private var openingDiagnosticLogs = false
     @State private var openingLyricsTypography = false
     @State private var openingProxy = false
@@ -97,6 +98,7 @@ struct SettingsScreen: View {
         .navigationBarTitleDisplayMode(.large)
         .navigationDestination(isPresented: $openingLyricsTypography) { LyricsTypographyScreen() }
         .navigationDestination(isPresented: $openingDiagnosticLogs) { DiagnosticLogsScreen() }
+        .navigationDestination(isPresented: $openingWidgetDiagnostics) { WidgetDiagnosticsScreen() }
         .navigationDestination(isPresented: $openingProxy) { ProxySettingsScreen() }
         .navigationDestination(isPresented: $openingSpotifyCanvas) { SpotifyCanvasSetupScreen() }
         .task {
@@ -397,6 +399,9 @@ struct SettingsScreen: View {
         case .showNerdStats:
             SettingsToggleRow(symbol: "chart.bar.xaxis", title: L10n.showNerdStats,
                               subtitle: L10n.showNerdStatsSubtitle, isOn: $settings.showNerdStats)
+        case .widgetConnection:
+            SettingsRow(symbol: "rectangle.on.rectangle", title: L10n.tr("widget_link_title"),
+                        subtitle: L10n.tr("widget_link_subtitle")) { openingWidgetDiagnostics = true }
         case .keepDiagnosticLog, .shareDiagnosticLog:
             SettingsRow(symbol: "doc.text", title: L10n.tr("full_logs_title"),
                         subtitle: L10n.tr("full_logs_subtitle")) { openingDiagnosticLogs = true }

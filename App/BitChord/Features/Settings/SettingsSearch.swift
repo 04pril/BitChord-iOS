@@ -63,7 +63,7 @@ enum SettingsRowID: String, CaseIterable, Hashable {
     // Language
     case appLanguage
     // Advanced
-    case smartVersionAlignment, showNerdStats, appIcon, keepDiagnosticLog, shareDiagnosticLog
+    case smartVersionAlignment, showNerdStats, appIcon, keepDiagnosticLog, shareDiagnosticLog, widgetConnection
 }
 
 /// One searchable setting: what somebody might type looking for it, and whether it is drawn as
@@ -201,6 +201,7 @@ enum SettingsCatalog {
             ] + (v.alternateIcons ? [row(.appIcon, L10n.appIcon, "icon", "launcher", "logo")] : [])),
             SettingsGroupSpec(id: "diagnostics", header: L10n.tr("full_logs_section"), rows: [
                 row(.keepDiagnosticLog, L10n.tr("full_logs_title"), "debug", "logs", "record", "export", "로그", "기록", "진단", "공유"),
+                row(.widgetConnection, L10n.tr("widget_link_title"), "widget", "signing", "app group", "위젯", "연결", "서명"),
             ]),
         ]
     }

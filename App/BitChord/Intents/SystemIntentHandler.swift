@@ -9,6 +9,7 @@ import WidgetKit
 final class SystemIntentHandler: NSObject, SystemIntentHandling {
     @MainActor
     static func perform(_ action: WidgetTransportAction) async {
+        TrackLog.i("Widget", "intent \(action.rawValue) received in \(Bundle.main.bundleIdentifier ?? "unknown")", about: nil)
         guard let model = SystemAppAccess.model() else { return }
         WidgetTransport.perform(action, player: model.player)
     }
@@ -58,6 +59,9 @@ enum WidgetTransport {
         snapshot.hasNext = player.hasNext
         snapshot.hasPrevious = player.hasPrevious
         snapshot.save(to: defaults)
-        if reload { WidgetCenter.shared.reloadAllTimelines() }
+        if reload {
+            try? snapshot.saveShared()
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
 }
