@@ -16,13 +16,13 @@
 
 ## 설치
 
-1. Releases에서 `BitChord-1.0.2-14-KR-Proxy.ipa`를 받습니다.
+1. Releases에서 `BitChord-1.0.2-19-KR-Proxy.ipa`를 받습니다.
 2. Feather 등 서명 도구에서 **본인 인증서로 앱 전체를 재서명**해 설치합니다. 릴리즈 파일의 ad-hoc 서명은 기기에 바로 설치하는 개발자 서명이 아닙니다.
 3. 앱 설정의 Language에서 한국어를 선택합니다. 기기의 언어 설정이 한국어이면 자동으로 선택될 수도 있습니다.
 4. 프록시를 사용할 경우 본인의 WireGuard `.conf`를 가져오거나 외부 프록시 서버 정보를 입력합니다.
 5. 연결 방식을 저장하고 사용을 켠 다음, 앱을 완전히 종료했다가 다시 엽니다. 시스템 VPN을 끈 상태에서 국가 확인과 실제 곡 재생을 확인합니다.
 
-앱의 식별자는 `com.music.bitchord`, 버전은 1.0.2, 빌드 번호는 14입니다. 기존 앱 위에 설치할 때 같은 서명 접근 그룹을 유지해야 Keychain의 로그인·프록시 설정에 계속 접근할 수 있습니다. 달라지면 다시 로그인하거나 프로필을 가져와야 할 수 있습니다.
+앱의 식별자는 `com.music.bitchord`, 버전은 1.0.2, 빌드 번호는 19입니다. 기존 앱 위에 설치할 때 같은 서명 접근 그룹을 유지해야 Keychain의 로그인·프록시 설정에 계속 접근할 수 있습니다. 달라지면 다시 로그인하거나 프로필을 가져와야 할 수 있습니다.
 
 개인 WireGuard 설정, 개인키, 개인 인증서는 소스나 IPA에 포함하지 않습니다. 프록시 개인키·비밀번호는 기기의 Keychain에 저장하며 진단에는 넣지 않습니다. 사용자 자신의 프로필이 필요합니다.
 
@@ -47,6 +47,14 @@ BitChord URLSession API / HTTPAudioSource 음악 캐시
 
 **BitChord에서의 실제 아이폰 앱 열기와 음악 재생은 아직 사용자 확인 전입니다.** 비공개 MediaRemote API이므로 다른 기기·서명 조합에서 동작이 다를 수 있습니다. API 미지원이나 Objective-C 예외가 발생하면 연결 요청을 건너뛰거나 해당 실행에서 중단합니다. 요청 횟수 자체는 iOS의 승인을 뜻하지 않습니다.
 
+## 첫 재생 진단 (빌드 19)
+
+- `AV resource request #… started/completed/cancelled`: AVFoundation이 보낸 각 리소스 요청의 오프셋과 처리 시간.
+- `AV read #…`: 요청 범위, 총 처리 시간, 디스크 캐시에서 전달한 바이트와 fetch 스트림에서 전달한 바이트, 첫 fetch 데이터까지 기다린 시간.
+- `HTTP range #…`: 각 HTTP Range의 요청·응답 헤더·첫 본문 시각과 종료 때의 수신량·전달량·상태.
+
+`fetch stream`은 AudioCacheStore의 진행 중인 fetch에서 전달받은 바이트입니다. 여러 읽기가 같은 fetch를 공유할 수 있으므로 이 수치만으로 각각 별도 네트워크 요청을 했다고 볼 수는 없습니다. 실제 HTTP 요청 수와 대기 시간은 `HTTP range` 로그와 함께 비교하세요.
+
 ## 직접 빌드
 
 Mac, Xcode 27, Go 1.27.x가 필요합니다. Go와 Swift 패키지 의존성을 받을 수 있는 인터넷 연결이 필요합니다.
@@ -57,7 +65,7 @@ cd BitChord-iOS
 scripts/make-ipa.sh
 ```
 
-이 명령이 한국어 카탈로그와 iOS WireGuard 엔진을 준비한 뒤 Release 앱과 확장을 빌드·패키징합니다. 결과는 `build/BitChord-1.0.2-14-KR-Proxy.ipa`입니다. 설치 전 본인의 인증서로 재서명하세요.
+이 명령이 한국어 카탈로그와 iOS WireGuard 엔진을 준비한 뒤 Release 앱과 확장을 빌드·패키징합니다. 결과는 `build/BitChord-1.0.2-19-KR-Proxy.ipa`입니다. 설치 전 본인의 인증서로 재서명하세요.
 
 GitHub Actions의 **Build IPA**에서도 실행할 수 있습니다. 생성한 IPA는 워크플로 아티팩트로 내려받습니다. Go 엔진 없이 Xcode에서 직접 빌드하려면 먼저 다음 명령을 실행합니다.
 

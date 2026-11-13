@@ -28,6 +28,7 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
 
     private let lock = NSLock()
     private var tasks: [ObjectIdentifier: Task<Void, Never>] = [:]
+    private var nextRequestNumber = 0
     /// The patched opening of a source served without caching (see ``serveDirect(_:from:)``).
     private var directHead: Task<Data, Error>?
     /// The byte ranges AVFoundation asked for and hasn't been handed in full yet.
@@ -47,7 +48,11 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
         shouldWaitForLoadingOfRequestedResource loadingRequest: AVAssetResourceLoadingRequest
     ) -> Bool {
         guard loadingRequest.request.url?.scheme == AudioStreamCache.urlScheme else { return false }
-        let request = LoadingRequest(loadingRequest, queue: queue)
+        let requestNumber = lock.withLock {
+            nextRequestNumber += 1
+            return nextRequestNumber
+        }
+        let request = LoadingRequest(loadingRequest, queue: queue, number: requestNumber)
         let id = ObjectIdentifier(loadingRequest)
         // Registered before the task can finish and unregister itself.
         lock.withLock {
@@ -84,6 +89,9 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
     // MARK: Serving
 
     private func serve(_ request: LoadingRequest) async {
+        TrackLog.i(AudioCacheStore.category,
+                   "AV resource request #\(request.number) started (\(request.requestedDescription))",
+                   about: key.trackID)
         do {
             if let source, !source.isCacheable {
                 try await serveDirect(request, from: source)
@@ -91,8 +99,19 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
                 try await serveCached(request)
             }
             request.finish()
+            TrackLog.i(AudioCacheStore.category,
+                       "AV resource request #\(request.number) handler completed in \(TrackLog.ms(since: request.startedAt))ms",
+                       about: key.trackID)
         } catch {
-            guard !Task.isCancelled, !AudioCacheStore.isCancellation(error) else { return }
+            if Task.isCancelled || AudioCacheStore.isCancellation(error) {
+                TrackLog.i(AudioCacheStore.category,
+                           "AV resource request #\(request.number) cancelled after \(TrackLog.ms(since: request.startedAt))ms",
+                           about: key.trackID)
+                return
+            }
+            TrackLog.i(AudioCacheStore.category,
+                       "AV resource request #\(request.number) failed after \(TrackLog.ms(since: request.startedAt))ms",
+                       about: key.trackID)
             TrackLog.w(AudioCacheStore.category, "loading \(key) failed", error: error, about: key.trackID)
             request.finish(with: error)
         }
@@ -126,7 +145,7 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
         var firstPiece = true
         var deliveredBytes: Int64 = 0
         do {
-            try await serveBytes(range, info: info) {
+            try await serveBytes(range, info: info, requestNumber: request.number) {
                 request.respond(with: $0)
                 deliveredBytes += Int64($0.count)
                 if opening && firstPiece {
@@ -152,7 +171,8 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
 
     /// Hands `range` to `respond` piece by piece: off disk where it's cached, from the source (and
     /// onto disk) where it isn't, retrying a hole the network failed on (see the type's doc).
-    func serveBytes(_ range: Range<Int64>, info known: AudioContentInfo? = nil, respond: (Data) -> Void) async throws {
+    func serveBytes(_ range: Range<Int64>, info known: AudioContentInfo? = nil,
+                    requestNumber: Int? = nil, respond: (Data) -> Void) async throws {
         let info: AudioContentInfo
         if let known {
             info = known
@@ -160,6 +180,20 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
             info = try await store.contentInfo(for: key, source: source)
         }
         let range = range.clamped(to: 0..<info.contentLength)
+        let readStarted = ContinuousClock.now
+        var cacheBytes: Int64 = 0
+        var fetchStreamBytes: Int64 = 0
+        var firstFetchByteMs: Int64?
+        var firstCacheMissAt: ContinuousClock.Instant?
+        var outcome = "complete"
+        defer {
+            if let requestNumber {
+                let firstFetch = firstFetchByteMs.map { "\($0)ms" } ?? "n/a"
+                TrackLog.i(AudioCacheStore.category,
+                           "AV read #\(requestNumber) [\(range.lowerBound), \(range.upperBound)) \(outcome) in \(TrackLog.ms(since: readStarted))ms; cache \(cacheBytes) B, fetch stream \(fetchStreamBytes) B, first fetch byte \(firstFetch)",
+                           about: key.trackID)
+            }
+        }
         // Lines name the request's range: AVFoundation often has two requests waiting on the same
         // bytes. They share one fetch (and one retried fetch), but each logs its own retries.
         let request = "\(key) [\(range.lowerBound), \(range.upperBound))"
@@ -182,16 +216,22 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
                 if let data = await store.read(key, at: position, maxLength: range.upperBound - position) {
                     arrived()
                     respond(data)
+                    cacheBytes += Int64(data.count)
                     position += Int64(data.count)
                     continue
                 }
+                if firstCacheMissAt == nil { firstCacheMissAt = .now }
                 do {
                     let subscription = try await store.subscribe(key, at: position, wantEnd: range.upperBound, source: source, info: info)
                     do {
                         for try await piece in subscription.stream {
                             arrived()
                             let take = min(Int64(piece.count), range.upperBound - position)
+                            if firstFetchByteMs == nil, let firstCacheMissAt {
+                                firstFetchByteMs = TrackLog.ms(since: firstCacheMissAt)
+                            }
                             respond(take == Int64(piece.count) ? piece : piece.prefix(Int(take)))
+                            fetchStreamBytes += take
                             position += take
                             if position >= range.upperBound { break }
                         }
@@ -208,6 +248,7 @@ final class AudioCacheResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @
                 }
             }
         } catch {
+            outcome = Task.isCancelled || AudioCacheStore.isCancellation(error) ? "cancelled" : "failed"
             if Task.isCancelled || AudioCacheStore.isCancellation(error) {
                 // A skip, a seek, or the asset let go: nobody wants the bytes any more.
                 if retried > 0 {
@@ -342,10 +383,24 @@ private final class LastArrival: @unchecked Sendable {
 private final class LoadingRequest: @unchecked Sendable {
     private let request: AVAssetResourceLoadingRequest
     private let queue: DispatchQueue
+    let number: Int
+    let startedAt: ContinuousClock.Instant
+    let requestedDescription: String
 
-    init(_ request: AVAssetResourceLoadingRequest, queue: DispatchQueue) {
+    init(_ request: AVAssetResourceLoadingRequest, queue: DispatchQueue, number: Int) {
         self.request = request
         self.queue = queue
+        self.number = number
+        self.startedAt = .now
+        if let dataRequest = request.dataRequest {
+            let offset = dataRequest.requestedOffset
+            let end = dataRequest.requestsAllDataToEndOfResource
+                ? "end"
+                : String(offset + Int64(dataRequest.requestedLength))
+            self.requestedDescription = "requested [\(offset), \(end))"
+        } else {
+            self.requestedDescription = "content info only"
+        }
     }
 
     /// The byte range the data request wants, clamped to the resource; nil without a data request.

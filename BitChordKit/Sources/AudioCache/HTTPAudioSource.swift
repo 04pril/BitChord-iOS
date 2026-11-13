@@ -231,12 +231,14 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
         private struct Chunk {
             let url: URL
             let start: Int64
+            let requestedEnd: Int64
             let requestedAt: ContinuousClock.Instant
-            let firstForSource: Bool
+            let requestNumber: Int
             /// Where this request's bytes stop being wanted.
             var end: Int64
+            var statusCode: Int?
+            var receivedBytes: Int64 = 0
             var delivered: Int64 = 0
-            var loggedHeaders = false
             var loggedFirstBody = false
             /// Bytes to drop off the front: a server that ignored the range sends from byte 0.
             var skip: Int64 = 0
@@ -280,12 +282,18 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
                     try await open()
                     continue
                 }
-                let event = try await iterator.next()
+                let event: Event?
+                do {
+                    event = try await iterator.next()
+                } catch {
+                    closeChunk(outcome: Task.isCancelled ? "cancelled" : "stream error")
+                    throw error
+                }
                 events = iterator
                 guard let event else {
                     // The request ended; a short one is reopened for the rest on the next pass.
                     let delivered = chunk?.delivered ?? 0
-                    closeChunk()
+                    closeChunk(outcome: "response ended (\(delivered) bytes delivered)")
                     emptyInARow = delivered == 0 ? emptyInARow + 1 : 0
                     if let total = source.lengthIfKnown, position >= total { break }
                     continue
@@ -294,6 +302,16 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
                 case .response(let response):
                     try await handle(response)
                 case .data(let raw):
+                    if var current = chunk {
+                        current.receivedBytes += Int64(raw.count)
+                        if !current.loggedFirstBody && !raw.isEmpty {
+                            current.loggedFirstBody = true
+                            TrackLog.i(HTTPAudioSource.category,
+                                       "HTTP range #\(current.requestNumber) first body after \(TrackLog.ms(since: current.requestedAt))ms (\(raw.count) B)",
+                                       about: TrackLog.currentTrack)
+                        }
+                        chunk = current
+                    }
                     var piece = raw
                     if position == 0 {
                         // The file's opening is never markup: a captive portal's page, however it
@@ -306,7 +324,7 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
                         if HTTPAudioSource.isWebPage(opening: piece) {
                             let host = chunk?.url.host() ?? "stream"
                             source.forgetRefusedLength()
-                            closeChunk()
+                            closeChunk(outcome: "web page refused")
                             throw AudioCacheError.badResponse("a web page, not audio (a captive portal?) from \(host)")
                         }
                     }
@@ -314,7 +332,7 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
                 }
             }
             done = true
-            closeChunk()
+            closeChunk(outcome: position >= end ? "read complete" : "reader stopped")
             return nil
         }
 
@@ -330,14 +348,23 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
             }
             let openEnded = chunkEnd == .max
             request.setValue(openEnded ? "bytes=\(position)-" : "bytes=\(position)-\(chunkEnd - 1)", forHTTPHeaderField: "Range")
-            let firstForSource = source.logRequest(position..<chunkEnd)
-            chunk = Chunk(url: stream.url, start: position, requestedAt: .now, firstForSource: firstForSource,
-                          end: chunkEnd)
+            let requestNumber = source.logRequest(position..<chunkEnd)
+            chunk = Chunk(url: stream.url, start: position, requestedEnd: chunkEnd, requestedAt: .now,
+                          requestNumber: requestNumber, end: chunkEnd)
+            TrackLog.i(HTTPAudioSource.category,
+                       "HTTP range #\(requestNumber) requested [\(position), \(chunkEnd == .max ? "end" : String(chunkEnd)))",
+                       about: TrackLog.currentTrack)
             events = HTTPAudioSource.events(for: request, session: source.session).makeAsyncIterator()
         }
 
         /// Dropping the iterator is what cancels an unfinished request.
-        private func closeChunk() {
+        private func closeChunk(outcome: String = "stopped") {
+            if let current = chunk {
+                let status = current.statusCode.map(String.init) ?? "none"
+                TrackLog.i(HTTPAudioSource.category,
+                           "HTTP range #\(current.requestNumber) [\(current.start), \(current.requestedEnd == .max ? "end" : String(current.requestedEnd))) ended: \(outcome); status \(status), received \(current.receivedBytes) B, delivered \(current.delivered) B in \(TrackLog.ms(since: current.requestedAt))ms",
+                           about: TrackLog.currentTrack)
+            }
             chunk = nil
             events = nil
             opening = Data()  // held bytes belong to the request they came on
@@ -346,17 +373,15 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
         private func handle(_ response: HTTPURLResponse) async throws {
             guard var current = chunk else { return }
             responseMimeType = response.mimeType
-            if current.firstForSource && !current.loggedHeaders {
-                current.loggedHeaders = true
-                chunk = current
-                TrackLog.i(HTTPAudioSource.category,
-                           "first audio range [\(current.start), \(current.end == .max ? "end" : String(current.end))) HTTP headers in \(TrackLog.ms(since: current.requestedAt))ms (\(response.statusCode))",
-                           about: TrackLog.currentTrack)
-            }
+            current.statusCode = response.statusCode
+            chunk = current
+            TrackLog.i(HTTPAudioSource.category,
+                       "HTTP range #\(current.requestNumber) headers in \(TrackLog.ms(since: current.requestedAt))ms (\(response.statusCode))",
+                       about: TrackLog.currentTrack)
             // A captive portal answers a plain-HTTP stream with its sign-in page. Taken as audio,
             // the page became the whole track on disk, served without asking again.
             if (200..<300).contains(response.statusCode), HTTPAudioSource.isWebPage(response) {
-                closeChunk()
+                closeChunk(outcome: "web page refused")
                 throw AudioCacheError.badResponse("a web page, not audio (a captive portal?) from \(current.url.host() ?? "stream")")
             }
             switch response.statusCode {
@@ -381,7 +406,7 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
             case 416:
                 // Nothing at or past this offset: the resource is shorter than asked.
                 done = true
-                closeChunk()
+                closeChunk(outcome: "HTTP 416")
             case let code where HTTPAudioSource.refusalCodes.contains(code):
                 // Which client minted the URL is the first thing worth knowing when a range is
                 // refused, and it isn't recoverable from anywhere else by the time this surfaces
@@ -392,7 +417,7 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
                 // This is the only place a refusal of the real fetch is seen. Handed back, it is
                 // the one piece of evidence that retiring the client rests on.
                 source.onRefused?(url, code)
-                closeChunk()
+                closeChunk(outcome: "HTTP refused (\(code))")
                 guard source.canReMint, reMintedAt != current.start else {
                     throw AudioCacheError.httpStatus(code, url: url)
                 }
@@ -407,7 +432,7 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
                 // Handed back as Android's ChunkedDataSource did with every refused status: the
                 // resolver is what decides whether a status says anything about the client.
                 source.onRefused?(current.url, response.statusCode)
-                closeChunk()
+                closeChunk(outcome: "HTTP refused (\(response.statusCode))")
                 throw AudioCacheError.httpStatus(response.statusCode, url: current.url)
             }
         }
@@ -422,18 +447,12 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
             }
             let room = min(current.end, end) - position
             if Int64(piece.count) > room { piece = piece.prefix(Int(max(0, room))) }
-            if current.firstForSource && !current.loggedFirstBody && !piece.isEmpty {
-                current.loggedFirstBody = true
-                TrackLog.i(HTTPAudioSource.category,
-                           "first audio range body in \(TrackLog.ms(since: current.requestedAt))ms (\(piece.count) bytes)",
-                           about: TrackLog.currentTrack)
-            }
             current.delivered += Int64(piece.count)
             position += Int64(piece.count)
             chunk = current
             if position >= min(current.end, end) {
                 // All this request was for; anything else it sends is not wanted.
-                closeChunk()
+                closeChunk(outcome: "range satisfied")
                 emptyInARow = 0
             }
             return piece.isEmpty ? nil : Data(piece)
@@ -446,11 +465,10 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
     fileprivate func noteRangesIgnored() { lock.withLock { rangesUnsupported = true } }
     fileprivate var lengthIfKnown: Int64? { lock.withLock { knownLength } }
     fileprivate var canReMint: Bool { resolver != nil }
-    fileprivate func logRequest(_ range: Range<Int64>) -> Bool {
+    fileprivate func logRequest(_ range: Range<Int64>) -> Int {
         lock.withLock {
-            let first = requestLog.isEmpty
             requestLog.append(range)
-            return first
+            return requestLog.count
         }
     }
 
