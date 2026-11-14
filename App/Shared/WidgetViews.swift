@@ -147,7 +147,7 @@ extension View {
 }
 
 private struct WidgetArtworkBackground<Background: View>: ViewModifier {
-    @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.showsWidgetContainerBackground) private var showsContainerBackground
     let canvas: WidgetCanvas
     let inlineCornerRadius: CGFloat
     let background: () -> Background
@@ -160,7 +160,7 @@ private struct WidgetArtworkBackground<Background: View>: ViewModifier {
                 // iOS removes container backgrounds in accented/clear Home Screen styles.
                 // Keep album artwork in the content layer so it survives that treatment.
                 .background {
-                    if #available(iOS 18.0, *), renderingMode == .accented {
+                    if !showsContainerBackground {
                         background().widgetFullColorArtwork()
                     }
                 }
