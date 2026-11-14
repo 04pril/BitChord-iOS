@@ -17,12 +17,12 @@ enum WidgetCanvas {
 }
 
 extension Image {
-    /// Album pixels are content, not an accent mask: clear/tinted Home Screen styles must
-    /// not turn an opaque sleeve into a solid white shape. iOS 17 keeps its original path.
+    /// Keep the original cover in the default style. In clear/tinted styles WidgetKit
+    /// uses its brightness as an accent mask, preserving the sleeve's detail and contrast.
     @ViewBuilder
     func widgetArtworkRendering() -> some View {
         if #available(iOS 18.0, *) {
-            self.renderingMode(.original).widgetAccentedRenderingMode(.fullColor)
+            self.renderingMode(.original).widgetAccentedRenderingMode(.accentedDesaturated)
         } else {
             self.renderingMode(.original)
         }
@@ -295,10 +295,10 @@ struct PillWidgetView: View {
         .padding(.trailing, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .dynamicTypeSize(...DynamicTypeSize.xLarge)
-        .widgetBackground(canvas) {
+        .background {
             ZStack {
                 if let art {
-                    Image(uiImage: art.body).resizable().scaledToFill()
+                    Image(uiImage: art.body).resizable().widgetArtworkRendering().scaledToFill()
                 } else {
                     WidgetPlaceholderArt()
                 }
@@ -306,6 +306,7 @@ struct PillWidgetView: View {
             }
             .accessibilityHidden(true)
         }
+        .widgetBackground(canvas) { Color.clear }
         .widgetURL(SharedConstants.openPlayerURL)
     }
 }
