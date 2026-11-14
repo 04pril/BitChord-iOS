@@ -10,6 +10,7 @@ struct PosterBackground: View {
         if let art {
             Image(uiImage: art.wash)
                 .resizable()
+                .widgetArtworkRendering()
                 .accessibilityHidden(true)
         } else {
             Color(uiColor: WidgetArt.posterFallbackBackground)
@@ -155,7 +156,8 @@ struct PosterSquareWidgetView: View {
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
         }
         .dynamicTypeSize(.large)
-        .posterWideBackground(canvas) { PosterBackground(art: art) }
+        .background { PosterBackground(art: art) }
+        .posterWideBackground(canvas) { Color.clear }
         .overlay {
             if canvas == .inline {
                 RoundedRectangle(cornerRadius: 26, style: .circular)
@@ -224,7 +226,8 @@ struct PosterWideWidgetView: View {
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
         }
         .dynamicTypeSize(.large)
-        .posterWideBackground(canvas) { PosterBackground(art: art) }
+        .background { PosterBackground(art: art) }
+        .posterWideBackground(canvas) { Color.clear }
         .overlay {
             if canvas == .inline {
                 RoundedRectangle(cornerRadius: 26, style: .circular)
@@ -266,7 +269,8 @@ struct PosterPillWidgetView: View {
             }
         }
         .dynamicTypeSize(...DynamicTypeSize.xLarge)
-        .widgetBackground(canvas) { PosterBackground(art: art) }
+        .background { PosterBackground(art: art) }
+        .widgetBackground(canvas) { Color.clear }
         .widgetURL(SharedConstants.openPlayerURL)
     }
 }
