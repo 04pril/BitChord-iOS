@@ -3289,8 +3289,8 @@ final class ReadAheadWiringTests: XCTestCase {
         await cache.cancelPrefetch()
     }
 
-    /// An Off factory whose quick source answers every track with one 20 s WAV served over HTTP,
-    /// once ``QuickCopyStub/release()`` is called, and whose race answers nothing unless told.
+    /// A fast-mode factory with both a YouTube fixture and a connected quick-source provider.
+    /// The provider answers only after release, and fast mode must never ask it.
     private func offFactoryWithAQuickCopy(_ name: String) throws -> (PlaybackSourceFactory, AudioStreamCache, FakeStreamResolver, QuickCopyStub, URL) {
         let directory = makeTemporaryDirectory(self)
         let cache = try makeTestCache(in: directory, prefetchDelay: .zero)
@@ -3304,7 +3304,7 @@ final class ReadAheadWiringTests: XCTestCase {
         let factory = PlaybackSourceFactory(resolver: racer, youTube: nil, cache: cache, facts: StreamFactsBook(), session: FileRangeProtocol.session(),
                                             request: { .playback(.lossless, directSource: .off) }, atmosAllowed: { true })
         factory.isPinnedToOriginal = { _ in false }
-        // JioSaavn's AAC on a lossless request comes back below it; Off would start on it anyway.
+        factory.canSubstitute = { _ in false } // Fast mode exposes only YouTube, as the live registry does.
         let quick = QuickCopyStub(ResolvedStream(url: remote, origin: .jioSaavn, mimeType: "audio/wav", belowRequest: true, sourceConfigId: "saavn"))
         factory.quickCopy = { song, _ in try await quick.answer(song) }
         return (factory, cache, racer, quick, file)
