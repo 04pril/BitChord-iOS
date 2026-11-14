@@ -7,14 +7,20 @@
 set -euo pipefail
 export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}
 cd "$(dirname "$0")/.."
+BUILD_STARTED=$(date +%s)
 
 python3 scripts/apply-korean.py
 MIN_IOS=17.0 SDK_NAME=iphoneos bash WireGuard/build-ios.sh
+echo "WireGuard engine: $(($(date +%s) - BUILD_STARTED))s elapsed"
 
 DERIVED=.derived-release
+XCODE_STARTED=$(date +%s)
 xcodebuild build -workspace BitChord.xcworkspace -scheme BitChord -configuration Release \
-  -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" -jobs "${JOBS:-3}" -quiet \
-  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+  -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" \
+  -clonedSourcePackagesDirPath .spm -jobs "${JOBS:-3}" -quiet -showBuildTimingSummary \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+  COMPILER_INDEX_STORE_ENABLE=NO DEBUG_INFORMATION_FORMAT=dwarf
+echo "Xcode Release build: $(($(date +%s) - XCODE_STARTED))s"
 
 APP="$DERIVED/Build/Products/Release-iphoneos/BitChord.app"
 [ -d "$APP" ] || { echo "no app at $APP" >&2; exit 1; }
@@ -47,3 +53,4 @@ rm -f "$OUT"
 (cd "$STAGE" && zip -qry - Payload) > "$OUT"
 echo "$OUT ($(du -h "$OUT" | cut -f1))"
 scripts/verify-ipa.sh "$OUT"
+echo "Verified IPA: $(($(date +%s) - BUILD_STARTED))s total"
