@@ -15,13 +15,20 @@ final class LyricsLayoutTests: XCTestCase {
         preference.english = LyricsFontChoice(size: 35, weight: .semibold)
         let text = "널 향해 there's no danger 👨‍👩‍👧‍👦"
         let typeface = LyricTypeface.synced.customized(using: preference)
+        let requested = typeface.attributedText(text, paragraph: NSMutableParagraphStyle())
+        let englishIndex = (text as NSString).range(of: "there").location
+        XCTAssertEqual(requested.attribute(.font, at: 0, effectiveRange: nil) as? UIFont,
+                       UIFont.systemFont(ofSize: 28, weight: .medium))
+        XCTAssertEqual(requested.attribute(.font, at: englishIndex, effectiveRange: nil) as? UIFont,
+                       UIFont.systemFont(ofSize: 35, weight: .semibold))
         for width: CGFloat in [200, 310, 500] {
             let layout = LyricTextLayout(text: text, typeface: typeface, width: width)
             let korean = try XCTUnwrap(layout.storage.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
-            let englishIndex = (text as NSString).range(of: "there").location
             let english = try XCTUnwrap(layout.storage.attribute(.font, at: englishIndex, effectiveRange: nil) as? UIFont)
-            XCTAssertEqual(korean, UIFont.systemFont(ofSize: 28, weight: .medium))
-            XCTAssertEqual(english, UIFont.systemFont(ofSize: 35, weight: .semibold))
+            // TextKit can substitute a Hangul face while preserving the configured size.
+            // Validate weight on the input attributes above, not the fallback font's identity.
+            XCTAssertEqual(korean.pointSize, 28)
+            XCTAssertEqual(english.pointSize, 35)
             XCTAssertTrue(layout.rows.allSatisfy { $0.right <= width + 4 })
             XCTAssertGreaterThan(layout.size.height, 0)
         }

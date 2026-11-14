@@ -280,6 +280,9 @@ struct PlayerHarness {
         factory.streamChoice = StreamChoice()
         factory.canSubstitute = canSubstitute
         self.player = PlayerController(engine: engine, queue: queue, settings: settings, sources: factory, likeState: LikeState(), processors: processors)
+        // Mirror AppModel's wiring: current-track opens must not look like gapless preloads.
+        factory.isPlaying = { [weak player = self.player] in player?.currentSong?.videoId == $0 }
+        factory.isSounding = { [weak player = self.player] in player.map { $0.isPlaying && $0.position >= 2 } ?? true }
         self.engine = engine
         self.queue = queue
         self.resolver = resolver
