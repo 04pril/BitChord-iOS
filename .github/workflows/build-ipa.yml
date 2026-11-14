@@ -15,6 +15,19 @@ jobs:
         with:
           go-version-file: WireGuard/go.mod
           cache-dependency-path: WireGuard/go.sum
+      # A fresh runner otherwise recompiles every Swift package and app target on each IPA build.
+      # Keep this cache specific to the selected Xcode and package/project graph. Xcode still
+      # checks source changes when restoring an older commit's build products.
+      - name: Restore Xcode build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .spm
+            .derived-release/Build
+            .derived-release/ModuleCache.noindex
+          key: ipa-xcode27.0-arm64-${{ hashFiles('BitChordKit/Package.resolved', 'BitChordKit/Package.swift', 'App/BitChord.xcodeproj/project.pbxproj') }}-${{ github.sha }}
+          restore-keys: |
+            ipa-xcode27.0-arm64-${{ hashFiles('BitChordKit/Package.resolved', 'BitChordKit/Package.swift', 'App/BitChord.xcodeproj/project.pbxproj') }}-
       - name: Build proxy engine and package IPA
         run: scripts/make-ipa.sh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -22,3 +35,5 @@ jobs:
           name: BitChord-IPA
           path: build/BitChord-*.ipa
           if-no-files-found: error
+          # IPA is already a ZIP archive; recompressing it only spends CPU time.
+          compression-level: 0
