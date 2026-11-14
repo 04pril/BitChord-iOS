@@ -919,7 +919,10 @@ final class QualityUpgradeWiringTests: XCTestCase {
 
         harness.player.play([song], startAt: 0)
         await waitUntil("the upgrade is swapped in", timeout: 20) {
-            harness.engine.currentItem?.id.hasSuffix("#hifi") == true && harness.engine.isPlaying
+            harness.engine.currentItem?.id.hasSuffix("#hifi") == true && {
+                if case .upgraded? = harness.player.qualityUpgrade?.phase { return true }
+                return false
+            }() && harness.engine.isPlaying
         }
         XCTAssertEqual(harness.player.currentStream?.format.codec, "flac", "stats describe the copy now playing")
         guard case .upgraded(_, let to)? = harness.player.qualityUpgrade?.phase else { return XCTFail("the badge says upgraded") }
@@ -986,7 +989,10 @@ final class QualityUpgradeWiringTests: XCTestCase {
 
         harness.player.play([song], startAt: 0)
         await waitUntil("the upgrade is swapped in", timeout: 20) {
-            harness.engine.currentItem?.id.hasSuffix("#hifi") == true
+            harness.engine.currentItem?.id.hasSuffix("#hifi") == true && {
+                if case .upgraded? = harness.player.qualityUpgrade?.phase { return true }
+                return false
+            }()
         }
         guard case .upgraded? = harness.player.qualityUpgrade?.phase else {
             return XCTFail("upgraded, got \(String(describing: harness.player.qualityUpgrade?.phase))")
@@ -1281,7 +1287,7 @@ final class QualityUpgradeWiringTests: XCTestCase {
 
         try? await Task.sleep(for: .milliseconds(300))
         seen = counter.value
-        harness.settings.directSourceStream = .queueOnly
+        harness.settings.directSourceStream = .always
         await waitUntil("changing Direct source stream plans again") { counter.value > seen }
     }
 
@@ -1498,13 +1504,13 @@ final class QualityUpgradeWiringTests: XCTestCase {
         XCTAssertEqual(search.searchedTitles, [song.title])
     }
 
-    /// The upgrade's header and the bytes at the swap point are on disk before the swap, and
-    /// nothing else is. The copy replaces one already playing, so it is read from the playhead
+    /// The FLAC preparation stages the complete file before opening a precise timing asset.
+    /// Both the opening and swap point must be available before the timing proof. The copy replaces one already playing, so it is read from the playhead
     /// onward: after its header, the swap's first read lands at the byte the position maps to.
     /// Android warms a fixed megabyte from byte zero instead, which for a swap ten seconds into a
     /// lossless track holds nothing the cut reads. The proof runs after the warm-ups and before
     /// `reopenCurrent`, so what it sees is what the swap lands on.
-    func testTheHeaderAndTheSwapPointAreWarmedBeforeTheSwap() async throws {
+    func testTheFLACCopyIsFullyCachedBeforeItsTimingProof() async throws {
         let cache = try makeTestCache(in: makeTemporaryDirectory(self))
         let harness = PlayerHarness(test: self, cache: cache, session: FileRangeProtocol.session())
         let search = FakeUpgradeSearch()
@@ -1549,7 +1555,8 @@ final class QualityUpgradeWiringTests: XCTestCase {
         XCTAssertTrue(snapshot.ranges.contains { $0.contains(swapByte) && $0.upperBound >= min(swapByte + 12 * bytesPerSecond, audioEnd) },
                       "twelve seconds of audio at the swap point (byte \(swapByte)) were on disk before the swap: \(snapshot.ranges)")
         let held = snapshot.ranges.reduce(Int64(0)) { $0 + ($1.upperBound - $1.lowerBound) }
-        XCTAssertLessThanOrEqual(held, 256 * 1_024 + 13 * bytesPerSecond, "the header and a window, nothing else: \(snapshot.ranges)")
+        XCTAssertEqual(held, Int64(try Data(contentsOf: body).count),
+                       "precise FLAC timing is prepared only after the complete copy is cached")
     }
 
     /// The window is warmed around the playhead as it is once the header is in: four seconds on.
@@ -2085,9 +2092,9 @@ final class QualityUpgradeWiringTests: XCTestCase {
         // Watched throughout: a copy swapped in and then put back when its reads fail ends on
         // "unavailable" too.
         let swapped = AtomicFlag(false)
-        await waitUntil("the upgrade gives up", timeout: 30) {
+        await waitUntil("the incomplete upgrade is shelved without interrupting playback", timeout: 30) {
             if self.upgradeAsked(harness) { swapped.value = true }
-            return upgrades.status?.phase == .unavailable
+            return upgrades.upgrade.shelved(song.videoId) != nil && upgrades.status?.isUpgrading != true
         }
         XCTAssertFalse(swapped.value, "a copy not on disk ahead of the playhead is never swapped in")
     }
@@ -2607,7 +2614,7 @@ final class ReadAheadWiringTests: XCTestCase {
             for id in ids { youTube.serve(id, from: URL(string: "https://rr.test/\(id).m4a")!, origin: .youtube) }
             let cache = try makeTestCache(in: makeTemporaryDirectory(self))
             let factory = PlaybackSourceFactory(resolver: addons, youTube: youTube, cache: cache, facts: StreamFactsBook(),
-                                                request: { .playback(.lossless) }, atmosAllowed: { true })
+                                                request: { .playback(.lossless, directSource: .off) }, atmosAllowed: { true })
             factory.isPinnedToOriginal = { _ in false }
             factory.canSubstitute = { _ in substitutable }
             let songs = ids.map { Song(videoId: $0, title: "Title \($0)", artist: "Artist", durationText: "3:00") }
@@ -2714,10 +2721,9 @@ final class ReadAheadWiringTests: XCTestCase {
         }
     }
 
-    /// Queue only: a row opened ahead of time waits for the ranked sources as long as nobody is
-    /// listening. Once the queue reaches it (a skip, an advance) it keeps waiting until
-    /// `lookupJoinWait` after its lookup started, then starts without their copy.
-    func testQueueOnlyGivesAPlayingRowItsLookUntilTheJoinWaitThenStarts() async throws {
+    /// Queue-first keeps looking while a row is ahead, then starts its backup immediately
+    /// when reached. The unfinished source lookup remains available for a later playback.
+    func testQueueOnlyStartsTheBackupAsSoonAsAPendingRowIsReached() async throws {
         let resolver = AddonWaitResolver()
         let song = Song(videoId: "aheadThenPlaying", title: "Ahead Then Playing", artist: "Artist", durationText: "3:00")
         let factory = queueOnlyFactory(resolver)
@@ -2726,28 +2732,25 @@ final class ReadAheadWiringTests: XCTestCase {
         factory.isPlaying = { $0 == playing }
         guard case .resolvedAsset(let open) = factory.item(for: song).source else { return XCTFail("a streamed row opens an asset") }
 
-        let started = ContinuousClock.now
         let opening = Task { _ = try await open() }
         await waitUntil("the row is opened ahead, waiting for its sources") { resolver.requests.count == 1 }
         XCTAssertEqual(resolver.requests.first?.waitsForSources, true)
         // Not yet playing: the open keeps waiting, and asks nothing else.
         try await Task.sleep(for: .milliseconds(1_000))
         XCTAssertEqual(resolver.requests.count, 1, "a row that isn't playing yet waits for its sources")
+        let reached = ContinuousClock.now
         playing = song.videoId
         try await opening.value
-        XCTAssertGreaterThanOrEqual(ContinuousClock.now - started, .seconds(1.4), "a playing row still gets the rest of the join wait")
-        // Counted from the lookup's start (about 1.5 s in), not from when the row began playing
-        // (which would be 2.5 s or later).
-        XCTAssertLessThan(ContinuousClock.now - started, .seconds(2.2), "and no more")
+        XCTAssertLessThan(ContinuousClock.now - reached, .seconds(1), "continuous playback does not spend the addon join budget")
         XCTAssertEqual(resolver.requests.last?.waitsForSources, false, "then starts as a tapped row does")
 
         resolver.answerSources()
         await waitUntil("the waited-for answer is kept") { factory.readAheadStreams.stream(for: song.videoId, request: Self.queueOnly, atmosAllowed: true) != nil }
     }
 
-    /// A skip onto a row whose look ahead is still running joins it, and starts on the sources'
-    /// copy when it lands inside the join wait: never YouTube first and a swap after.
-    func testQueueOnlyASkipOntoARowJoinsItsLookAndStartsOnTheSourcesCopy() async throws {
+    /// Continuous playback never waits for an unfinished source lookup on a skip. Its later
+    /// source answer is retained without changing the copy this factory already opened.
+    func testQueueOnlySkipStartsBackupAndKeepsTheLateSourceAnswer() async throws {
         let resolver = AddonWaitResolver()
         let song = Song(videoId: "skipJoins", title: "Skip Joins", artist: "Artist", durationText: "3:00")
         let factory = queueOnlyFactory(resolver)
@@ -2765,8 +2768,11 @@ final class ReadAheadWiringTests: XCTestCase {
         resolver.answerSources()
         try await opening.value
         warming.cancel()
-        XCTAssertEqual(resolver.requests.count, 1, "the skip joined the look ahead instead of starting a race of its own")
-        XCTAssertEqual(factory.facts.stream(for: factory.engineItemID(for: song))?.origin, .addon, "it starts on the sources' copy")
+        XCTAssertEqual(resolver.requests.count, 2, "the source lookup continues while an immediate backup starts")
+        XCTAssertEqual(factory.facts.stream(for: factory.engineItemID(for: song))?.origin, .youtube, "continuous playback starts without an addon wait")
+        await waitUntil("the source answer remains prepared for the next playback") {
+            factory.readAheadStreams.stream(for: song.videoId, request: Self.queueOnly, atmosAllowed: true)?.origin == .addon
+        }
     }
 
     /// A look ahead outlives the read-ahead that started it (replaced on every queue edit, AutoPlay
@@ -2986,12 +2992,12 @@ final class ReadAheadWiringTests: XCTestCase {
         await cache.cancelPrefetch()
     }
 
-    /// The wait for the playing track's start isn't counted against a skip's join: a row reached
-    /// after a slow start still gets `lookupJoinWait` from when its lookup began asking.
-    func testTheWaitForThePlayingTracksStartIsNotChargedToASkipsJoin() async throws {
+    /// Addon-first joins a lookup that only started once playback became audible; the hold
+    /// before starting that lookup must not cause an immediate YouTube fallback.
+    func testAddonFirstJoinsTheLookupStartedAfterPlaybackBecomesAudible() async throws {
         let resolver = AddonWaitResolver()
         let song = Song(videoId: "slowStartJoin", title: "Slow Start Join", artist: "Artist", durationText: "3:00")
-        let factory = queueOnlyFactory(resolver)
+        let factory = queueOnlyFactory(resolver, mode: .always)
         factory.lookupJoinWait = .seconds(1)
         var sounding = false
         factory.isSounding = { sounding }
@@ -3234,11 +3240,9 @@ final class ReadAheadWiringTests: XCTestCase {
         XCTAssertFalse(snapshot.downgraded)
     }
 
-    /// Off with a quick source (JioSaavn) ranked above YouTube: the engine's early open of the next
-    /// row asks it first and starts on its copy, and read-ahead puts that same copy on disk whole,
-    /// under the key the open reads (Android's `prefetchQueue` with `prefetchSubstitute`). One
-    /// question between them, and no race.
-    func testOffPutsTheQuickSourcesCopyOfTheNextTrackWholeOnDiskAndStartsOnIt() async throws {
+    /// Fast playback resolves and caches YouTube even when a quick-source provider is connected.
+    /// That provider must never be consulted or write into the substitute cache key.
+    func testFastModeCachesYouTubeWithoutAskingTheQuickSource() async throws {
         let (factory, cache, racer, quick, file) = try offFactoryWithAQuickCopy("quickNext")
         let song = Song(videoId: "quickNext01", title: "Quick Next", artist: "Artist", durationText: "0:20")
         quick.release()
@@ -3247,31 +3251,31 @@ final class ReadAheadWiringTests: XCTestCase {
         _ = try await open()
         await cache.prefetch(factory.prefetchItems(for: [song]))
 
-        let key = AudioCacheKey.substitute(videoId: song.videoId, atmosAllowed: true)
+        let key = AudioCacheKey.youtube(videoId: song.videoId)
         let whole = await waitForFullCache(cache, key)
         XCTAssertTrue(whole, "the next track's quick copy is whole on disk")
         let bytes = try Data(contentsOf: file)
         let reader = await cache.reader(for: key, requireComplete: true)
         let onDisk = await reader?.read(at: 0, count: bytes.count)
         XCTAssertEqual(onDisk, bytes, "and it is that copy")
-        XCTAssertEqual(factory.facts.stream(for: factory.engineItemID(for: song))?.origin, .jioSaavn, "the row starts on it")
-        XCTAssertEqual(quick.asked, [song.videoId], "asked once between them")
-        XCTAssertEqual(racer.requestedIds, [], "and nothing raced")
+        XCTAssertEqual(factory.facts.stream(for: factory.engineItemID(for: song))?.origin, .youtube, "fast mode starts on YouTube")
+        XCTAssertTrue(quick.asked.isEmpty, "fast mode never asks the quick source")
+        XCTAssertEqual(Set(racer.requestedIds), Set([song.videoId]), "only this YouTube track is resolved")
+        XCTAssertLessThanOrEqual(racer.requestedIds.count, 2, "one open and one cache warm-up")
         await cache.cancelPrefetch()
     }
 
-    /// Off: a row reached before its quick copy answers races as before, and the late answer is let
-    /// go of, so nothing is fetched under the key the race's copy fills.
-    func testOffARowReachedBeforeItsQuickCopyAnswersRacesAndKeepsNothing() async throws {
+    /// Fast mode does not start a quick-source lookup, so releasing that provider later cannot
+    /// populate an entry or change the row that was opened from YouTube.
+    func testFastModeNeverStartsOrKeepsAQuickSourceLookup() async throws {
         let (factory, cache, racer, quick, _) = try offFactoryWithAQuickCopy("quickLate")
         let song = Song(videoId: "quickLate01", title: "Quick Late", artist: "Artist", durationText: "0:20")
-        racer.serve(song.videoId, from: URL(string: "https://rr.test/quickLate01.m4a")!, origin: .youtube)
         var playing: String?
         factory.isPlaying = { $0 == playing }
 
         guard case .resolvedAsset(let open) = factory.item(for: song).source else { return XCTFail("a streamed row opens an asset") }
         let opening = Task { _ = try await open() }
-        await waitUntil("the quick source is asked") { quick.asked.count == 1 }
+        XCTAssertTrue(quick.asked.isEmpty, "fast mode must not start a quick-source lookup")
         playing = song.videoId
         try await opening.value
         XCTAssertEqual(racer.requestedIds, [song.videoId], "the reached row races, as Off does")
@@ -3294,8 +3298,11 @@ final class ReadAheadWiringTests: XCTestCase {
         let remote = URL(string: "http://saavn.test/\(name).wav")!
         FileRangeProtocol.serve(remote, from: file)
         let racer = FakeStreamResolver()
+        let youtube = URL(string: "http://youtube.test/\(name).wav")!
+        FileRangeProtocol.serve(youtube, from: file)
+        racer.serve(name + "01", from: youtube, origin: .youtube)
         let factory = PlaybackSourceFactory(resolver: racer, youTube: nil, cache: cache, facts: StreamFactsBook(), session: FileRangeProtocol.session(),
-                                            request: { .playback(.lossless) }, atmosAllowed: { true })
+                                            request: { .playback(.lossless, directSource: .off) }, atmosAllowed: { true })
         factory.isPinnedToOriginal = { _ in false }
         // JioSaavn's AAC on a lossless request comes back below it; Off would start on it anyway.
         let quick = QuickCopyStub(ResolvedStream(url: remote, origin: .jioSaavn, mimeType: "audio/wav", belowRequest: true, sourceConfigId: "saavn"))
@@ -3335,9 +3342,9 @@ final class ReadAheadWiringTests: XCTestCase {
 
     private static let queueOnly = StreamRequest.playback(.lossless, directSource: .queueOnly)
 
-    private func queueOnlyFactory(_ resolver: StreamResolving) -> PlaybackSourceFactory {
+    private func queueOnlyFactory(_ resolver: StreamResolving, mode: DirectSourceStream = .queueOnly) -> PlaybackSourceFactory {
         let factory = PlaybackSourceFactory(resolver: resolver, youTube: nil, cache: try? makeTestCache(in: makeTemporaryDirectory(self)),
-                                            facts: StreamFactsBook(), request: { Self.queueOnly }, atmosAllowed: { true })
+                                            facts: StreamFactsBook(), request: { .playback(.lossless, directSource: mode) }, atmosAllowed: { true })
         factory.isPinnedToOriginal = { _ in false }
         return factory
     }
@@ -3429,7 +3436,7 @@ final class ReadAheadWiringTests: XCTestCase {
         // With a source outranking YouTube, read-ahead must warm the stream URL only: fetching
         // bytes would write them into an entry a substitute is about to fill from another server.
         let cache = try makeTestCache(in: makeTemporaryDirectory(self), prefetchDelay: .zero)
-        let harness = PlayerHarness(test: self, cache: cache, session: FileRangeProtocol.session(), canSubstitute: { _ in true })
+        let harness = PlayerHarness(test: self, cache: cache, session: FileRangeProtocol.session(), canSubstitute: { _ in true }, request: { .playback(.lossless, directSource: .off) })
         let first = try harness.song("warmOnly01", seconds: 30, origin: .youtube)
         let next = try harness.song("warmOnly02", seconds: 30, origin: .youtube)
 
