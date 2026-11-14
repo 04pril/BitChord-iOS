@@ -115,4 +115,3 @@ Google 로그인은 앱 내부 `WKWebView`에서 진행됩니다. WebKit은 URLS
 - `HTTP range #…`: 각 HTTP Range의 요청·응답 헤더·첫 본문 시각과 종료 때의 수신량·전달량·상태.
 
 `fetch stream`은 AudioCacheStore의 진행 중인 fetch에서 전달받은 바이트입니다. 여러 읽기가 같은 fetch를 공유할 수 있으므로 이 수치만으로 각각 별도 네트워크 요청을 했다고 볼 수는 없습니다. 실제 HTTP 요청 수와 대기 시간은 `HTTP range` 로그와 함께 비교하세요.
-
