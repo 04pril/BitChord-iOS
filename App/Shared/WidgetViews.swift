@@ -16,6 +16,19 @@ enum WidgetCanvas {
     case inline
 }
 
+extension Image {
+    /// Album pixels are content, not an accent mask: clear/tinted Home Screen styles must
+    /// not turn an opaque sleeve into a solid white shape. iOS 17 keeps its original path.
+    @ViewBuilder
+    func widgetArtworkRendering() -> some View {
+        if #available(iOS 18.0, *) {
+            self.renderingMode(.original).widgetAccentedRenderingMode(.fullColor)
+        } else {
+            self.renderingMode(.original)
+        }
+    }
+}
+
 /// The Android widget's stand-in cover (`widget_preview_art.xml`): used when a track has no art and
 /// in the gallery preview. The bottom third darkens on its own, standing in for the scrim.
 struct WidgetPlaceholderArt: View {
@@ -37,6 +50,7 @@ struct WidgetPlaceholderArt: View {
 /// scrim darkens the band itself.
 struct WidgetCoverBackdrop: View {
     var art: WidgetArt?
+    @Environment(\.widgetRenderingMode) private var renderingMode
     /// Height of the transport band in points (`widget_band_compact` 66 / `widget_band_wide` 60).
     var band: CGFloat
 
@@ -53,11 +67,13 @@ struct WidgetCoverBackdrop: View {
                 if let art {
                     Image(uiImage: art.cover)
                         .resizable()
+                        .widgetArtworkRendering()
                         .scaledToFill()
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .clipped()
                     Image(uiImage: art.softened)
                         .resizable()
+                        .widgetArtworkRendering()
                         .scaledToFill()
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .clipped()
@@ -74,15 +90,17 @@ struct WidgetCoverBackdrop: View {
                                 endPoint: .bottom
                             )
                         )
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .clear, location: max(0, bandStart - 0.12)),
-                            .init(color: .black.opacity(0.45), location: 1),
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
+                    if renderingMode != .accented {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0),
+                                .init(color: .clear, location: max(0, bandStart - 0.12)),
+                                .init(color: .black.opacity(0.45), location: 1),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
                 } else {
                     WidgetPlaceholderArt()
                 }
@@ -172,7 +190,8 @@ struct CompactWidgetView: View {
         .padding(.horizontal, 8)
         .padding(.bottom, 4)
         .dynamicTypeSize(...DynamicTypeSize.xLarge)
-        .widgetBackground(canvas) { WidgetCoverBackdrop(art: art, band: Self.band) }
+        .background { WidgetCoverBackdrop(art: art, band: Self.band) }
+        .widgetBackground(canvas) { Color.clear }
         .widgetURL(SharedConstants.openPlayerURL)
     }
 }
@@ -216,7 +235,8 @@ struct WideWidgetView: View {
             .padding(.trailing, 4)
         }
         .dynamicTypeSize(...DynamicTypeSize.xLarge)
-        .widgetBackground(canvas) { WidgetCoverBackdrop(art: art, band: Self.band) }
+        .background { WidgetCoverBackdrop(art: art, band: Self.band) }
+        .widgetBackground(canvas) { Color.clear }
         .widgetURL(SharedConstants.openPlayerURL)
     }
 }
@@ -236,7 +256,7 @@ struct PillWidgetView: View {
         HStack(spacing: 6) {
             Group {
                 if let art {
-                    Image(uiImage: art.cover).resizable().scaledToFill()
+                    Image(uiImage: art.cover).resizable().widgetArtworkRendering().scaledToFill()
                 } else {
                     WidgetPlaceholderArt()
                 }
