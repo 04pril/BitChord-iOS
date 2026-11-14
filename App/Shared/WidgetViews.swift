@@ -88,6 +88,7 @@ struct WidgetCoverBackdrop: View {
                 }
             }
         }
+        .widgetFullColorArtwork()
         .accessibilityHidden(true)
     }
 }
@@ -130,13 +131,43 @@ struct WidgetControl<Intent: AppIntent>: View {
 
 extension View {
     @ViewBuilder
-    func widgetBackground<Background: View>(_ canvas: WidgetCanvas, @ViewBuilder _ background: () -> Background) -> some View {
+    func widgetFullColorArtwork() -> some View {
+        if #available(iOS 18.0, *) {
+            widgetAccentedRenderingMode(.fullColor)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func widgetBackground<Background: View>(_ canvas: WidgetCanvas, inlineCornerRadius: CGFloat = 22,
+                                            @ViewBuilder _ background: @escaping () -> Background) -> some View {
+        modifier(WidgetArtworkBackground(canvas: canvas, inlineCornerRadius: inlineCornerRadius, background: background))
+    }
+}
+
+private struct WidgetArtworkBackground<Background: View>: ViewModifier {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let canvas: WidgetCanvas
+    let inlineCornerRadius: CGFloat
+    let background: () -> Background
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
         switch canvas {
         case .widgetKit:
-            containerBackground(for: .widget) { background() }
+            content
+                // iOS removes container backgrounds in accented/clear Home Screen styles.
+                // Keep album artwork in the content layer so it survives that treatment.
+                .background {
+                    if #available(iOS 18.0, *), renderingMode == .accented {
+                        background().widgetFullColorArtwork()
+                    }
+                }
+                .containerBackground(for: .widget) { background() }
         case .inline:
-            self.background { background() }
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            content.background { background() }
+                .clipShape(RoundedRectangle(cornerRadius: inlineCornerRadius, style: .continuous))
         }
     }
 }
@@ -237,6 +268,7 @@ struct PillWidgetView: View {
             Group {
                 if let art {
                     Image(uiImage: art.cover).resizable().scaledToFill()
+                        .widgetFullColorArtwork()
                 } else {
                     WidgetPlaceholderArt()
                 }

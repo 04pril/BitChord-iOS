@@ -10,6 +10,7 @@ struct PosterBackground: View {
         if let art {
             Image(uiImage: art.wash)
                 .resizable()
+                .widgetFullColorArtwork()
                 .accessibilityHidden(true)
         } else {
             Color(uiColor: WidgetArt.posterFallbackBackground)
@@ -29,6 +30,7 @@ struct PosterCover: View {
         Group {
             if let art {
                 Image(uiImage: art.cover).resizable().scaledToFill()
+                    .widgetFullColorArtwork()
             } else {
                 WidgetPlaceholderArt()
             }
@@ -39,7 +41,6 @@ struct PosterCover: View {
         .accessibilityLabel(SharedStrings.widgetArtwork)
     }
 }
-
 /// Apple Music player icon in Glyph style: two beamed eighth notes, using the reference silhouette.
 struct PosterNote: View {
     var art: WidgetArt?
@@ -155,7 +156,7 @@ struct PosterSquareWidgetView: View {
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
         }
         .dynamicTypeSize(.large)
-        .posterWideBackground(canvas) { PosterBackground(art: art) }
+        .widgetBackground(canvas, inlineCornerRadius: 26) { PosterBackground(art: art) }
         .overlay {
             if canvas == .inline {
                 RoundedRectangle(cornerRadius: 26, style: .circular)
@@ -224,7 +225,7 @@ struct PosterWideWidgetView: View {
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
         }
         .dynamicTypeSize(.large)
-        .posterWideBackground(canvas) { PosterBackground(art: art) }
+        .widgetBackground(canvas, inlineCornerRadius: 26) { PosterBackground(art: art) }
         .overlay {
             if canvas == .inline {
                 RoundedRectangle(cornerRadius: 26, style: .circular)
@@ -268,18 +269,5 @@ struct PosterPillWidgetView: View {
         .dynamicTypeSize(...DynamicTypeSize.xLarge)
         .widgetBackground(canvas) { PosterBackground(art: art) }
         .widgetURL(SharedConstants.openPlayerURL)
-    }
-}
-
-private extension View {
-    @ViewBuilder
-    func posterWideBackground<Background: View>(_ canvas: WidgetCanvas,
-                                                @ViewBuilder _ background: () -> Background) -> some View {
-        if canvas == .inline {
-            self.background { background() }
-                .clipShape(RoundedRectangle(cornerRadius: 26, style: .circular))
-        } else {
-            self.containerBackground(for: .widget) { background() }
-        }
     }
 }
