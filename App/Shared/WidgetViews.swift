@@ -53,11 +53,13 @@ struct WidgetCoverBackdrop: View {
                 if let art {
                     Image(uiImage: art.cover)
                         .resizable()
+                        .widgetFullColorArtwork()
                         .scaledToFill()
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .clipped()
                     Image(uiImage: art.softened)
                         .resizable()
+                        .widgetFullColorArtwork()
                         .scaledToFill()
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .clipped()
@@ -88,7 +90,6 @@ struct WidgetCoverBackdrop: View {
                 }
             }
         }
-        .widgetFullColorArtwork()
         .accessibilityHidden(true)
     }
 }
@@ -129,7 +130,7 @@ struct WidgetControl<Intent: AppIntent>: View {
     }
 }
 
-extension View {
+extension Image {
     @ViewBuilder
     func widgetFullColorArtwork() -> some View {
         if #available(iOS 18.0, *) {
@@ -138,7 +139,9 @@ extension View {
             self
         }
     }
+}
 
+extension View {
     @ViewBuilder
     func widgetBackground<Background: View>(_ canvas: WidgetCanvas, inlineCornerRadius: CGFloat = 22,
                                             @ViewBuilder _ background: @escaping () -> Background) -> some View {
@@ -161,7 +164,7 @@ private struct WidgetArtworkBackground<Background: View>: ViewModifier {
                 // Keep album artwork in the content layer so it survives that treatment.
                 .background {
                     if !showsContainerBackground {
-                        background().widgetFullColorArtwork()
+                        background()
                     }
                 }
                 .containerBackground(for: .widget) { background() }
@@ -267,8 +270,8 @@ struct PillWidgetView: View {
         HStack(spacing: 6) {
             Group {
                 if let art {
-                    Image(uiImage: art.cover).resizable().scaledToFill()
-                        .widgetFullColorArtwork()
+                    Image(uiImage: art.cover).resizable()
+                        .widgetFullColorArtwork().scaledToFill()
                 } else {
                     WidgetPlaceholderArt()
                 }
@@ -310,7 +313,8 @@ struct PillWidgetView: View {
         .widgetBackground(canvas) {
             ZStack {
                 if let art {
-                    Image(uiImage: art.body).resizable().scaledToFill()
+                    Image(uiImage: art.body).resizable()
+                        .widgetFullColorArtwork().scaledToFill()
                 } else {
                     WidgetPlaceholderArt()
                 }

@@ -29,8 +29,8 @@ struct PosterCover: View {
     var body: some View {
         Group {
             if let art {
-                Image(uiImage: art.cover).resizable().scaledToFill()
-                    .widgetFullColorArtwork()
+                Image(uiImage: art.cover).resizable()
+                    .widgetFullColorArtwork().scaledToFill()
             } else {
                 WidgetPlaceholderArt()
             }
