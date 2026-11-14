@@ -150,7 +150,6 @@ extension View {
 }
 
 private struct WidgetArtworkBackground<Background: View>: ViewModifier {
-    @Environment(\.showsWidgetContainerBackground) private var showsContainerBackground
     let canvas: WidgetCanvas
     let inlineCornerRadius: CGFloat
     let background: () -> Background
@@ -159,15 +158,13 @@ private struct WidgetArtworkBackground<Background: View>: ViewModifier {
     func body(content: Content) -> some View {
         switch canvas {
         case .widgetKit:
-            content
-                // iOS removes container backgrounds in accented/clear Home Screen styles.
-                // Keep album artwork in the content layer so it survives that treatment.
-                .background {
-                    if !showsContainerBackground {
-                        background()
-                    }
-                }
-                .containerBackground(for: .widget) { background() }
+            // Clear and tinted Home Screen styles can discard WidgetKit's container background
+            // even when showsWidgetContainerBackground is true. Artwork is actual widget content.
+            ZStack {
+                background().accessibilityHidden(true)
+                content
+            }
+            .containerBackground(for: .widget) { Color.clear }
         case .inline:
             content.background { background() }
                 .clipShape(RoundedRectangle(cornerRadius: inlineCornerRadius, style: .continuous))
