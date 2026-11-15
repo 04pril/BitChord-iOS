@@ -223,6 +223,10 @@ final class PlaybackDeck: TransitionDeck {
         self.id = id
         self.player = AVQueuePlayer()
         self.binding = DeckProcessorBinding(processor: processor)
+        // Cache URLs, source authentication and DSP belong to this process. Keep decoding
+        // on the sender instead of handing the asset to an external video player. Audio
+        // still follows the AVAudioSession route, including an AirPlay receiver.
+        player.allowsExternalPlayback = false
         player.actionAtItemEnd = .pause
         playerObservations.append(player.observe(\.currentItem, options: [.new]) { [weak self] _, _ in
             let observedAt = ContinuousClock.now
@@ -384,9 +388,15 @@ final class PlaybackDeck: TransitionDeck {
         let at = item.currentTime().isNumeric ? item.currentTime().seconds : 0
         var line = "\(entry.item.id) buffer: status=\(status) bufferEmpty=\(item.isPlaybackBufferEmpty) "
             + "likelyToKeepUp=\(item.isPlaybackLikelyToKeepUp) loaded=[\(loaded)] at=\(String(format: "%.1f", at))s "
-            + "timeControl=\(control) onPlayer=\(player.currentItem === item)"
+            + "timeControl=\(control) onPlayer=\(player.currentItem === item) "
+            + "assetScheme=\(entry.asset.url.scheme ?? "unknown") "
+            + "externalPlaybackAllowed=\(player.allowsExternalPlayback) externalPlaybackActive=\(player.isExternalPlaybackActive)"
         if let reason = player.reasonForWaitingToPlay { line += " reason=\(reason.rawValue)" }
         if let error = item.error { line += " error=\(error)" }
+        if item.status == .failed, let events = item.errorLog()?.events.suffix(3), !events.isEmpty {
+            let codes = events.map { "\($0.errorDomain):\($0.errorStatusCode)" }.joined(separator: ",")
+            line += " errorLog=[\(codes)]"
+        }
         return line
     }
 

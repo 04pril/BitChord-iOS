@@ -63,8 +63,9 @@ let modules: [(name: String, dependencies: [Target.Dependency])] = [
 let extraTestDependencies: [String: [String]] = [
     "Downloads": ["StreamResolution"],
     // The Playback tests name AudioDSP's LoudnessReadout directly (the processor protocol hands one
-    // to the engine); declaring it keeps that a contract rather than a transitive accident.
-    "Playback": ["AudioDSP"],
+    // to the engine), and AirPlay compatibility exercises a real AudioCache asset; declaring
+    // both keeps those contracts explicit rather than relying on transitive imports.
+    "Playback": ["AudioDSP", "AudioCache"],
 ]
 
 // Resources a module ships, keyed by module name.
