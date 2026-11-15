@@ -110,6 +110,7 @@ GitHub Actions의 **[Build IPA](https://github.com/04pril/BitChord-iOS/actions/w
 ## 업데이트와 문제 제보
 
 - 버전별 변경 사항과 IPA: [GitHub Releases](https://github.com/04pril/BitChord-iOS/releases)
+- 현재 릴리즈의 누적 수정 내용: [릴리즈 노트](docs/RELEASE-NOTES.md)
 - 빌드별 구현·진단 기록: [개발 기록](docs/DEVELOPMENT-NOTES.md)
 - 기능 대응과 프로젝트 구조: [원본 README](docs/UPSTREAM-README.md), [포팅 문서](docs/PORTING.md)
 - 문제 제보: [Issues](https://github.com/04pril/BitChord-iOS/issues)
