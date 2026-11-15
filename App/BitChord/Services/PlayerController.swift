@@ -565,6 +565,8 @@ final class PlayerController {
             }
         }
         OriginalVersion.shared.unpin(song.videoId)
+        // A manual quality retry must not reuse a completed look-ahead answer.
+        sources.readAheadStreams.forget(song.videoId)
         reopenCount += 1
         sources.setRendition("reopen-\(reopenCount)", stream: nil, for: song)
         reopenCurrent()
@@ -965,6 +967,10 @@ final class PlayerController {
     /// prefetch.
     private func prefetchUpcoming() {
         guard let cache = sources.cache else { return }
+        if queue.state.currentSong == nil || !engine.playWhenReady {
+            // Independent lookups survive queue edits, but not an explicit stop or pause.
+            sources.readAheadStreams.cancelAll()
+        }
         let songs = !isClearingPlaybackCache && queue.state.currentSong != nil && engine.playWhenReady
             ? Array(queue.state.upcoming.prefix(AudioStreamCache.queueDepth))
             : []

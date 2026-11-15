@@ -53,8 +53,8 @@ final class PlayerControllerWiringTests: XCTestCase {
         await waitUntil("the engine plays") { harness.engine.isPlaying }
 
         let pasted = TrackLog.shared.forTrack(song)
-        XCTAssertTrue(pasted.contains("resolved '\(song.title)' in "), pasted)
-        XCTAssertTrue(pasted.contains("first audio for "), pasted)
+        XCTAssertTrue(pasted.contains("source asset open took "), pasted)
+        XCTAssertTrue(pasted.contains("player ready and playing for "), pasted)
     }
 
     /// Offline, a track's retries run out and it is parked with nothing on the deck. Once the
