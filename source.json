@@ -15,16 +15,16 @@
       "versions": [
         {
           "version": "1.0.2",
-          "date": "2026-11-16T15:33:47Z",
-          "localizedDescription": "전체 플레이어에 보관함·플레이리스트 삭제 메뉴 추가. 좋아요 취소와 보관함 삭제 분리.",
-          "downloadURL": "https://github.com/04pril/BitChord-iOS/releases/download/v1.0.2-kr-proxy.27/BitChord-1.0.2.ipa",
-          "size": 58323160
+          "date": "2026-11-16T16:34:44Z",
+          "localizedDescription": "YouTube AAC 곡 길이가 짧게 표시되고 재생이 중간에 끝나던 문제 수정.",
+          "downloadURL": "https://github.com/04pril/BitChord-iOS/releases/download/v1.0.2-kr-proxy.28/BitChord-1.0.2.ipa",
+          "size": 58322013
         }
       ],
       "version": "1.0.2",
-      "versionDate": "2026-11-16T15:33:47Z",
-      "size": 58323160,
-      "downloadURL": "https://github.com/04pril/BitChord-iOS/releases/download/v1.0.2-kr-proxy.27/BitChord-1.0.2.ipa"
+      "versionDate": "2026-11-16T16:34:44Z",
+      "size": 58322013,
+      "downloadURL": "https://github.com/04pril/BitChord-iOS/releases/download/v1.0.2-kr-proxy.28/BitChord-1.0.2.ipa"
     }
   ]
 }
