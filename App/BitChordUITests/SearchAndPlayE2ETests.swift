@@ -28,6 +28,7 @@ final class SearchAndPlayE2ETests: XCTestCase {
         XCTAssertTrue(firstSong.waitForExistence(timeout: 30), "no song in the results")
         let rowLabel = firstSong.label
         firstSong.tap()
+        dismissFullPlayer(app)
 
         let title = app.staticTexts["miniPlayer.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 20), "the mini player never appeared")
@@ -54,6 +55,7 @@ final class SearchAndPlayE2ETests: XCTestCase {
         let shuffle = app.buttons["detail.shuffle"]
         XCTAssertTrue(shuffle.waitForExistence(timeout: 5))
         shuffle.tap()
+        dismissFullPlayer(app)
 
         let title = app.staticTexts["miniPlayer.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 20), "the mini player never appeared")

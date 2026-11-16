@@ -95,6 +95,8 @@ final class PlayerController {
     @ObservationIgnored var partyTransport: (@MainActor (_ playing: Bool) async -> Bool)?
     /// Tells Listen Together the listener moved the playhead, so the party follows.
     @ObservationIgnored var partySeekIntent: (@MainActor () -> Void)?
+    /// Opens Now Playing after a song picked in the app, when that setting is on.
+    @ObservationIgnored var presentFullPlayer: (() -> Void)?
     @ObservationIgnored private var observers: [ObjectIdentifier: PlaybackEventObserver] = [:]
     @ObservationIgnored private var trackers: [ChangeTracker] = []
 
@@ -287,8 +289,9 @@ final class PlayerController {
 
     /// Plays `songs` (an album, playlist, artist's songs, history…) from `startAt`, with the rest of
     /// the list around it as context. `source` names where it was started, for "Playing from".
+    /// `opensFullPlayer` is false for CarPlay and spoken playback, which already have a screen.
     @discardableResult
-    func play(_ songs: [Song], startAt index: Int = 0, source: QueueSource? = nil) -> QueueEditResult {
+    func play(_ songs: [Song], startAt index: Int = 0, source: QueueSource? = nil, opensFullPlayer: Bool = true) -> QueueEditResult {
         let result: QueueEditResult
         if let source {
             result = queue.playFrom(songs, index: index, source: source)
@@ -296,15 +299,17 @@ final class PlayerController {
             result = queue.play(songs, index: index)
         }
         announce(result)
+        presentFullPlayerIfEnabled(after: result, opensFullPlayer: opensFullPlayer)
         return result
     }
 
     /// A song picked on its own (a search hit, a home card, a shared link): it plays, the user's
     /// queue follows, and AutoPlay carries on from it.
     @discardableResult
-    func playSong(_ song: Song, source: QueueSource) -> QueueEditResult {
+    func playSong(_ song: Song, source: QueueSource, opensFullPlayer: Bool = true) -> QueueEditResult {
         let result = queue.playSong(song, source: source)
         announce(result)
+        presentFullPlayerIfEnabled(after: result, opensFullPlayer: opensFullPlayer)
         return result
     }
 
@@ -1080,6 +1085,12 @@ final class PlayerController {
     }
 
     // MARK: - Notices
+
+    /// A picked song opens Now Playing only when the listener asked for that and playback started.
+    private func presentFullPlayerIfEnabled(after result: QueueEditResult, opensFullPlayer: Bool) {
+        guard opensFullPlayer, result == .done, settings.openFullPlayerOnSelection else { return }
+        presentFullPlayer?()
+    }
 
     private func announce(_ result: QueueEditResult, next: Bool? = nil) {
         switch result {

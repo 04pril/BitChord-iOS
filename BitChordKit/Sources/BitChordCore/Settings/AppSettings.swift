@@ -210,6 +210,12 @@ public final class AppSettings {
         didSet { write(.swipeToPlayNext, swipeToPlayNext) }
     }
 
+    /// Opens Now Playing when the listener picks a song in the app. Off leaves the mini player.
+    /// Skips, queue edits, CarPlay, and spoken playback do not use this switch. On by default.
+    public var openFullPlayerOnSelection: Bool = true {
+        didSet { write(.openFullPlayerOnSelection, openFullPlayerOnSelection) }
+    }
+
     /// Once a song has been suggested or played this session, autoplay won't offer it again.
     public var dontRepeatSuggestions: Bool = false {
         didSet { write(.dontRepeatSuggestions, dontRepeatSuggestions) }
@@ -954,6 +960,7 @@ public final class AppSettings {
         shuffleEnabled = readBool(.shuffleEnabled, default: false)
         repeatMode = RepeatMode(rawValue: readInt(.repeatMode, default: RepeatMode.off.rawValue)) ?? .off
         swipeToPlayNext = readBool(.swipeToPlayNext, default: false)
+        openFullPlayerOnSelection = readBool(.openFullPlayerOnSelection, default: true)
         dontRepeatSuggestions = readBool(.dontRepeatSuggestions, default: false)
         preferMusicOnly = readBool(.preferMusicOnly, default: false)
         smartVersionAlignment = readBool(.smartVersionAlignment, default: true)

@@ -24,7 +24,7 @@ enum VoicePlayback {
             return .resumed
         }
         if let top = await search(query).first {
-            player.playSong(top, source: QueueSource(title: L10n.search, type: .search))
+            player.playSong(top, source: QueueSource(title: L10n.search, type: .search), opensFullPlayer: false)
             return .playing
         }
         router.handle(.search(query: query, play: false), player: player) { _ in nil }

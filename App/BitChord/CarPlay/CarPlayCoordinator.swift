@@ -171,7 +171,7 @@ final class CarPlayCoordinator: NSObject {
     /// A choice plays that song, and the queue carries on from it the way AutoPlay does (Android
     /// Auto hands the session one item), then the car shows Now Playing.
     func play(_ song: Song, from folderTitle: String, folderId: String) {
-        player.playSong(song, source: QueueSource(title: folderTitle, type: Self.sourceType(folderId), id: folderId))
+        player.playSong(song, source: QueueSource(title: folderTitle, type: Self.sourceType(folderId), id: folderId), opensFullPlayer: false)
         guard let interfaceController, interfaceController.topTemplate !== CPNowPlayingTemplate.shared else { return }
         interfaceController.pushTemplate(CPNowPlayingTemplate.shared, animated: true, completion: nil)
     }

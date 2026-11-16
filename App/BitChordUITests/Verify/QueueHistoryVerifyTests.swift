@@ -39,6 +39,7 @@ final class QueueHistoryVerifyTests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 20), "no song row after searching (see 2-search-results)")
         capture(app, "2-search-results")
         row.tap()
+        dismissFullPlayer(app)
 
         let skipped = app.descendants(matching: .any)
             .matching(identifier: "miniPlayer.title").firstMatch

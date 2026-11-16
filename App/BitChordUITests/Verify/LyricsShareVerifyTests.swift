@@ -80,6 +80,7 @@ final class LyricsShareVerifyTests: XCTestCase {
         let row = app.descendants(matching: .any).matching(identifier: "songRow").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 30), "no song row 30 s after searching")
         row.tap()
+        dismissFullPlayer(app)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "miniPlayer").firstMatch
             .waitForExistence(timeout: 30), "the mini player never appeared")
     }

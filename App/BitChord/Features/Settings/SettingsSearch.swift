@@ -59,7 +59,7 @@ enum SettingsRowID: String, CaseIterable, Hashable {
     // Your data
     case replay, workOutGenres, exportData, importData
     // Miscellaneous
-    case playNextOnSwipe, dontRepeatSongs, hideVolumeBar, showQueueHistory, hideSongStatus
+    case openFullPlayerOnSelection, playNextOnSwipe, dontRepeatSongs, hideVolumeBar, showQueueHistory, hideSongStatus
     // Language
     case appLanguage
     // Advanced
@@ -185,6 +185,7 @@ enum SettingsCatalog {
                 row(.importData, L10n.importData, "backup", "restore"),
             ]),
             SettingsGroupSpec(id: "miscellaneous", header: L10n.miscellaneous, rows: [
+                row(.openFullPlayerOnSelection, L10n.tr("open_full_player_on_selection"), "player", "now playing", "mini player", "전체", "플레이어", "미니"),
                 row(.playNextOnSwipe, L10n.playNextOnSwipe, "swipe", "queue"),
                 row(.dontRepeatSongs, L10n.dontRepeatSongs, "radio", "suggestions"),
                 row(.hideVolumeBar, L10n.hideVolumeBar, "volume", "player"),

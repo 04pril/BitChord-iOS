@@ -28,6 +28,28 @@ final class PlayerControllerWiringTests: XCTestCase {
         await waitUntil("the engine asks what follows") { harness.engine.upcomingItem?.song?.videoId == second.videoId }
     }
 
+    /// Picking a song opens Now Playing only while the setting is on, and not for a caller that
+    /// already has its own screen or for a queue edit.
+    func testChoosingASongOpensTheFullPlayerOnlyWhileTheSettingIsOn() throws {
+        let harness = PlayerHarness(test: self)
+        var opens = 0
+        harness.player.presentFullPlayer = { opens += 1 }
+        let song = try harness.song("fullplayer1")
+
+        XCTAssertTrue(harness.settings.openFullPlayerOnSelection)
+        harness.player.play([song], startAt: 0)
+        XCTAssertEqual(opens, 1)
+
+        harness.settings.openFullPlayerOnSelection = false
+        harness.player.play([song], startAt: 0)
+        XCTAssertEqual(opens, 1, "off leaves the mini player")
+
+        harness.settings.openFullPlayerOnSelection = true
+        harness.player.playSong(song, source: QueueSource(title: "Car", type: .browse), opensFullPlayer: false)
+        _ = harness.player.playNext([song])
+        XCTAssertEqual(opens, 1, "CarPlay, voice, and queue edits stay on their own screen")
+    }
+
     /// A downloaded row still in the queue after its file was deleted streams instead of failing.
     func testADownloadWhoseFileIsGoneStreamsInstead() async throws {
         let harness = PlayerHarness(test: self)

@@ -46,6 +46,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(s.shuffleEnabled)
         XCTAssertEqual(s.repeatMode, .off)
         XCTAssertFalse(s.swipeToPlayNext)
+        XCTAssertTrue(s.openFullPlayerOnSelection)
         XCTAssertFalse(s.dontRepeatSuggestions)
         XCTAssertFalse(s.preferMusicOnly)
         XCTAssertTrue(s.smartVersionAlignment)
@@ -143,6 +144,7 @@ final class AppSettingsTests: XCTestCase {
         s.shuffleEnabled = true
         s.repeatMode = .all
         s.swipeToPlayNext = true
+        s.openFullPlayerOnSelection = false
         s.dontRepeatSuggestions = true
         s.preferMusicOnly = true
         s.smartVersionAlignment = false
@@ -237,6 +239,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertTrue(r.shuffleEnabled)
         XCTAssertEqual(r.repeatMode, .all)
         XCTAssertTrue(r.swipeToPlayNext)
+        XCTAssertFalse(r.openFullPlayerOnSelection)
         XCTAssertTrue(r.dontRepeatSuggestions)
         XCTAssertTrue(r.preferMusicOnly)
         XCTAssertFalse(r.smartVersionAlignment)

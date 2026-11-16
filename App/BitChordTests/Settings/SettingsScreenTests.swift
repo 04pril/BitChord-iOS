@@ -39,6 +39,7 @@ final class SettingsSearchTests: XCTestCase {
         XCTAssertEqual(groups[3].rows.last?.id, .equalizer)
         XCTAssertEqual(groups[5].rows.map(\.id), [.songCacheLimit, .clearSongCache, .clearImageCache])
         XCTAssertEqual(groups[6].rows.map(\.id), [.replay, .workOutGenres, .exportData, .importData])
+        XCTAssertEqual(groups.first { $0.id == "miscellaneous" }?.rows.first?.id, .openFullPlayerOnSelection)
     }
 
     /// Searching a group's header turns up the group entire.

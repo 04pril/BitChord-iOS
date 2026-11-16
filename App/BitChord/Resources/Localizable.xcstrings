@@ -113202,6 +113202,38 @@
         }
       }
     },
+    "open_full_player_on_selection" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the full player"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "곡을 고르면 전체 플레이어"
+          }
+        }
+      }
+    },
+    "open_full_player_on_selection_subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens Now Playing when you choose a song. Turn it off to keep the mini player."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "목록, 검색, 앨범에서 곡을 고르면 전체 화면 플레이어가 열립니다. 끄면 미니 플레이어만 남습니다."
+          }
+        }
+      }
+    },
     "floating_artwork_subtitle" : {
       "localizations" : {
         "en" : {

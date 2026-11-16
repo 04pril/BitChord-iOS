@@ -36,6 +36,8 @@ extension AppSettings {
         case shuffleEnabled = "shuffle_enabled"
         case repeatMode = "repeat_mode"
         case swipeToPlayNext = "swipe_to_play_next"
+        /// iOS only. A backup still carries it; Android ignores the unknown key.
+        case openFullPlayerOnSelection = "open_full_player_on_selection"
         case dontRepeatSuggestions = "dont_repeat_suggestions"
         case preferMusicOnly = "prefer_music_only"
         case smartVersionAlignment = "smart_version_alignment"

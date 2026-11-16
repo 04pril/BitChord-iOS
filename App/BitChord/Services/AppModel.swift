@@ -513,6 +513,9 @@ final class AppModel {
         ]
         observers.forEach(player.addObserver)
         self.observers = observers
+        player.presentFullPlayer = { [weak self] in
+            self?.router.nowPlaying.open()
+        }
 
         if launch.restoresQueue {
             player.restore()

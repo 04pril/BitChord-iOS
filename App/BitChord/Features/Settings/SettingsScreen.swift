@@ -363,6 +363,10 @@ struct SettingsScreen: View {
             SettingsRow(symbol: "square.and.arrow.down", title: L10n.importData,
                         subtitle: importStatus ?? L10n.importDataSubtitle) { confirmImport = true }
 
+        case .openFullPlayerOnSelection:
+            SettingsToggleRow(symbol: "play.display", title: L10n.tr("open_full_player_on_selection"),
+                              subtitle: L10n.tr("open_full_player_on_selection_subtitle"),
+                              isOn: $settings.openFullPlayerOnSelection)
         case .playNextOnSwipe:
             SettingsToggleRow(symbol: "text.line.first.and.arrowtriangle.forward", title: L10n.playNextOnSwipe,
                               subtitle: settings.swipeToPlayNext ? L10n.swipePlaysNext : L10n.swipeAddsToQueue,

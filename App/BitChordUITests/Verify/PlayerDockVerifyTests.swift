@@ -292,6 +292,7 @@ final class PlayerDockVerifyTests: XCTestCase {
         let row = app.descendants(matching: .any).matching(identifier: "songRow").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 30), "no song row 30 s after searching")
         row.tap()
+        dismissFullPlayer(app)
         XCTAssertTrue(mini(app).waitForExistence(timeout: 30), "the mini player never appeared")
         let reported = NSPredicate { _, _ in
             let value = self.probe(app)
