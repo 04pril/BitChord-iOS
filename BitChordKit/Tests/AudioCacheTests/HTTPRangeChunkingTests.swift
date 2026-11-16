@@ -34,6 +34,20 @@ final class HTTPRangeChunkingTests: XCTestCase {
         XCTAssertNil(HTTPAudioSource.declaredLength(of: URL(string: "https://example.com/a.m4a")!))
     }
 
+    func testOnlyYouTubeAACUsesTheResolvedDurationForItsArrivingFragments() {
+        var resolved = ResolvedStream(url: gv("VISIONOS"), origin: .youtube,
+                                      mimeType: "audio/mp4", format: StreamFormat(codec: "aac"), durationSeconds: 209)
+        XCTAssertEqual(HTTPAudioSource(stream: resolved).knownDuration, 209)
+        resolved.origin = .addon
+        XCTAssertNil(HTTPAudioSource(stream: resolved).knownDuration)
+        resolved.origin = .youtube
+        resolved.format.codec = "opus"
+        XCTAssertNil(HTTPAudioSource(stream: resolved).knownDuration)
+        resolved.format.codec = "aac"
+        resolved.durationSeconds = 0
+        XCTAssertNil(HTTPAudioSource(stream: resolved).knownDuration)
+    }
+
     // The captured live exchange.
 
     func testCapturedGooglevideoExchangeParses() throws {

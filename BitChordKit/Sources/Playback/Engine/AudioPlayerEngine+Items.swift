@@ -92,6 +92,12 @@ extension AudioPlayerEngine {
         // An HLS asset has no asset-level tracks (they live on the player item's variants), so an
         // empty list only means "no audio" for a non-playlist asset.
         var asset = opened.asset
+        let openedWithIncompleteCache: Bool
+        if asset.url.scheme == AudioStreamCache.urlScheme {
+            openedWithIncompleteCache = !(await AudioStreamCache.isWhole(asset))
+        } else {
+            openedWithIncompleteCache = false
+        }
         let loadTracksStarted = ContinuousClock.now
         let openingAsset = asset
         var track = try await withTaskCancellationHandler {
@@ -141,6 +147,7 @@ extension AudioPlayerEngine {
             declaredFormat: opened.settlesFormat ? opened.declaredFormat : opened.declaredFormat ?? item.declaredFormat
         )
         entry.openingWarmup = openingWarmup
+        entry.openedWithIncompleteCache = openedWithIncompleteCache
         entry.isPreciselyTimed = isPrecise
         if entry.content == .dolbyAtmos {
             // Let the system render the object mix spatially (multichannel out over HDMI/AirPlay,

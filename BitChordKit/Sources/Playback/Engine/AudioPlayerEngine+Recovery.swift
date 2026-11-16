@@ -131,8 +131,10 @@ extension AudioPlayerEngine {
     /// An item reported its end, on the session deck. `genuine` is what follows a real one.
     ///
     /// One well short of what's known about the item's length isn't believed. With the whole copy on
-    /// disk and only the catalogue's figure against it, the decoder had everything and the catalogue
-    /// is what's wrong; a playlist's stated length is the file's own, and an item that stopped reading
+    /// disk when it opened and only the catalogue's figure against it, the decoder had everything
+    /// and the catalogue is what's wrong. Filling a partial copy later doesn't extend a timeline
+    /// frozen on its prefix; that item still gets a reopen. A playlist's stated length is the
+    /// file's own, and an item that stopped reading
     /// its fragments while it waited ends short of it with every byte there. Otherwise the next bytes
     /// are fetched and the item is opened afresh over them at its position, keeping every byte it has
     /// (a failure's recovery would throw a partial copy away and park the track if it ran out of
@@ -153,8 +155,8 @@ extension AudioPlayerEngine {
             let reads = await AudioStreamCache.readReport(of: entry.asset) ?? "not through the cache"
             guard let self, generation == self.loadGeneration, self.currentItem?.id == entry.item.id else { return }
             let report = "\(entry.item.id) reported its end at \(String(format: "%.1f", at))s of \(String(format: "%.1f", known))s "
-                + "with [\(entry.loadedDescription)] loaded; \(reads)"
-            let catalogueIsWrong = whole && entry.knownLength == nil
+                + "with [\(entry.loadedDescription)] loaded; openedWithIncompleteCache=\(entry.openedWithIncompleteCache); \(reads)"
+            let catalogueIsWrong = whole && !entry.openedWithIncompleteCache && entry.knownLength == nil
             let nothingGained = self.gainedNothing(entry, at: at, bytes: bytes)
             guard !catalogueIsWrong, !nothingGained else {
                 PlaybackLog.info(report + (catalogueIsWrong ? "; whole on disk, so that is its end" : "; again with nothing new, so that is its end"), about: entry.item.trackID)

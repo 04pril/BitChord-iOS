@@ -114,6 +114,25 @@ final class ShortEndTests: EngineTestCase {
         XCTAssertEqual(h.delegate.changes.map(\.reason), [.requested, .ended])
     }
 
+    /// The next item is opened while only its first fragments are cached. Filling the rest
+    /// later does not necessarily extend that AVPlayerItem's frozen timeline.
+    func testAnItemOpenedFromAPartialCopyCanRecoverEvenAfterTheCacheBecomesWhole() async throws {
+        let (item, source, _) = try await arrivingCopy(id: "filled-after-open", knownDuration: nil)
+        let h = harness(queue: [item])
+        h.engine.load(item, playWhenReady: true)
+        await waitUntil("playing first fragment", timeout: 15) { h.engine.position > 0.2 }
+        let first = try XCTUnwrap(h.engine.active.current)
+        source.openGate()
+        try await AudioStreamCache.fetchAhead(of: first.asset, at: 0, of: 12, ahead: 12, stallLimit: .seconds(5))
+        let whole = await AudioStreamCache.isWhole(first.asset)
+        XCTAssertTrue(whole)
+
+        NotificationCenter.default.post(name: AVPlayerItem.didPlayToEndTimeNotification, object: first.playerItem)
+
+        await waitUntil("reopened", timeout: 10) { h.engine.active.current != nil && h.engine.active.current !== first }
+        XCTAssertTrue(h.delegate.finished.isEmpty)
+    }
+
     /// The catalogue is wrong and the copy isn't whole: one reopen, then it's believed, so a wrong
     /// length can't hold the queue up for long or send it round for ever.
     func testAnEndThatComesBackAtTheSamePlaceIsTakenAsItsEnd() async throws {
@@ -205,7 +224,7 @@ final class ShortEndTests: EngineTestCase {
     }
 
     /// A segmented copy with only its first fragment available, until the source's gate opens.
-    private func arrivingCopy(id: String) async throws -> (item: PlayableItem, source: GatedSource, firstSeconds: Double) {
+    private func arrivingCopy(id: String, knownDuration: TimeInterval? = 12) async throws -> (item: PlayableItem, source: GatedSource, firstSeconds: Double) {
         let (initialization, segments) = try await FragmentedAAC.make(seconds: 12, segmentSeconds: 2)
         var file = initialization
         var firstEnd = 0
@@ -213,9 +232,9 @@ final class ShortEndTests: EngineTestCase {
             file.append(segment.data.dropFirst(try moofOffset(in: segment.data)))
             if index == 0 { firstEnd = file.count }
         }
-        let source = GatedSource(data: file, gate: firstEnd, knownDuration: 12)
+        let source = GatedSource(data: file, gate: firstEnd, knownDuration: knownDuration)
         let cache = try makeCache()
-        let item = PlayableItem(id: id, title: "A", artist: "A", source: .asset {
+        let item = PlayableItem(id: id, title: "A", artist: "A", duration: 12, source: .asset {
             cache.makeAsset(for: AudioCacheKey(rawValue: id), source: source)
         })
         return (item, source, segments[0].duration)

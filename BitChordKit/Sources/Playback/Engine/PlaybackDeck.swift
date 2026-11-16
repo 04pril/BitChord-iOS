@@ -25,6 +25,9 @@ final class DeckEntry {
     private(set) var trimmedEnd: TimeInterval?
     /// The whole length the cache's source knows ahead of the bytes (a segmented copy's playlist).
     let knownLength: TimeInterval?
+    /// A fragmented item's timeline can stop at the prefix it saw while opening, even if
+    /// read-ahead fills the rest later. A whole cache at end-time doesn't prove that timeline.
+    var openedWithIncompleteCache = false
 
     init(
         item: PlayableItem,

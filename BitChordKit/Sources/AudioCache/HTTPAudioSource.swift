@@ -167,6 +167,18 @@ public final class HTTPAudioSource: AudioRangeDataSource, @unchecked Sendable {
         lock.withLock { current?.origin == .youtube }
     }
 
+    /// YouTube's AAC is fragmented: AVFoundation may initially count only the cached prefix.
+    /// The player response already knows the complete recording's length. Add-on catalogue
+    /// lengths are not authoritative for the actual file and must not enable this policy.
+    public var knownDuration: TimeInterval? {
+        lock.withLock {
+            guard let stream = current, stream.origin == .youtube, !stream.isHLS,
+                  stream.format.codec == "aac",
+                  let seconds = stream.durationSeconds, seconds > 0 else { return nil }
+            return TimeInterval(seconds)
+        }
+    }
+
     /// The range size requests are split into for the current URL (`Int64.max`: not split).
     public var requestRangeBytes: Int64 {
         guard let url = lock.withLock({ current?.url }) else { return chunkBytes }
