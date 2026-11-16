@@ -1,7 +1,7 @@
 {
   "name": "BitChord",
   "identifier": "com.music.bitchord.source",
-  "sourceURL": "https://raw.githubusercontent.com/04pril/BitChord-iOS/main/source.json",
+  "sourceURL": "https://raw.githubusercontent.com/04pril/BitChord-iOS/refs/heads/main/source.json",
   "website": "https://github.com/04pril/BitChord-iOS",
   "iconURL": "https://raw.githubusercontent.com/04pril/BitChord-iOS/main/.github/assets/icon.png",
   "apps": [
