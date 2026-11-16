@@ -392,15 +392,51 @@ final class CollectionsStore {
     /// reader rather than waiting for a re-fetch.
     func removeFromPlaylist(_ browseId: String, song: Song) async {
         guard let setVideoId = song.setVideoId, service.isSignedIn else { return }
+        let listener = service.listenerKey
         let playlistId = browseId.hasPrefix("VL") ? String(browseId.dropFirst(2)) : browseId
         do {
             try await service.removeFromPlaylist(playlistId: playlistId, entries: [PlaylistEntryRef(setVideoId: setVideoId, videoId: song.videoId)])
+            guard listener == service.listenerKey else { return }
             libraryStale = true
             updatePage(browseId) { page in
                 guard let songs = page.songs.value else { return }
                 page.songs = .success(songs.filter { $0.setVideoId != setVideoId })
             }
-        } catch {}
+        } catch { notify(error.localizedDescription, "exclamationmark.circle") }
+    }
+
+    struct PlaylistRemovalTarget: Equatable {
+        let browseId: String
+        let song: Song
+        let listenerKey: String?
+    }
+
+    /// Use the track's recorded source, never whichever page happens to be behind the player.
+    /// A restored/converted row may have lost its entry id; only an unambiguous match is safe.
+    func playbackPlaylistRemovalTarget(for song: Song) async -> PlaylistRemovalTarget? {
+        guard service.isSignedIn, song.playbackSourceType == .browse,
+              let browseId = song.playbackSourceId, !LocalBrowseID.isLocal(browseId),
+              BrowseType.of(browseId: browseId) == .playlist else { return nil }
+        let listener = service.listenerKey
+        await loadPlaylistsIfNeeded()
+        guard listener == service.listenerKey else { return nil }
+        await resolvePlaylistOwnership(browseId)
+        guard listener == service.listenerKey, editablePlaylist(browseId) != nil else { return nil }
+        if let entry = song.setVideoId, !entry.isEmpty {
+            return PlaylistRemovalTarget(browseId: browseId, song: song, listenerKey: listener)
+        }
+        guard let songs = try? await service.allSongs(browseId) else { return nil }
+        guard listener == service.listenerKey else { return nil }
+        let matches = songs.filter { $0.videoId == song.videoId }
+        guard matches.count == 1, let match = matches.first,
+              let entry = match.setVideoId, !entry.isEmpty else { return nil }
+        return PlaylistRemovalTarget(browseId: browseId, song: match, listenerKey: listener)
+    }
+
+    func removeFromPlaybackPlaylist(_ target: PlaylistRemovalTarget) async {
+        guard service.isSignedIn, service.listenerKey == target.listenerKey,
+              editablePlaylist(target.browseId) != nil else { return }
+        await removeFromPlaylist(target.browseId, song: target.song)
     }
 
     /// Adds one of a playlist's suggestions to it: out of the Suggested section and into the
@@ -604,25 +640,59 @@ final class CollectionsStore {
 
     /// The open track menu's account state; nil while it is fetched.
     private(set) var songMenu: SongMenu?
+    private(set) var songMenuVideoId: String?
+    @ObservationIgnored private var songMenuListener: String?
+    @ObservationIgnored private var songMenuGeneration = 0
 
     /// Loads the account state behind an opening track menu. A stated LIKE or DISLIKE is taken; the
     /// watch queue's silence is not read as "not liked" (MainViewModel's `loadSongMenu`).
     func loadSongMenu(_ videoId: String) async {
+        songMenuGeneration += 1
+        let generation = songMenuGeneration
+        let listener = service.listenerKey
         songMenu = nil
-        guard service.isSignedIn, let menu = try? await service.songMenu(videoId: videoId) else { return }
+        songMenuVideoId = nil
+        songMenuListener = nil
+        guard service.isSignedIn, let menu = try? await service.songMenu(videoId: videoId),
+              generation == songMenuGeneration, listener == service.listenerKey else { return }
         songMenu = menu
+        songMenuVideoId = videoId
+        songMenuListener = listener
         likeState.rememberStated(menu.likeStatus, for: videoId)
     }
 
-    /// What a rating change does beyond the rating (MainViewModel's `setLike`): Liked Music is out of
-    /// date; a song no longer liked leaves the lists that exist because it was; and clearing the
-    /// heart also takes the song out of the library, since liking and saving are two flags on
-    /// YouTube's side and clearing one would leave it saved with no way left to reach it.
+    func canRemoveFromLibrary(_ videoId: String) -> Bool {
+        service.isSignedIn && songMenuVideoId == videoId && songMenuListener == service.listenerKey
+            && songMenu?.inLibrary == true && songMenu?.removeFromLibraryToken?.isEmpty == false
+    }
+
+    /// A library feedback token is not a playlist edit or an unlike request. Let YouTube
+    /// perform that transition; no scan/deletion of the user's playlists or download files.
+    func removeSongFromLibrary(_ videoId: String) async {
+        guard canRemoveFromLibrary(videoId) else { return }
+        let listener = service.listenerKey
+        do {
+            // Refresh the one-use token before the write, rather than reusing an old sheet's token.
+            let menu = try await service.songMenu(videoId: videoId)
+            guard listener == service.listenerKey, service.isSignedIn, menu.inLibrary,
+                  let token = menu.removeFromLibraryToken, !token.isEmpty else { return }
+            try await service.setLibraryStatus(token: token)
+            guard listener == service.listenerKey else { return }
+            libraryStale = true
+            if var page = library.value {
+                page.librarySongs.removeAll { $0.videoId == videoId }
+                library = .success(page)
+            }
+            if songMenuVideoId == videoId, songMenuListener == listener { songMenu?.inLibrary = false }
+        } catch { notify(error.localizedDescription, "exclamationmark.circle") }
+    }
+
+    /// Likes and library saves are independent. Clearing a heart updates Liked Music only;
+    /// removing the saved song is the separate library action above.
     func ratingChanged(_ videoId: String, from previous: LikeStatus, to status: LikeStatus) async {
         guard service.isSignedIn, previous != status else { return }
         libraryStale = true
         if status != .like { dropFromLikedLists(videoId) }
-        if previous == .like && status == .indifferent { await forgetFromLibrary(videoId) }
     }
 
     private func dropFromLikedLists(_ videoId: String) {
@@ -634,15 +704,6 @@ final class CollectionsStore {
             guard let songs = page.songs.value else { return }
             page.songs = .success(songs.filter { $0.videoId != videoId })
         }
-    }
-
-    @discardableResult
-    private func forgetFromLibrary(_ videoId: String) async -> Bool {
-        guard let menu = try? await service.songMenu(videoId: videoId), menu.inLibrary,
-              let token = menu.removeFromLibraryToken else { return false }
-        guard (try? await service.setLibraryStatus(token: token)) != nil else { return false }
-        if songMenu != nil { songMenu?.inLibrary = false }
-        return true
     }
 
     // MARK: - Replay

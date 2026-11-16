@@ -11,6 +11,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      test_filter:
+        description: 'Optional space-separated test identifiers (empty runs the full plan)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -95,10 +100,17 @@ jobs:
 
       # Each test may take 60 s (180 s at most); a failed test is retried once.
       - name: Test
+        env:
+          TEST_FILTER: ${{ inputs.test_filter }}
         run: |
           set -o pipefail
+          TEST_ARGS=()
+          for test_identifier in $TEST_FILTER; do
+            TEST_ARGS+=("-only-testing:$test_identifier")
+          done
           XCTESTRUN=$(find .derived-ci/Build/Products -maxdepth 1 -name 'BitChord_BitChord_*.xctestrun' | head -1)
           xcodebuild test-without-building -xctestrun "$XCTESTRUN" \
+            "${TEST_ARGS[@]}" \
             -destination "id=$SIM_UDID" \
             -resultBundlePath "$RUNNER_TEMP/BitChord.xcresult" \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 60 \

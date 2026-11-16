@@ -11,7 +11,7 @@ import Theming
 ///
 /// Painted in the track's own colours. From the top: the track; the player's version rows (revert /
 /// upgrade quality, song ↔ video — only for the playing track opened from the player); the account
-/// rows (like, dislike, add to playlist, remove from this playlist on an editable playlist page) —
+/// rows (like, dislike, add to playlist, library removal, removal from an editable source playlist) —
 /// hidden signed out and for a file on the device, which has no YouTube identity to rate; the
 /// download row carrying the download's whole life; start radio, play next, add to queue; open
 /// album and open artist when the track knows them (resolved on the fly from the player); the
@@ -25,6 +25,7 @@ struct SongActionsSheet: View {
     @State private var pickingSleepTimer = false
     @State private var links: Song?
     @State private var resolvingLinks = false
+    @State private var playbackRemoval: CollectionsStore.PlaylistRemovalTarget?
 
     private var store: CollectionsStore { CollectionsStore.shared(for: model) }
 
@@ -64,6 +65,14 @@ struct SongActionsSheet: View {
             await store.loadSongMenu(song.videoId)
         }
         .task(id: song.videoId) { await resolveLinksIfNeeded() }
+        .task(id: song) {
+            playbackRemoval = nil
+            if fromPlayer, !isOffline {
+                let target = await store.playbackPlaylistRemovalTarget(for: song)
+                guard !Task.isCancelled else { return }
+                playbackRemoval = target
+            }
+        }
         .onDisappear {
             // A failure is worth stating once, not again next week.
             if case .failed = store.service.downloadState(song.videoId) { store.service.dismissDownloadFailure(song.videoId) }
@@ -104,7 +113,21 @@ struct SongActionsSheet: View {
                 // The picker is the next step, replacing this sheet rather than stacking on it.
                 model.router.present(.playlistPicker([song]))
             }
-            if let editable = editablePlaylist {
+            if store.canRemoveFromLibrary(song.videoId) {
+                SheetActionRow(symbol: "bookmark.slash", label: L10n.removeFromLibrary, accent: palette.accentColor,
+                               identifier: "songActions.removeFromLibrary") {
+                    close()
+                    Task { await store.removeSongFromLibrary(song.videoId) }
+                }
+            }
+            if fromPlayer, let target = playbackRemoval, target.listenerKey == store.service.listenerKey,
+               target.song.videoId == song.videoId, target.browseId == song.playbackSourceId {
+                SheetActionRow(symbol: "text.badge.minus", label: L10n.removeFromPlaylist, accent: palette.accentColor,
+                               identifier: "songActions.removeFromPlaylist") {
+                    close()
+                    Task { await store.removeFromPlaybackPlaylist(target) }
+                }
+            } else if let editable = editablePlaylist {
                 SheetActionRow(symbol: "text.badge.minus", label: L10n.removeFromPlaylist, accent: palette.accentColor,
                                identifier: "songActions.removeFromPlaylist") {
                     close()

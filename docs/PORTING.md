@@ -113,6 +113,7 @@ Core features come first. Each item has: what the user can do, the source files,
   - Tests: BitChordTests/ArtistPageTests.testSubscribingToAnArtistSurvivesARefresh, BitChordTests/ArtistPageTests.testTopSongsAndReleaseShelvesAreCapped, InnerTubeTests/YTMusicRepositoryTests.testArtistPageFillsTopSongsAndEveryShelfWithAMoreLink
 - [x] **Song actions menu**
   - Like, dislike, add to or remove from playlist, download, start radio, play next, add to queue, open album, open artist, sleep timer, lyrics offset, share.
+  - iOS fork: the full player's menu also removes a saved song from the library or an entry from its editable source playlist. Library saves and likes are separate; unliking no longer sends a library-removal request. Playlist removal uses the entry id and leaves current playback running. A missing entry id is recovered only for an unambiguous membership; unowned, local and unrelated lists are excluded.
   - Files: `ui/components/SongActionsSheet.kt`
   - Done: every row works on a song from Search.
   - Tests: BitChordTests/SongActionsMenuTests.testEveryRowWorksOnASongFromSearch, BitChordTests/SongActionsMenuTests.testTheSleepTimerPickerArmsAndCancels, BitChordTests/SongActionsMenuTests.testRemoveFromPlaylistIsOfferedOnlyOnTheAccountsOwnPlaylist, BitChordTests/LikesAndDislikesTests.testDislikingThePlayingSongFromTheMenuSkipsIt

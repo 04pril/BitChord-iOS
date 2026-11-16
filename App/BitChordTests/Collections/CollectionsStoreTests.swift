@@ -432,13 +432,11 @@ final class LibraryTests: XCTestCase {
 
 @MainActor
 final class LikesAndDislikesTests: XCTestCase {
-    /// PORTING.md "Likes and dislikes": clearing the heart takes the song out of Liked Music at
-    /// once — the library's list and the open Liked Music page — and out of the library too, since
-    /// liking and saving are two flags on YouTube's side.
-    func testUnlikingDropsTheSongFromLikedMusicAndTheLibrary() async {
+    /// Clearing the heart removes a song from Liked Music, preserving its separate library save.
+    func testUnlikingDropsTheSongFromLikedMusicButKeepsItsLibrarySave() async {
         let (store, service) = makeCollectionsStore()
         let song = CollectionsFixtures.song("liked1", "Liked")
-        service.libraryPage = LibraryPage(likedSongs: [song], librarySongs: [], shelves: [HomeShelf(title: "Playlists", items: [])])
+        service.libraryPage = LibraryPage(likedSongs: [song], librarySongs: [song], shelves: [HomeShelf(title: "Playlists", items: [])])
         service.songPages[YTMusicRepository.likedMusicBrowseId] = .init(songs: [song, CollectionsFixtures.song("liked2", "Other")], continuation: nil)
         service.menus["liked1"] = SongMenu(likeStatus: .like, inLibrary: true, addToLibraryToken: "add", removeFromLibraryToken: "remove-token")
         await store.loadLibrary()
@@ -447,7 +445,8 @@ final class LikesAndDislikesTests: XCTestCase {
         await store.ratingChanged("liked1", from: .like, to: .indifferent)
         XCTAssertEqual(store.library.value?.likedSongs.count, 0)
         XCTAssertEqual(store.page(YTMusicRepository.likedMusicBrowseId)?.songs.value?.map(\.videoId), ["liked2"])
-        XCTAssertEqual(service.libraryTokens, ["remove-token"])
+        XCTAssertTrue(service.libraryTokens.isEmpty)
+        XCTAssertEqual(store.library.value?.librarySongs, [song])
         XCTAssertTrue(store.libraryStale)
     }
 
@@ -857,7 +856,191 @@ final class HistoryTests: XCTestCase {
 }
 
 @MainActor
+final class PlayerRemovalActionsTests: XCTestCase {
+    private func ownedStore() async -> (CollectionsStore, FakeCollectionsService) {
+        let (store, service) = makeCollectionsStore()
+        service.playlists = [UserPlaylist(playlistId: "PLmine", title: "Mine", subtitle: "", thumbnailUrl: nil)]
+        service.owned[CollectionsFixtures.playlistId] = true
+        service.songPages[CollectionsFixtures.playlistId] = .init(songs: CollectionsFixtures.playlistSongs, continuation: nil, owned: true)
+        service.allSongsById[CollectionsFixtures.playlistId] = CollectionsFixtures.playlistSongs
+        await store.loadPlaylists()
+        await store.openPage(CollectionsFixtures.playlistId, seed: nil, type: .playlist)
+        return (store, service)
+    }
+
+    private func playing(_ song: Song, source: String = CollectionsFixtures.playlistId) -> Song {
+        var copy = song
+        copy.playbackSourceType = .browse
+        copy.playbackSourceId = source
+        return copy
+    }
+
+    func testPlayerRemovalUsesItsPlaylistAndOnlyTheSelectedDuplicateEntry() async throws {
+        let (store, service) = await ownedStore()
+        var duplicate = CollectionsFixtures.playlistSongs[0]
+        duplicate.setVideoId = "duplicate-entry"
+        service.songPages[CollectionsFixtures.playlistId] = .init(songs: [CollectionsFixtures.playlistSongs[0], duplicate], continuation: nil, owned: true)
+        await store.openPage(CollectionsFixtures.playlistId, seed: nil, type: .playlist)
+        let resolved = await store.playbackPlaylistRemovalTarget(for: playing(duplicate))
+        let target = try XCTUnwrap(resolved)
+        await store.removeFromPlaybackPlaylist(target)
+        XCTAssertEqual(service.removed.map(\.playlistId), ["PLmine"])
+        XCTAssertEqual(service.removed.first?.entries, [.init(setVideoId: "duplicate-entry", videoId: duplicate.videoId)])
+        XCTAssertEqual(store.page(CollectionsFixtures.playlistId)?.songs.value?.map(\.setVideoId), ["s1"])
+        XCTAssertTrue(service.libraryTokens.isEmpty, "playlist deletion never unsaves the library")
+    }
+
+    func testRestoredRowWithoutAnEntryFindsOnlyAnUnambiguousMembership() async throws {
+        let (store, _) = await ownedStore()
+        let row = playing(CollectionsFixtures.song("p2", "Restored"))
+        let target = await store.playbackPlaylistRemovalTarget(for: row)
+        XCTAssertEqual(target?.song.setVideoId, "s2")
+    }
+
+    func testMissingEntryWithDuplicateMembershipIsNotGuessed() async {
+        let (store, service) = await ownedStore()
+        service.allSongsById[CollectionsFixtures.playlistId] = [
+            CollectionsFixtures.song("p2", "First", setVideoId: "first"),
+            CollectionsFixtures.song("p2", "Second", setVideoId: "second")]
+        let target = await store.playbackPlaylistRemovalTarget(for: playing(CollectionsFixtures.song("p2", "Restored")))
+        XCTAssertNil(target)
+        XCTAssertTrue(service.removed.isEmpty)
+    }
+
+    func testSearchAlbumAndUnownedPlaylistCannotRemoveFromThePlayingPlaylist() async {
+        let (store, service) = await ownedStore()
+        var search = playing(CollectionsFixtures.playlistSongs[0])
+        search.playbackSourceType = .search
+        let searchTarget = await store.playbackPlaylistRemovalTarget(for: search)
+        let albumTarget = await store.playbackPlaylistRemovalTarget(for: playing(CollectionsFixtures.playlistSongs[0], source: CollectionsFixtures.albumId))
+        let otherTarget = await store.playbackPlaylistRemovalTarget(for: playing(CollectionsFixtures.playlistSongs[0], source: "VLPLother"))
+        XCTAssertNil(searchTarget)
+        XCTAssertNil(albumTarget)
+        XCTAssertNil(otherTarget)
+        XCTAssertTrue(service.removed.isEmpty)
+    }
+
+    func testAccountSwitchInvalidatesAnAlreadyDisplayedRemovalTarget() async throws {
+        let (store, service) = await ownedStore()
+        let resolved = await store.playbackPlaylistRemovalTarget(for: playing(CollectionsFixtures.playlistSongs[0]))
+        let target = try XCTUnwrap(resolved)
+        service.listenerKey = "another-listener"
+        await store.removeFromPlaybackPlaylist(target)
+        XCTAssertTrue(service.removed.isEmpty)
+    }
+
+    func testFailedPlaylistRemovalKeepsTheRowAndReportsTheError() async throws {
+        let (store, service) = await ownedStore()
+        let resolved = await store.playbackPlaylistRemovalTarget(for: playing(CollectionsFixtures.playlistSongs[0]))
+        let target = try XCTUnwrap(resolved)
+        var notices: [String] = []
+        store.notify = { text, _ in notices.append(text) }
+        service.failWrites = true
+        await store.removeFromPlaybackPlaylist(target)
+        XCTAssertEqual(store.page(CollectionsFixtures.playlistId)?.songs.value?.count, 3)
+        XCTAssertFalse(notices.isEmpty)
+    }
+
+    func testLibraryRemovalDoesNotUnlikeOrEditAnyPlaylist() async {
+        let (store, service) = await ownedStore()
+        let song = CollectionsFixtures.playlistSongs[0]
+        service.libraryPage = LibraryPage(likedSongs: [song], librarySongs: [song], shelves: [])
+        service.menus[song.videoId] = SongMenu(likeStatus: .like, inLibrary: true, addToLibraryToken: "add", removeFromLibraryToken: "remove")
+        await store.loadLibrary()
+        await store.loadSongMenu(song.videoId)
+        XCTAssertTrue(store.canRemoveFromLibrary(song.videoId))
+        await store.removeSongFromLibrary(song.videoId)
+        XCTAssertEqual(service.libraryTokens, ["remove"])
+        XCTAssertTrue(service.removed.isEmpty)
+        XCTAssertEqual(store.library.value?.librarySongs, [])
+        XCTAssertEqual(store.likeState.status(for: song.videoId), .like)
+        XCTAssertEqual(store.library.value?.likedSongs, [song])
+        XCTAssertEqual(store.page(CollectionsFixtures.playlistId)?.songs.value?.count, 3)
+        XCTAssertFalse(store.canRemoveFromLibrary(song.videoId))
+    }
+
+    func testLibraryDeletionUsesAFreshTokenAndKeepsStateOnFailure() async {
+        let (store, service) = makeCollectionsStore()
+        let song = CollectionsFixtures.song("saved", "Saved")
+        service.menus[song.videoId] = SongMenu(likeStatus: nil, inLibrary: true, addToLibraryToken: nil, removeFromLibraryToken: "old")
+        await store.loadSongMenu(song.videoId)
+        service.menus[song.videoId]?.removeFromLibraryToken = "fresh"
+        service.failWrites = true
+        await store.removeSongFromLibrary(song.videoId)
+        XCTAssertTrue(store.canRemoveFromLibrary(song.videoId))
+        service.failWrites = false
+        await store.removeSongFromLibrary(song.videoId)
+        XCTAssertEqual(service.libraryTokens, ["fresh"])
+    }
+
+    func testLibraryDeletionRequiresThisSongsTokenAndSameSignedInAccount() async {
+        let (store, service) = makeCollectionsStore()
+        service.menus["saved"] = SongMenu(likeStatus: nil, inLibrary: true, addToLibraryToken: nil, removeFromLibraryToken: "token")
+        await store.loadSongMenu("saved")
+        XCTAssertFalse(store.canRemoveFromLibrary("other"))
+        await store.removeSongFromLibrary("other")
+        service.listenerKey = "another-listener"
+        XCTAssertFalse(store.canRemoveFromLibrary("saved"))
+        await store.removeSongFromLibrary("saved")
+        service.isSignedIn = false
+        XCTAssertFalse(store.canRemoveFromLibrary("saved"))
+        XCTAssertTrue(service.libraryTokens.isEmpty)
+    }
+}
+
+@MainActor
 final class SongActionsMenuTests: XCTestCase {
+    func testFullPlayerOffersLibraryAndItsSourcePlaylistRemoval() async throws {
+        await enableAccessibilityTree()
+        let service = FakeCollectionsService()
+        let (model, store, _) = makeCollectionsTestModel(self, service: service)
+        var song = CollectionsFixtures.playlistSongs[0]
+        song.albumId = CollectionsFixtures.albumId
+        song.artistId = CollectionsFixtures.artistId
+        service.playlists = [UserPlaylist(playlistId: "PLmine", title: "Mine", subtitle: "", thumbnailUrl: nil)]
+        service.owned[CollectionsFixtures.playlistId] = true
+        service.menus[song.videoId] = SongMenu(likeStatus: .like, inLibrary: true, addToLibraryToken: "add", removeFromLibraryToken: "remove")
+        service.libraryPage = LibraryPage(likedSongs: [song], librarySongs: [song], shelves: [])
+        service.songPages[CollectionsFixtures.playlistId] = .init(songs: [song], continuation: nil, owned: true)
+        await store.loadLibrary()
+        await store.openPage(CollectionsFixtures.playlistId, seed: nil, type: .playlist)
+        model.player.play([song], source: QueueSource(title: "Mine", type: .browse, id: CollectionsFixtures.playlistId))
+        model.router.nowPlaying.open()
+        // The visible page behind the player must never become the deletion's target.
+        model.router.open(.playlist(browseId: "VLPLother", seed: nil))
+        let current = try XCTUnwrap(model.player.currentSong)
+        let host = await host(SongActionsSheet(song: current), model: model, inNavigation: false, inScene: true, settle: 0.8)
+        let removePlaylist = await host.view.control(identifier: "songActions.removeFromPlaylist", label: L10n.removeFromPlaylist)
+        let removeLibrary = await host.view.control(identifier: "songActions.removeFromLibrary", label: L10n.removeFromLibrary)
+        XCTAssertNotNil(removePlaylist)
+        XCTAssertNotNil(removeLibrary)
+        XCTAssertTrue(try XCTUnwrap(removePlaylist).accessibilityActivate())
+        await waitUntil("only the source playlist is edited") { service.removed.count == 1 }
+        XCTAssertEqual(service.removed.first?.playlistId, "PLmine")
+        XCTAssertEqual(model.player.currentSong?.queueEntryId, current.queueEntryId, "editing a saved playlist does not skip the playing song")
+        XCTAssertTrue(service.libraryTokens.isEmpty)
+    }
+
+    func testFullPlayerLibraryRemovalSendsOnlyLibraryFeedback() async throws {
+        await enableAccessibilityTree()
+        let service = FakeCollectionsService()
+        let (model, store, _) = makeCollectionsTestModel(self, service: service)
+        var song = CollectionsFixtures.song("saved", "Saved")
+        song.albumId = CollectionsFixtures.albumId
+        song.artistId = CollectionsFixtures.artistId
+        service.menus[song.videoId] = SongMenu(likeStatus: .like, inLibrary: true, addToLibraryToken: "add", removeFromLibraryToken: "remove")
+        model.player.play([song], source: QueueSource(title: "Search", type: .search))
+        model.router.nowPlaying.open()
+        let current = try XCTUnwrap(model.player.currentSong)
+        let host = await host(SongActionsSheet(song: current), model: model, inNavigation: false, inScene: true, settle: 0.8)
+        let found = await host.view.control(identifier: "songActions.removeFromLibrary", label: L10n.removeFromLibrary)
+        XCTAssertTrue(try XCTUnwrap(found).accessibilityActivate())
+        await waitUntil("library feedback sent") { service.libraryTokens == ["remove"] }
+        XCTAssertTrue(service.removed.isEmpty)
+        XCTAssertEqual(model.player.currentSong?.queueEntryId, current.queueEntryId)
+        XCTAssertEqual(store.likeState.status(for: song.videoId), .like)
+    }
+
     /// PORTING.md "Song actions menu" done criterion: every row works on a song from Search. Each
     /// row is tapped the way a VoiceOver user taps it, and its action reaches the player, the
     /// queue, the downloads or the pages.
