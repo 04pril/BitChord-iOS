@@ -1,0 +1,30 @@
+{
+  "name": "BitChord",
+  "identifier": "com.music.bitchord.source",
+  "sourceURL": "https://raw.githubusercontent.com/04pril/BitChord-iOS/main/source.json",
+  "website": "https://github.com/04pril/BitChord-iOS",
+  "iconURL": "https://raw.githubusercontent.com/04pril/BitChord-iOS/main/.github/assets/icon.png",
+  "apps": [
+    {
+      "name": "BitChord",
+      "bundleIdentifier": "com.music.bitchord",
+      "developerName": "04pril",
+      "subtitle": "YouTube Music",
+      "localizedDescription": "iPhone용 BitChord입니다. 곡을 고르면 전체 플레이어가 열립니다.",
+      "iconURL": "https://raw.githubusercontent.com/04pril/BitChord-iOS/main/.github/assets/icon.png",
+      "versions": [
+        {
+          "version": "1.0.2",
+          "date": "2026-11-16T07:55:00Z",
+          "localizedDescription": "곡을 고르면 전체 플레이어가 열립니다. 빌드 42.",
+          "downloadURL": "https://github.com/04pril/BitChord-iOS/releases/download/v1.0.2-kr-proxy.26/BitChord-1.0.2.ipa",
+          "size": 58309788
+        }
+      ],
+      "version": "1.0.2",
+      "versionDate": "2026-11-16T07:55:00Z",
+      "size": 58309788,
+      "downloadURL": "https://github.com/04pril/BitChord-iOS/releases/download/v1.0.2-kr-proxy.26/BitChord-1.0.2.ipa"
+    }
+  ]
+}
