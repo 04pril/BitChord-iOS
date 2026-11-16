@@ -15,16 +15,16 @@
       "versions": [
         {
           "version": "1.0.2",
-          "date": "2026-11-16T07:55:00Z",
-          "localizedDescription": "곡을 고르면 전체 플레이어가 열립니다. 빌드 42.",
-          "downloadURL": "https://github.com/04pril/BitChord-iOS/releases/download/v1.0.2-kr-proxy.26/BitChord-1.0.2.ipa",
-          "size": 58309788
+          "date": "2026-11-16T15:33:47Z",
+          "localizedDescription": "전체 플레이어에 보관함·플레이리스트 삭제 메뉴 추가. 좋아요 취소와 보관함 삭제 분리.",
+          "downloadURL": "https://github.com/04pril/BitChord-iOS/releases/download/v1.0.2-kr-proxy.27/BitChord-1.0.2.ipa",
+          "size": 58323160
         }
       ],
       "version": "1.0.2",
-      "versionDate": "2026-11-16T07:55:00Z",
-      "size": 58309788,
-      "downloadURL": "https://github.com/04pril/BitChord-iOS/releases/download/v1.0.2-kr-proxy.26/BitChord-1.0.2.ipa"
+      "versionDate": "2026-11-16T15:33:47Z",
+      "size": 58323160,
+      "downloadURL": "https://github.com/04pril/BitChord-iOS/releases/download/v1.0.2-kr-proxy.27/BitChord-1.0.2.ipa"
     }
   ]
 }
