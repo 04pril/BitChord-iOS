@@ -80,6 +80,7 @@ public final class AudioPlayerEngine {
     public internal(set) var isPlaying = false
     /// Waiting on a stream: opening the item (including the source's own resolution) or a stall.
     public internal(set) var isBuffering = false
+    public internal(set) var hasBufferPressure = true
     /// The last item finished with nothing after it; ``play()`` starts it over.
     public internal(set) var hasEnded = false
     /// Seconds into ``currentItem``.
@@ -636,6 +637,17 @@ public final class AudioPlayerEngine {
             checkpoint()
         }
         isBuffering = currentItem != nil && (isLoadingItem || (playWhenReady && !hasEnded && active.isWaiting))
+        let wasUnderPressure = hasBufferPressure
+        let seconds = active.current.map { active.bufferedAhead(of: $0) } ?? 0
+        if currentItem == nil || !playWhenReady { hasBufferPressure = false }
+        else if !isBuffering && duration > 0 && duration - position <= seconds + 0.5 { hasBufferPressure = false }
+        else if isBuffering || seconds < 5 { hasBufferPressure = true }
+        else if seconds >= 15 { hasBufferPressure = false }
+        if !wasUnderPressure && hasBufferPressure { preloadTask?.cancel() }
+        if wasUnderPressure && !hasBufferPressure { preloadUpcoming() }
+        if wasUnderPressure != hasBufferPressure {
+            PlaybackLog.info("foreground buffer priority=\(hasBufferPressure) bufferedAhead=\(String(format: "%.1f", seconds))s", about: currentItem?.trackID)
+        }
     }
 
     func checkpoint() {

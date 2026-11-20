@@ -483,6 +483,18 @@ final class YTMusicRepositoryTests: XCTestCase {
         XCTAssertEqual(same, track)
     }
 
+    func testMissingOfficialAudioDoesNotBecomeACachedVideoAnswer() async throws {
+        try stub.on("search", fixture: "search_songs.json")
+        let video = Song(videoId: "missing", title: "No matching track", artist: "Nobody", isVideo: true)
+        let result = await repository.resolveAudio(for: video, using: TitleMatcher())
+        XCTAssertEqual(result, video)
+        let cached = await repository.cachedAudioVersion(videoId: video.videoId)
+        XCTAssertNil(cached, "A transient lookup miss must not pin the MV as its audio version")
+        let count = stub.requests(to: "search").count
+        _ = await repository.resolveAudio(for: video, using: TitleMatcher())
+        XCTAssertEqual(stub.requests(to: "search").count, count, "Briefly cool down unsuccessful lookups")
+    }
+
     func testNoVideoVersionIsRememberedToo() async throws {
         try stub.on("search", fixture: "search_videos.json")
         let track = Song(videoId: "khnokW3Mw24", title: "No such video", artist: "Nobody")

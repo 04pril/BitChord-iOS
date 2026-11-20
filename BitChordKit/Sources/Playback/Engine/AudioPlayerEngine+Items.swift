@@ -384,6 +384,10 @@ extension AudioPlayerEngine {
     /// Queues the upcoming item on the session deck. Deferred until the current item's entry is on
     /// the deck; called again from there.
     func preloadUpcoming() {
+        guard !isRecoveringConnection, !hasBufferPressure else {
+            preloadTask?.cancel()
+            return
+        }
         guard let next = upcomingItem else {
             preloadTask?.cancel()
             active.removeQueued()

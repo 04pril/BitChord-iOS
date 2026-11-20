@@ -16,6 +16,17 @@ final class AppSettingsTests: XCTestCase {
         AppSettings(defaults: defaults, credentials: credentials)
     }
 
+    func testOptionalPlayerFooterAndCarPlayScreenPreferencePersist() {
+        let settings = makeSettings()
+        XCTAssertFalse(settings.simplePlayerActions)
+        XCTAssertFalse(settings.keepScreenAwakeInCarPlay)
+        settings.simplePlayerActions = true
+        settings.keepScreenAwakeInCarPlay = true
+        let restored = makeSettings()
+        XCTAssertTrue(restored.simplePlayerActions)
+        XCTAssertTrue(restored.keepScreenAwakeInCarPlay)
+    }
+
     func testLyricsProviderPreferenceSurvivesRecreation() {
         let first = makeSettings()
         XCTAssertFalse(first.showLyricsProvider)

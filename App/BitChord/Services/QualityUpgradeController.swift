@@ -567,6 +567,12 @@ final class QualityUpgradeController {
             shelve(song, stream: found)
             return
         }
+        while player.engine.hasBufferPressure, isStillPlaying(song), player.engine.playWhenReady {
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
+        }
+        guard !Task.isCancelled, isStillPlaying(song), player.engine.playWhenReady else {
+            shelve(song, stream: found); return
+        }
         let tag = generation <= 1 ? "hifi" : "hifi-\(generation)"
         status = QualityUpgradeStatus(videoId: song.videoId, phase: .proving(found.format))
         upgrade.force(song.videoId, stream: found)
@@ -688,6 +694,11 @@ final class QualityUpgradeController {
             return
         }
 
+        guard !player.engine.isRecoveringConnection, !player.engine.isBuffering else {
+            Self.log("upgrade shelved: current playback is buffering", song)
+            shelve(song, stream: found)
+            return
+        }
         let previousTag = player.sources.renditionTag(for: song)
         let previousStream = player.sources.forcedStream(for: song)
         // The engine says how it landed: crossed over with no gap, or cut over (and its first audio).

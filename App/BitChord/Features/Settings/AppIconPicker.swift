@@ -59,6 +59,8 @@ struct AppIconPickerRow: View {
                 }
             }
             .scrollIndicators(.hidden)
+            Text(L10n.tr("app_icon_appearance_help"))
+                .font(.caption).foregroundStyle(.secondary)
         }
         .padding(.bottom, 6)
     }
@@ -69,10 +71,13 @@ struct AppIconPickerRow: View {
             choose(choice)
         } label: {
             VStack(spacing: 6) {
-                Image(choice.preview)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 68, height: 68)
+                HStack(spacing: 3) {
+                    Image(choice.preview).resizable().scaledToFit()
+                        .environment(\.colorScheme, .light)
+                    Image(choice.preview).resizable().scaledToFit()
+                        .environment(\.colorScheme, .dark)
+                }
+                .frame(width: 84, height: 44)
                 Text(choice.label)
                     .font(.caption)
                     .fontWeight(isSelected ? .bold : .regular)

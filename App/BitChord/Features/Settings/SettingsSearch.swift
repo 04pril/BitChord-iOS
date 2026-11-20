@@ -51,7 +51,7 @@ enum SettingsRowID: String, CaseIterable, Hashable {
     case preferMusicOnly, loudnessNormalization, crossfade, automix, automixPerformance, skipSilence,
          spatialAudio, equalizer
     // Appearance
-    case theme, reduceAnimation, reduceDynamicBlur, fullScreenCoverArt, legacyMeshGradient,
+    case theme, reduceAnimation, reduceDynamicBlur, fullScreenCoverArt, simplePlayerActions, legacyMeshGradient,
          animatedCoverArt, animatedCoverCellular, spotifyCanvas, syncedLyrics, lyricsBlur,
          lyricsSources, translationLanguage, showLyricsProvider, lyricsTypography
     // Storage
@@ -59,7 +59,7 @@ enum SettingsRowID: String, CaseIterable, Hashable {
     // Your data
     case replay, workOutGenres, exportData, importData
     // Miscellaneous
-    case openFullPlayerOnSelection, playNextOnSwipe, dontRepeatSongs, hideVolumeBar, showQueueHistory, hideSongStatus
+    case keepScreenAwakeInCarPlay, openFullPlayerOnSelection, playNextOnSwipe, dontRepeatSongs, hideVolumeBar, showQueueHistory, hideSongStatus
     // Language
     case appLanguage
     // Advanced
@@ -114,6 +114,7 @@ enum SettingsCatalog {
             SettingsRowSpec(id: id, keywords: [title] + extra, isSubRow: sub)
         }
         var playback = [
+            row(.keepScreenAwakeInCarPlay, L10n.tr("carplay_screen_awake"), "carplay", "화면", "잠금"),
             row(.preferMusicOnly, L10n.preferMusicOnly, "video", "audio", "music video"),
             row(.loudnessNormalization, L10n.loudnessNormalization, "loudness", "volume", "normalize", "replaygain", "lufs"),
         ]
@@ -133,6 +134,7 @@ enum SettingsCatalog {
             row(.reduceAnimation, L10n.reduceAnimation, "motion"),
             row(.reduceDynamicBlur, L10n.reduceDynamicBlur, "blur", "performance"),
             row(.fullScreenCoverArt, L10n.tr("floating_artwork"), "artwork", "player", "floating", "card", "shadow", "animation", "앨범", "커버", "플로팅", "카드", "그림자", "일시정지"),
+            row(.simplePlayerActions, L10n.tr("simple_player_actions"), "player", "headphones", "함께 듣기", "하단", "버튼"),
             row(.legacyMeshGradient, L10n.legacyMeshGradient, "background", "player"),
             // Carries the keywords of the rows that only appear once it is on, so searching
             // "spotify" with animated covers off turns up the switch that brings that row back.

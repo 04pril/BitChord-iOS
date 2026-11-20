@@ -206,3 +206,14 @@ func TestRedact(t *testing.T) {
 		}
 	}
 }
+
+func TestNordStyleWireGuardProfile(t *testing.T) {
+	text := "[Interface]\nPrivateKey = " + testKey + "\nAddress = 10.5.0.2/16\nDNS = 103.86.96.100, 103.86.99.100\n\n[Peer]\nPublicKey = " + testKey + "\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = us1234.nordvpn.com:51820\nPersistentKeepalive = 25\n"
+	p, err := ParseProfile(text)
+	if err != nil || p.EndpointHost != "us1234.nordvpn.com" || len(p.DNS) != 2 {
+		t.Fatalf("Nord-style WireGuard rejected: %v", err)
+	}
+	if _, err := ParseProfile("client\ndev tun\n<ca>\nfixture\n</ca>"); err == nil || !strings.Contains(err.Error(), "OpenVPN") {
+		t.Fatal("OpenVPN needs a clear protocol error")
+	}
+}

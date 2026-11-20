@@ -61,6 +61,17 @@ final class PlaybackRecoveryEngineTests: EngineTestCase {
         XCTAssertTrue(h.delegate.failures.isEmpty)
     }
 
+    func testFullyBufferedShortTrackDoesNotHoldBackgroundPreparation() async throws {
+        let item = try tone(4, name: "short-buffer-priority")
+        let h = harness(queue: [item])
+        h.engine.load(item, playWhenReady: true)
+        await waitUntil("playing") { h.engine.isPlaying }
+        await waitUntil("short file fully buffered") { !h.engine.hasBufferPressure }
+        XCTAssertFalse(h.engine.hasBufferPressure)
+        h.engine.pause()
+        XCTAssertFalse(h.engine.hasBufferPressure)
+    }
+
     func testHTTPRefusalsDoNotQualifyForProxyRepair() {
         for code in [401, 403, 429, 503] {
             XCTAssertFalse(AudioPlayerEngine.isConnectionFailure(AudioCache.AudioCacheError.httpStatus(code, url: URL(string: "https://example.com")!)))

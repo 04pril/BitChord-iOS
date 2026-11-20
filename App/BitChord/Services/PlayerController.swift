@@ -959,7 +959,7 @@ final class PlayerController {
         // The connection and the Direct source stream setting decide what read-ahead fetches for the
         // same rows (Queue only's whole next-track copy needs an unmetered one), so a change in
         // either re-plans it.
-        return ["recovering:\(engine.isRecoveringConnection)", "playing:\(engine.playWhenReady)", "unmetered:\(sources.isUnmetered())",
+        return ["bufferPressure:\(engine.hasBufferPressure)", "recovering:\(engine.isRecoveringConnection)", "playing:\(engine.playWhenReady)", "unmetered:\(sources.isUnmetered())",
                 "direct:\(settings.directSourceStream)", "wait:\(settings.addonWaitSeconds)",
                 "meteredFullNext:\(settings.preloadNextOnMetered)", Self.itemID(for: current)]
             + state.upcoming.prefix(AudioStreamCache.queueDepth).map(Self.itemID(for:))
@@ -972,11 +972,11 @@ final class PlayerController {
     /// prefetch.
     private func prefetchUpcoming() {
         guard let cache = sources.cache else { return }
-        if queue.state.currentSong == nil || !engine.playWhenReady || engine.isRecoveringConnection {
+        if queue.state.currentSong == nil || !engine.playWhenReady || engine.isRecoveringConnection || engine.hasBufferPressure {
             // Independent lookups survive queue edits, but not an explicit stop or pause.
             sources.readAheadStreams.cancelAll()
         }
-        let songs = !isClearingPlaybackCache && !engine.isRecoveringConnection && queue.state.currentSong != nil && engine.playWhenReady
+        let songs = !isClearingPlaybackCache && !engine.hasBufferPressure && !engine.isRecoveringConnection && queue.state.currentSong != nil && engine.playWhenReady
             ? Array(queue.state.upcoming.prefix(AudioStreamCache.queueDepth))
             : []
         let items = songs.isEmpty ? [] : sources.prefetchItems(for: songs)

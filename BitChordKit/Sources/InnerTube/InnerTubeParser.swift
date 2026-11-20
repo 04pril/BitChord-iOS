@@ -634,7 +634,8 @@ public enum InnerTubeParser {
             // The row type word is the clean signal when present ("All" tab); otherwise a
             // music-video upload gives itself away with widescreen art where a catalogue track has
             // square album cover art.
-            isVideo: rowType == "video" || thumbnails.isNotSquare(),
+            isVideo: videoType(in: renderer).map { $0 != "MUSIC_VIDEO_TYPE_ATV" }
+                ?? (rowType == "video" || thumbnails.isNotSquare()),
             // Only playlist rows carry one; on an album or a search hit this is simply absent, which
             // is what makes "remove from playlist" offer itself exactly where it means something.
             setVideoId: renderer.o("playlistItemData").s("playlistSetVideoId"),
@@ -645,6 +646,16 @@ public enum InnerTubeParser {
     /// The promoted result at the top of an unfiltered search is a `musicCardShelfRenderer`. Unlike
     /// the rows below it, its playable id and credits are placed directly on the card, so it would
     /// otherwise vanish from the All tab while remaining first in the Songs tab.
+    private static func videoType(in renderer: InnerTubeJSON) -> String? {
+        let endpoints = [renderer.o("navigationEndpoint"),
+                         renderer.o("overlay").o("musicItemThumbnailOverlayRenderer").o("content")
+                            .o("musicPlayButtonRenderer").o("playNavigationEndpoint")]
+        return endpoints.compactMap {
+            $0.o("watchEndpoint").o("watchEndpointMusicSupportedConfigs")
+                .o("watchEndpointMusicConfig").s("musicVideoType")
+        }.first
+    }
+
     private static func parseCardShelfSong(_ renderer: InnerTubeJSON) -> Song? {
         guard let videoId = renderer.o("onTap").o("watchEndpoint").s("videoId") else { return nil }
         let title = renderer.o("title").runs()
@@ -674,7 +685,8 @@ public enum InnerTubeParser {
             artistId: credits.artistId,
             albumId: credits.albumId,
             albumName: credits.albumName,
-            isVideo: rowType == "video" || thumbnails.isNotSquare(),
+            isVideo: videoType(in: renderer).map { $0 != "MUSIC_VIDEO_TYPE_ATV" }
+                ?? (rowType == "video" || thumbnails.isNotSquare()),
             isExplicit: hasExplicitBadge(renderer["subtitleBadges"])
         )
     }

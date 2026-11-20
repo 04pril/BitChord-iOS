@@ -1,4 +1,5 @@
 import Canvas
+import BitChordCore
 import Foundation
 import WebKit
 
@@ -22,6 +23,10 @@ struct SpotifyTokenHarvester: CanvasSpotifyTokenHarvester {
         // Fresh storage every time: the player skips /api/token when it already holds a live token,
         // and the hook would have nothing to see.
         configuration.websiteDataStore = .nonPersistent()
+        guard YTMUWGConfigureBrowserDataStore(configuration.websiteDataStore) else {
+            TrackLog.i("Canvas", "Spotify token web view proxy configuration failed")
+            return nil
+        }
         configuration.userContentController.add(bridge, name: Bridge.name)
         configuration.userContentController.addUserScript(WKUserScript(
             source: CanvasSpotifyTokenStore.harvestHookScript(bridge: Bridge.name),
@@ -32,22 +37,27 @@ struct SpotifyTokenHarvester: CanvasSpotifyTokenHarvester {
         webView.customUserAgent = CanvasSpotifyTokenStore.webPlayerUserAgent
         defer {
             webView.stopLoading()
+            bridge.cancel()
             configuration.userContentController.removeScriptMessageHandler(forName: Bridge.name)
         }
         webView.load(URLRequest(url: url))
-        return await bridge.token(within: timeout)
+        let result = await bridge.token(within: timeout)
+        TrackLog.i("Canvas", result == nil ? "Spotify token unavailable: cookie rejected, page failed or timed out" : "Spotify token acquired")
+        return result
     }
 
     /// Receives the raw `/api/token` bodies the hook script posts.
     @MainActor private final class Bridge: NSObject, WKScriptMessageHandler {
         static let name = "BitChordSpotifyTokenBridge"
         private var waiter: CheckedContinuation<CanvasHarvestedToken?, Never>?
+        private var timeoutTask: Task<Void, Never>?
+        func cancel() { timeoutTask?.cancel(); finish(nil) }
 
         func token(within timeout: Duration) async -> CanvasHarvestedToken? {
             await withCheckedContinuation { continuation in
                 waiter = continuation
-                Task { [weak self] in
-                    try? await Task.sleep(for: timeout)
+                timeoutTask = Task { [weak self] in
+                    do { try await Task.sleep(for: timeout) } catch { return }
                     self?.finish(nil)
                 }
             }
@@ -60,6 +70,7 @@ struct SpotifyTokenHarvester: CanvasSpotifyTokenHarvester {
         }
 
         private func finish(_ token: CanvasHarvestedToken?) {
+            timeoutTask?.cancel()
             waiter?.resume(returning: token)
             waiter = nil
         }

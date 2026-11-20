@@ -350,6 +350,15 @@ public final class AppSettings {
         didSet { write(.lyricsTypography, lyricsTypography.persisted) }
     }
 
+    /// Optional three-button player footer; existing installs keep the original controls.
+    public var keepScreenAwakeInCarPlay: Bool = false {
+        didSet { write(.keepScreenAwakeInCarPlay, keepScreenAwakeInCarPlay) }
+    }
+
+    public var simplePlayerActions: Bool = false {
+        didSet { write(.simplePlayerActions, simplePlayerActions) }
+    }
+
     /// Cover art as a full-bleed banner off the top of the screen rather than a square card.
     public var fullBleedArtwork: Bool = true {
         didSet { write(.fullBleedArtwork, fullBleedArtwork) }
@@ -624,8 +633,12 @@ public final class AppSettings {
     }
 
     /// Spotify `sp_dc` cookie for the Spotify canvas provider. Keychain-backed.
+    public private(set) var spotifyCanvasRevision = 0
     public var spotifySpdcToken: String = "" {
-        didSet { writeCredential(.spotifySpdcToken, spotifySpdcToken) }
+        didSet {
+            if oldValue != spotifySpdcToken { spotifyCanvasRevision += 1 }
+            writeCredential(.spotifySpdcToken, spotifySpdcToken)
+        }
     }
 
     // MARK: Discord Rich Presence
@@ -989,6 +1002,8 @@ public final class AppSettings {
         hideSongStatus = readBool(.hideSongStatus, default: false)
         showLyricsProvider = readBool(.showLyricsProvider, default: false)
         lyricsTypography = .restore(readString(.lyricsTypography) ?? "")
+        keepScreenAwakeInCarPlay = readBool(.keepScreenAwakeInCarPlay, default: false)
+        simplePlayerActions = readBool(.simplePlayerActions, default: false)
         fullBleedArtwork = readBool(.fullBleedArtwork, default: true)
         legacyMeshGradient = readBool(.legacyMeshGradient, default: false)
         lastPlayerScreen = readEnum(.lastPlayerScreen, default: .main)

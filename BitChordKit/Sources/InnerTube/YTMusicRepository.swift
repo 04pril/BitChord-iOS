@@ -276,7 +276,8 @@ public final class YTMusicRepository: Sendable {
     /// drops video rows outside the Videos filter, so every candidate is audio-only.
     public func resolveAudio(for song: Song, using matcher: some SongVersionMatching) async -> Song {
         guard song.isVideo else { return song }
-        if let cached = await caches.audioVersion(song.videoId) { return cached }
+        if let cached = await caches.audioVersion(song.videoId), !cached.isVideo { return cached }
+        if await caches.audioLookupRecentlyMissed(song.videoId) { return song }
         for query in matcher.searchQueries(for: song) {
             let candidates = ((try? await search(query: query, filter: .songs)) ?? []).compactMap { result -> Song? in
                 if case .track(let found) = result { return found }
@@ -296,7 +297,7 @@ public final class YTMusicRepository: Sendable {
             }
         }
         DebugLog.w(Self.log, "audio switch: no official song match for '\(song.title)' by '\(song.artist)'")
-        await caches.storeAudioVersion(song, for: song.videoId)
+        await caches.noteAudioLookupMiss(song.videoId)
         return song
     }
 
@@ -818,6 +819,15 @@ private actor RepositoryCaches {
     /// track becomes current, and remembering its answer makes the player switch use the exact
     /// rendition whose bytes were warmed.
     private var audioVersions: [String: Song] = [:]
+    private var audioMisses: [String: Date] = [:]
+    func audioLookupRecentlyMissed(_ id: String) -> Bool {
+        guard let at = audioMisses[id] else { return false }
+        return Date().timeIntervalSince(at) < 30
+    }
+    func noteAudioLookupMiss(_ id: String) {
+        audioMisses = audioMisses.filter { Date().timeIntervalSince($0.value) < 30 }
+        audioMisses[id] = Date()
+    }
     /// Video lookups from audio tracks; a stored nil means "no video found".
     private var videoVersions: [String: VideoLookup] = [:]
 

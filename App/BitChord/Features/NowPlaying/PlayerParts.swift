@@ -94,6 +94,7 @@ struct PlayerCredits: View {
     @Environment(AppModel.self) private var app
     @Environment(AppRouter.self) private var router
     @State private var titleOverflowing = false
+    @State private var findingArtist = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -116,8 +117,8 @@ struct PlayerCredits: View {
                             color: .white.opacity(0.55), enabled: !compact,
                             startDelay: titleOverflowing ? PlayerMarqueeText.artistStagger : 0)
                     .contentShape(Rectangle())
-                    .onTapGesture { open(song.artistId) }
-                    .accessibilityAddTraits(song.artistId == nil ? [] : .isLink)
+                    .onTapGesture { openArtist() }
+                    .accessibilityAddTraits(.isLink)
                     .accessibilityIdentifier("nowPlaying.artist")
             }
             .id("\(song.title)\u{1F}\(song.artist)")
@@ -138,6 +139,30 @@ struct PlayerCredits: View {
             PlayerMenuButton(model: model)
         }
         .frame(height: compact ? NowPlayingLayout.thumbSize : NowPlayingLayout.headerHeight)
+    }
+
+    private func openArtist() {
+        if let id = song.artistId, !id.isEmpty { open(id); return }
+        guard !findingArtist else { return }
+        findingArtist = true
+        let artist = song.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trackID = song.videoId
+        Task { @MainActor in
+            defer { findingArtist = false }
+            let rows = (try? await app.repository.search(query: artist, filter: .artists)) ?? []
+            guard player.currentSong?.videoId == trackID else { return }
+            let match = rows.compactMap { row -> BrowseItem? in
+                guard case .browse(let item) = row, item.type == .artist,
+                      item.title.compare(artist, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame else { return nil }
+                return item
+            }.first
+            router.nowPlaying.close()
+            if let match { router.open(.artist(browseId: match.browseId, seed: match)) }
+            else {
+                router.select(.search)
+                router.pendingSearch = .init(query: artist, play: false)
+            }
+        }
     }
 
     private func open(_ browseId: String?) {
@@ -305,6 +330,7 @@ struct PlayerActions: View {
 
     @Environment(PlayerController.self) private var player
     @Environment(AppModel.self) private var app
+    @Environment(AppSettings.self) private var settings
     @Environment(AppRouter.self) private var router
 
     var body: some View {
@@ -317,6 +343,7 @@ struct PlayerActions: View {
                 repeatMode: player.repeatMode,
                 autoplayEnabled: player.isAutoplayEnabled,
                 party: model.party,
+                simpleLayout: settings.simplePlayerActions,
                 onToggleLyrics: { withAnimation(NowPlayingMotion.collapse) { model.panes.toggleLyrics() } },
                 onToggleQueue: { withAnimation(NowPlayingMotion.collapse) { model.panes.toggleQueue() } },
                 onToggleShuffle: { player.toggleShuffle() },

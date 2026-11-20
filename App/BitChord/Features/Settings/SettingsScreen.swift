@@ -212,6 +212,9 @@ struct SettingsScreen: View {
                                  badge: settings.wifiOnlyDownloads && metered == true ? L10n.blocking : nil,
                                  isOn: $settings.wifiOnlyDownloads)
 
+        case .keepScreenAwakeInCarPlay:
+            SettingsToggleRow(symbol: "car", title: L10n.tr("carplay_screen_awake"),
+                              subtitle: L10n.tr("carplay_screen_awake_subtitle"), isOn: $settings.keepScreenAwakeInCarPlay)
         case .preferMusicOnly:
             SettingsToggleRow(symbol: "play.rectangle", title: L10n.preferMusicOnly,
                               subtitle: L10n.preferMusicOnlySubtitle, isOn: $settings.preferMusicOnly)
@@ -277,6 +280,9 @@ struct SettingsScreen: View {
                               subtitle: L10n.tr("floating_artwork_subtitle"),
                               isOn: Binding(get: { !settings.fullBleedArtwork },
                                             set: { settings.fullBleedArtwork = !$0 }))
+        case .simplePlayerActions:
+            SettingsToggleRow(symbol: "headphones", title: L10n.tr("simple_player_actions"),
+                              subtitle: L10n.tr("simple_player_actions_subtitle"), isOn: $settings.simplePlayerActions)
         case .legacyMeshGradient:
             SettingsToggleRow(symbol: "circle.hexagongrid.fill", title: L10n.legacyMeshGradient,
                               subtitle: L10n.legacyMeshGradientSubtitle, isOn: $settings.legacyMeshGradient)

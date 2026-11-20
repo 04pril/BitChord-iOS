@@ -73,6 +73,10 @@ final class AppModel {
     /// Whether the app is on screen (ui/ForegroundState.kt): work that only feeds the screen
     /// (position polling, canvas video) stops while it isn't.
     private(set) var isInForeground = true
+    var carPlayConnected = false { didSet { updateCarPlayScreenAwake() } }
+    private func updateCarPlayScreenAwake() {
+        UIApplication.shared.isIdleTimerDisabled = isInForeground && carPlayConnected && settings.keepScreenAwakeInCarPlay
+    }
     /// Bumped after the in-app language changes (LanguageBundle.override), so the whole tree is
     /// rebuilt with the new strings and layout direction without a relaunch.
     var languageRevision = 0
@@ -179,10 +183,11 @@ final class AppModel {
     /// Animated cover art (Apple Music, Tidal, community, Spotify).
     @ObservationIgnored private(set) lazy var canvas = CanvasRepository(
         session: BitChordHTTP.session,
-        tokens: CanvasSpotifyTokenStore(
-            session: BitChordHTTP.session,
-            cookie: { [settings] in await settings.spotifySpdcToken },
-            harvester: SpotifyTokenHarvester()))
+        tokens: spotifyCanvasTokens)
+    @ObservationIgnored private(set) lazy var spotifyCanvasTokens = CanvasSpotifyTokenStore(
+        session: BitChordHTTP.session,
+        cookie: { [settings] in await settings.spotifySpdcToken },
+        harvester: SpotifyTokenHarvester())
 
     /// Listen Together: party membership and the socket. The sync coordinator starts once a party
     /// is joined (see ``partySync``).
@@ -489,6 +494,9 @@ final class AppModel {
         Self.atmosSetting.value = settings.dolbyAtmos
         trackers.append(ChangeTracker.track({ [settings] in settings.dolbyAtmos }) { on in Self.atmosSetting.value = on })
         if let audioCache { _ = audioCache.followLimit(of: settings) }
+        trackers.append(ChangeTracker.track({ [settings] in settings.keepScreenAwakeInCarPlay }) { [weak self] _ in
+            self?.updateCarPlayScreenAwake()
+        })
         // Stopping recording preserves the session so it can still be exported.
         trackers.append(ChangeTracker.track({ [settings] in settings.keepDiagnosticLog }, initial: false) { on in
             DiagnosticLog.shared.setEnabled(on, header: DiagnosticLog.launchHeader(), deleteFilesWhenDisabled: false)
@@ -575,6 +583,7 @@ final class AppModel {
 
     func scenePhaseChanged(_ phase: ScenePhase) {
         isInForeground = phase == .active
+        updateCarPlayScreenAwake()
         if phase == .active {
             // Activation diagnostics. One cheap line per activation so a user's pasted log can answer:
             // which build, which kind of in-app page was on top (for example the sign-in web view),

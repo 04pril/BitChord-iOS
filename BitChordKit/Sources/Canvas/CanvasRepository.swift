@@ -72,8 +72,10 @@ public actor CanvasRepository {
     private let community: CommunityCanvas
     private let spotify: SpotifyCanvas
 
+
     private var cache: [String: Entry] = [:]
     private var recency: [String] = []
+    private var cacheGeneration = 0
 
     /// A lookup that has started and not yet stored its answer. It runs to completion even if
     /// the caller that started it is cancelled (the player moves on): a cancelled network call
@@ -212,8 +214,10 @@ public actor CanvasRepository {
             return await running.task.value
         }
         let id = UUID()
+        let generation = cacheGeneration
         let task = Task { () -> CanvasArtwork? in
             let found = await lookUp()
+            guard generation == self.cacheGeneration else { return nil }
             self.settle(key: key, id: id, entry: Entry(artwork: found, withAlbum: withAlbum))
             return found
         }
@@ -270,8 +274,11 @@ public actor CanvasRepository {
     /// Test hook: how many settled answers are held.
     var cacheCount: Int { cache.count }
 
-    /// Test hook: drop every settled answer.
-    func clearCache() {
+    /// Drop stale answers after credentials change, including results from earlier lookups.
+    public func clearCache() {
+        cacheGeneration += 1
+        for running in inFlight.values { running.task.cancel() }
+        inFlight.removeAll()
         cache.removeAll()
         recency.removeAll()
     }

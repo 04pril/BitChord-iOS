@@ -21,6 +21,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             let coordinator = CarPlayCoordinator(library: CarLibrary(source: LiveCarLibrarySource(model: model)), player: model.player)
             self.coordinator = coordinator
             coordinator.connect(interfaceController)
+            model.carPlayConnected = true
         }
     }
 
@@ -29,6 +30,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         didDisconnectInterfaceController interfaceController: CPInterfaceController
     ) {
         MainActor.assumeIsolated {
+            AppModel.current?.carPlayConnected = false
             coordinator?.disconnect()
             coordinator = nil
         }

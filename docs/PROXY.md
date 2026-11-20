@@ -65,3 +65,10 @@ SDK_NAME=iphonesimulator bash WireGuard/build-ios.sh
 ```
 
 관련 구성 요소의 라이선스는 [WireGuard 고지](../WireGuard/THIRD_PARTY_LICENSES.txt)를 참고하세요.
+
+
+### NordVPN WireGuard profiles
+
+Import the **WireGuard .conf** downloaded from Nord Account. A standard profile with one peer, an interface address, numeric DNS servers, keys, endpoint and `AllowedIPs = 0.0.0.0/0` is accepted by the existing WireGuard engine. Dual-stack allowed routes and hostname endpoints are supported. The parser is checked against a synthetic Nord-style profile; a live NordVPN account/server has not been verified.
+
+OpenVPN `.ovpn` files (including OpenVPN content renamed `.conf`) use another protocol and cannot be imported. Missing fields should be corrected using the VPN provider's exported profile. Do not post private keys or complete profiles in public issues.

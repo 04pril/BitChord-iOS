@@ -463,15 +463,15 @@ struct PlayerTapThrottle {
 
 // MARK: - Lyrics / output / queue row
 
-/// The row both layouts end on: lyrics, a capsule, the queue. The capsule is where the sound goes
-/// (output and party) normally, and how the queue plays (shuffle, repeat, AutoPlay) while the
-/// queue is up — that's when those are what you're about to reach for.
+/// Three balanced controls: lyrics, audio output and queue. Queue mode keeps its shuffle,
+/// repeat and AutoPlay controls in the centre while that panel is open.
 struct PlayerActionRow: View {
     let panes: PlayerPaneState
     var shuffleEnabled: Bool
     var repeatMode: RepeatMode
     var autoplayEnabled: Bool
     var party: PlayerPartyBadge
+    var simpleLayout = false
     var onToggleLyrics: () -> Void
     var onToggleQueue: () -> Void
     var onToggleShuffle: () -> Void
@@ -484,29 +484,35 @@ struct PlayerActionRow: View {
     @State private var autoplayTaps = PlayerTapThrottle(window: PlayerTapThrottle.autoplay)
 
     var body: some View {
-        HStack {
+        HStack(spacing: simpleLayout ? 0 : 8) {
             BottomGlyph(symbol: AppSymbol.lyricsQuote, highlighted: panes.lyricsOpen,
                         label: panes.lyricsOpen ? L10n.closeLyrics : L10n.openLyrics) {
                 Haptics.shared.play(.tap)
                 onToggleLyrics()
             }
             .accessibilityIdentifier("nowPlaying.lyrics")
-            Spacer(minLength: 8)
+            .frame(maxWidth: simpleLayout ? .infinity : nil)
+            if !simpleLayout { Spacer(minLength: 8) }
             ZStack {
                 if panes.queueOpen {
                     queueModes.transition(.opacity.combined(with: .scale(scale: 0.96)))
+                } else if simpleLayout {
+                    outputButton.transition(.opacity.combined(with: .scale(scale: 0.96)))
                 } else {
                     outputPill.transition(.opacity.combined(with: .scale(scale: 0.96)))
                 }
             }
+            .frame(maxWidth: simpleLayout ? .infinity : nil)
             .animation(.spring(response: 0.3, dampingFraction: 0.82), value: panes.queueOpen)
-            Spacer(minLength: 8)
+            if !simpleLayout { Spacer(minLength: 8) }
             BottomGlyph(symbol: AppSymbol.queue, highlighted: panes.queueOpen, label: L10n.upNext) {
                 Haptics.shared.play(panes.queueOpen ? .tap : .expand)
                 onToggleQueue()
             }
             .accessibilityIdentifier("nowPlaying.queue")
+            .frame(maxWidth: simpleLayout ? .infinity : nil)
         }
+        .padding(.horizontal, simpleLayout && !panes.queueOpen ? 28 : 0)
     }
 
     private var queueModes: some View {
@@ -557,6 +563,15 @@ struct PlayerActionRow: View {
             }
         }
     }
+
+    private var outputButton: some View {
+        BottomGlyph(symbol: "headphones", label: L10n.audioOutput) {
+            Haptics.shared.play(.tap)
+            onOpenOutput()
+        }
+        .accessibilityIdentifier("nowPlaying.output")
+    }
+
 }
 
 enum PlayerRepeatText {

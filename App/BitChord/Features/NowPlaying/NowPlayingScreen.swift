@@ -225,7 +225,7 @@ struct NowPlayingScreen: View {
 
     private var canvasKey: String {
         let song = player.currentSong
-        return "\(song?.videoId ?? "")|\(song?.albumName ?? "")|\(canvasAllowed)|\(settings.prioritizeSpotifyCanvas)"
+        return "\(song?.videoId ?? "")|\(song?.albumName ?? "")|\(canvasAllowed)|\(settings.prioritizeSpotifyCanvas)|\(settings.spotifyCanvasRevision)"
     }
 }
 

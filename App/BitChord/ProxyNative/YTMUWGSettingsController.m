@@ -360,13 +360,13 @@ static NSArray<NSString *> *Kinds(void) { return @[YTMUWGKindWireGuard, YTMUWGKi
 
 - (void)importText:(NSString *)text fromPasteboard:(BOOL)fromPasteboard {
     if (!text.length || text.length > 65536) {
-        [self alert:WGLOC(@"WG_IMPORT_FAILED", @"Could not import") message:WGLOC(@"WG_IMPORT_HINT", @"Choose a standard WireGuard .conf file (64 KB or smaller).")];
+        [self alert:WGLOC(@"WG_IMPORT_FAILED", @"Could not import") message:WGLOC(@"WG_IMPORT_HINT", @"Choose a standard WireGuard .conf (including NordVPN; 64 KB or smaller). OpenVPN profiles are not supported.")];
         return;
     }
     NSString *reason = nil;
     if (!YTMUWGImportProfile(text, &reason)) {
         [self alert:WGLOC(@"WG_IMPORT_FAILED", @"Could not import")
-            message:[NSString stringWithFormat:@"%@\n\n%@", WGLOC(@"WG_IMPORT_HINT", @"Choose a standard WireGuard .conf file (64 KB or smaller)."), reason ?: @""]];
+            message:[NSString stringWithFormat:@"%@\n\n%@", WGLOC(@"WG_IMPORT_HINT", @"Choose a standard WireGuard .conf (including NordVPN; 64 KB or smaller). OpenVPN profiles are not supported."), reason ?: @""]];
         return;
     }
     // Do not leave the private key on the clipboard. Only touch the pasteboard

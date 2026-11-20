@@ -470,5 +470,37 @@
   "playback_queue_preparation_help": {
     "en": "Prepare up to four upcoming tracks. Cache the full next track on Wi-Fi; keep up to 2 MiB of the following tracks. Playback keeps its own addon wait deadline.",
     "ko": "다음 4곡까지 준비합니다. Wi-Fi에서는 바로 다음 곡 전체, 나머지는 앞부분 최대 2MiB를 받습니다. 곡을 눌렀을 때의 애드온 대기 시간은 그대로 적용됩니다."
+  },
+  "simple_player_actions": {
+    "en": "Simple player buttons",
+    "ko": "플레이어 하단 버튼 간소화"
+  },
+  "simple_player_actions_subtitle": {
+    "en": "Center the audio output button and hide the Listen Together button and capsule background. Turn off for the original layout.",
+    "ko": "함께 듣기 버튼과 캡슐 배경을 숨기고 출력 버튼을 가운데 배치합니다. 끄면 기존 배치를 사용합니다."
+  },
+  "app_icon_appearance_help": {
+    "en": "Each preview shows Light (left) and Dark (right). The actual icon follows Home Screen customization, independently of the app theme.",
+    "ko": "각 미리보기는 왼쪽이 라이트, 오른쪽이 다크입니다. 실제 아이콘은 앱 테마와 별개로 홈 화면 사용자화 설정을 따릅니다."
+  },
+  "carplay_screen_awake": {
+    "en": "Keep iPhone screen on with CarPlay",
+    "ko": "CarPlay 사용 중 화면 켜두기"
+  },
+  "carplay_screen_awake_subtitle": {
+    "en": "Prevent automatic locking while CarPlay is connected and BitChord is on screen.",
+    "ko": "CarPlay 연결 중 BitChord가 화면에 열려 있으면 자동 잠금을 방지합니다."
+  },
+  "spotify_canvas_check": {
+    "en": "Check Spotify session",
+    "ko": "Spotify 세션 확인"
+  },
+  "spotify_canvas_check_ok": {
+    "en": "Session verified. A Canvas may still be unavailable for this track or account.",
+    "ko": "세션을 확인했습니다. 곡이나 계정에 따라 Canvas가 제공되지 않을 수 있습니다."
+  },
+  "spotify_canvas_check_failed": {
+    "en": "Could not obtain a Spotify token. Check the sp_dc cookie and proxy connection, then try again.",
+    "ko": "Spotify 토큰을 얻지 못했습니다. sp_dc 쿠키와 프록시 연결을 확인한 뒤 다시 시도하세요."
   }
 }

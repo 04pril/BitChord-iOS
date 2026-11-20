@@ -764,6 +764,8 @@ final class PlaybackDeck: TransitionDeck {
     }
 
     /// Seconds loaded past the playhead; 0 when nothing is loaded there.
+    func bufferedAhead(of entry: DeckEntry) -> TimeInterval { loadedAhead(of: entry) }
+
     private func loadedAhead(of entry: DeckEntry) -> TimeInterval {
         let now = entry.playerItem.currentTime().seconds
         return entry.playerItem.loadedTimeRanges.map(\.timeRangeValue).compactMap { range -> TimeInterval? in

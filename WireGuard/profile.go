@@ -85,6 +85,9 @@ func decodeKey(value string) (string, error) {
 
 // ParseProfile validates a standard WireGuard configuration.
 func ParseProfile(text string) (*Profile, error) {
+	if strings.Contains(text, "<ca>") || strings.Contains(text, "client\n") || strings.Contains(text, "dev tun") {
+		return nil, errors.New("OpenVPN profiles are not supported; download a WireGuard .conf profile from your VPN account")
+	}
 	if len(text) > maxProfileBytes {
 		return nil, errTooLarge
 	}
