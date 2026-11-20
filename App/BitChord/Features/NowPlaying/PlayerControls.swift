@@ -484,6 +484,39 @@ struct PlayerActionRow: View {
     @State private var autoplayTaps = PlayerTapThrottle(window: PlayerTapThrottle.autoplay)
 
     var body: some View {
+        if simpleLayout && !panes.queueOpen {
+            simpleActions
+        } else {
+            originalActions
+        }
+    }
+
+    // Match the transport row's four spacers and three fixed slots. Side glyphs align
+    // with the outside of the previous/next slots rather than crowding the output control.
+    private var simpleActions: some View {
+        HStack(spacing: 8) {
+            Spacer(minLength: 0)
+            BottomGlyph(symbol: AppSymbol.lyricsQuote, highlighted: panes.lyricsOpen,
+                        label: panes.lyricsOpen ? L10n.closeLyrics : L10n.openLyrics) {
+                Haptics.shared.play(.tap)
+                onToggleLyrics()
+            }
+            .accessibilityIdentifier("nowPlaying.lyrics")
+            .frame(width: 63, alignment: .leading)
+            Spacer(minLength: 0)
+            outputButton.frame(width: 84)
+            Spacer(minLength: 0)
+            BottomGlyph(symbol: AppSymbol.queue, highlighted: panes.queueOpen, label: L10n.upNext) {
+                Haptics.shared.play(.expand)
+                onToggleQueue()
+            }
+            .accessibilityIdentifier("nowPlaying.queue")
+            .frame(width: 63, alignment: .trailing)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var originalActions: some View {
         HStack(spacing: simpleLayout ? 0 : 8) {
             BottomGlyph(symbol: AppSymbol.lyricsQuote, highlighted: panes.lyricsOpen,
                         label: panes.lyricsOpen ? L10n.closeLyrics : L10n.openLyrics) {

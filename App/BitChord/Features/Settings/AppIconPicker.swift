@@ -15,6 +15,7 @@ import UIKit
 enum AppIconChoice: String, CaseIterable, Identifiable {
     case `default` = "AppIcon"
     case monochrome = "AppIconMonochrome"
+    case monochromeDark = "AppIconMonochromeDark"
     case glassDark = "AppIconGlassDark"
     case glassClear = "AppIconGlassClear"
     case glassClearDark = "AppIconGlassClearDark"
@@ -31,7 +32,8 @@ enum AppIconChoice: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .default: L10n.appIconDefault
-        case .monochrome: L10n.appIconMonochrome
+        case .monochrome: L10n.tr("app_icon_monochrome_light")
+        case .monochromeDark: L10n.tr("app_icon_monochrome_dark")
         case .glassDark: L10n.appIconLiquidGlassDark
         case .glassClear: L10n.appIconLiquidGlassClear
         case .glassClearDark: L10n.appIconLiquidGlassClearDark
@@ -71,13 +73,18 @@ struct AppIconPickerRow: View {
             choose(choice)
         } label: {
             VStack(spacing: 6) {
-                HStack(spacing: 3) {
+                if choice == .monochrome || choice == .monochromeDark {
                     Image(choice.preview).resizable().scaledToFit()
-                        .environment(\.colorScheme, .light)
-                    Image(choice.preview).resizable().scaledToFit()
-                        .environment(\.colorScheme, .dark)
+                        .frame(width: 68, height: 68)
+                } else {
+                    HStack(spacing: 3) {
+                        Image(choice.preview).resizable().scaledToFit()
+                            .environment(\.colorScheme, .light)
+                        Image(choice.preview).resizable().scaledToFit()
+                            .environment(\.colorScheme, .dark)
+                    }
+                    .frame(width: 84, height: 68)
                 }
-                .frame(width: 84, height: 44)
                 Text(choice.label)
                     .font(.caption)
                     .fontWeight(isSelected ? .bold : .regular)

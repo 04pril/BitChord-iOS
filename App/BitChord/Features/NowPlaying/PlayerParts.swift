@@ -149,15 +149,10 @@ struct PlayerCredits: View {
         let trackID = song.videoId
         Task { @MainActor in
             defer { findingArtist = false }
-            let rows = (try? await app.repository.search(query: artist, filter: .artists)) ?? []
+            let artistID = await app.repository.resolveArtist(for: song)
             guard player.currentSong?.videoId == trackID else { return }
-            let match = rows.compactMap { row -> BrowseItem? in
-                guard case .browse(let item) = row, item.type == .artist,
-                      item.title.compare(artist, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame else { return nil }
-                return item
-            }.first
             router.nowPlaying.close()
-            if let match { router.open(.artist(browseId: match.browseId, seed: match)) }
+            if let artistID { router.open(.artist(browseId: artistID, seed: nil)) }
             else {
                 router.select(.search)
                 router.pendingSearch = .init(query: artist, play: false)

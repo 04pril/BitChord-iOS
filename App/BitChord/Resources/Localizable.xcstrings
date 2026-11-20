@@ -114023,13 +114023,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Each preview shows Light (left) and Dark (right). The actual icon follows Home Screen customization, independently of the app theme."
+            "value" : "Monochrome Light and Dark keep their chosen colors in regular Light/Dark Home Screen styles. Clear and Tinted styles are controlled by iOS. Other previews show Light (left) and Dark (right)."
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "각 미리보기는 왼쪽이 라이트, 오른쪽이 다크입니다. 실제 아이콘은 앱 테마와 별개로 홈 화면 사용자화 설정을 따릅니다."
+            "value" : "단색 라이트·다크는 일반 라이트·다크 홈 화면에서 선택한 색을 유지합니다. 투명·틴트 스타일은 iOS가 적용합니다. 다른 미리보기는 왼쪽이 라이트, 오른쪽이 다크입니다."
           }
         }
       }
@@ -114110,6 +114110,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Spotify 토큰을 얻지 못했습니다. sp_dc 쿠키와 프록시 연결을 확인한 뒤 다시 시도하세요."
+          }
+        }
+      }
+    },
+    "app_icon_monochrome_light" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monochrome Light"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "단색 라이트"
+          }
+        }
+      }
+    },
+    "app_icon_monochrome_dark" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monochrome Dark"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "단색 다크"
           }
         }
       }

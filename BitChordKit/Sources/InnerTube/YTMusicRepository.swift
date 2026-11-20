@@ -687,6 +687,32 @@ public final class YTMusicRepository: Sendable {
         }
     }
 
+    /// Use the artist endpoint attached to the recording before comparing display names.
+    public func resolveArtist(for song: Song) async -> String? {
+        if let id = song.artistId, !id.isEmpty { return id }
+        if let links = try? await trackLinks(videoId: song.videoId),
+           let id = links.artistId, !id.isEmpty { return id }
+        let rows = (try? await search(query: song.artist, filter: .artists)) ?? []
+        let names = Self.artistAliases(song.artist)
+        let matches = rows.compactMap { row -> BrowseItem? in
+            guard case .browse(let item) = row, item.type == .artist,
+                  !names.isDisjoint(with: Self.artistAliases(item.title)) else { return nil }
+            return item
+        }
+        // Never guess between two different artist channels with the same display name.
+        let ids = Set(matches.map(\.browseId))
+        return ids.count == 1 ? ids.first : nil
+    }
+
+    static func artistAliases(_ name: String) -> Set<String> {
+        let parts = name.replacingOccurrences(of: "（", with: "(").replacingOccurrences(of: "）", with: ")")
+            .components(separatedBy: CharacterSet(charactersIn: "()"))
+        return Set(parts.map {
+            $0.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+                .unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }.map(String.init).joined()
+        }.filter { !$0.isEmpty })
+    }
+
     /// The lyrics YouTube Music's Lyrics tab shows for exactly this video: `next` → the Lyrics tab's
     /// browse id → `browse`. Plain lines (the tab is untimed); nil when the track has no lyrics, the
     /// id isn't a YouTube video id, or any step fails — a lyrics source answers "none", it doesn't

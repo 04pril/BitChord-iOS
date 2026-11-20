@@ -20,8 +20,7 @@ final class AppIconPickerTests: XCTestCase {
         XCTAssertNil(AppIconChoice.default.alternateName, "the default is the primary icon, set back with nil")
     }
 
-    /// The tiles are rendered previews in the asset catalog, one for each appearance. A missing
-    /// dark image would fall back to the light one, so the two must differ.
+    /// Fixed monochrome choices keep the same tile; adaptive icons show both appearances.
     func testEveryChoiceHasItsPreviewTileInLightAndDark() {
         func tile(_ choice: AppIconChoice, _ style: UIUserInterfaceStyle) -> UIImage? {
             UIImage(named: choice.preview, in: .main, compatibleWith: UITraitCollection(userInterfaceStyle: style))
@@ -30,7 +29,11 @@ final class AppIconPickerTests: XCTestCase {
             let light = tile(choice, .light), dark = tile(choice, .dark)
             XCTAssertEqual(light?.size, CGSize(width: 68, height: 68), "\(choice) light: a 68 pt tile at 3x")
             XCTAssertEqual(dark?.size, CGSize(width: 68, height: 68), "\(choice) dark: a 68 pt tile at 3x")
-            XCTAssertNotEqual(light?.pngData(), dark?.pngData(), "\(choice): the dark tile fell back to the light one")
+            if choice == .monochrome || choice == .monochromeDark {
+                XCTAssertEqual(light?.pngData(), dark?.pngData(), "A fixed monochrome choice must not change with app appearance")
+            } else {
+                XCTAssertNotEqual(light?.pngData(), dark?.pngData(), "\(choice): the dark tile fell back to the light one")
+            }
         }
     }
 
@@ -39,6 +42,7 @@ final class AppIconPickerTests: XCTestCase {
     func testTheSelectedTileFollowsTheSystemsIconName() {
         XCTAssertEqual(AppIconChoice(alternateName: nil), .default)
         XCTAssertEqual(AppIconChoice(alternateName: "AppIconMonochrome"), .monochrome)
+        XCTAssertEqual(AppIconChoice(alternateName: "AppIconMonochromeDark"), .monochromeDark)
         XCTAssertEqual(AppIconChoice(alternateName: "AppIconRetired"), .default)
     }
 

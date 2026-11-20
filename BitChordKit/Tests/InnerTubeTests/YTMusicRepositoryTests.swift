@@ -464,6 +464,46 @@ final class YTMusicRepositoryTests: XCTestCase {
         XCTAssertEqual(stub.requests(to: "like/like").count, 2)
     }
 
+    func testArtistNavigationUsesRecordingEndpointBeforeDisplayNameSearch() async throws {
+        try stub.on("next", fixture: "next.json")
+        let song = Song(videoId: "5NV6Rdv1a3I", title: "Get Lucky", artist: "Daft Punk (다프트 펑크)")
+        let id = await repository.resolveArtist(for: song)
+        XCTAssertEqual(id, "UCRr1xG_2WIDs18a6cIiCxeA")
+        XCTAssertTrue(stub.requests(to: "search").isEmpty)
+    }
+
+    func testArtistNavigationKeepsExistingArtistIDWithoutNetwork() async {
+        let song = Song(videoId: "track", title: "S", artist: "A (에이)", artistId: "UCartist")
+        let id = await repository.resolveArtist(for: song)
+        XCTAssertEqual(id, "UCartist")
+        XCTAssertTrue(stub.stub.requests.isEmpty)
+    }
+
+    func testArtistNavigationMatchesTranslatedNameWhenRecordingHasNoEndpoint() async throws {
+        try stub.on("next", fixture: "next.json")
+        try stub.on("search", fixture: "search_artists.json")
+        let song = Song(videoId: "missing", title: "S", artist: "Daft Punk (다프트 펑크)")
+        let id = await repository.resolveArtist(for: song)
+        XCTAssertEqual(id, "UCRr1xG_2WIDs18a6cIiCxeA")
+        XCTAssertEqual(stub.requests(to: "search").count, 1)
+    }
+
+    func testArtistNavigationDoesNotOpenUnrelatedSearchResult() async throws {
+        try stub.on("next", fixture: "next.json")
+        try stub.on("search", fixture: "search_artists.json")
+        let song = Song(videoId: "missing", title: "S", artist: "Unrelated artist")
+        let id = await repository.resolveArtist(for: song)
+        XCTAssertNil(id)
+    }
+
+    func testArtistAliasesMatchParenthesizedTranslationsWithoutDroppingIdentity() {
+        XCTAssertFalse(YTMusicRepository.artistAliases("can't be blue (캔트비블루)")
+            .isDisjoint(with: YTMusicRepository.artistAliases("can't be blue")))
+        XCTAssertFalse(YTMusicRepository.artistAliases("can't be blue (캔트비블루)")
+            .isDisjoint(with: YTMusicRepository.artistAliases("캔트비블루")))
+        XCTAssertTrue(YTMusicRepository.artistAliases("can't be blue").isDisjoint(with: YTMusicRepository.artistAliases("Other artist")))
+    }
+
     // MARK: - Versions
 
     func testResolvingAVideosAudioSearchesSongsAndRemembersTheAnswer() async throws {
