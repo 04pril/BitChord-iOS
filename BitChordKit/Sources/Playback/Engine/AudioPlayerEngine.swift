@@ -177,6 +177,9 @@ public final class AudioPlayerEngine {
     @ObservationIgnored public weak var transitionPlanner: TransitionPlanning?
     /// Called when an item fails, to get a fresh source for it (see ``RecoveryReason``).
     @ObservationIgnored public var sourceRecovery: PlaybackSourceRecovery?
+    /// nil: not managed; true: reachable; false: wait without spending a track retry.
+    @ObservationIgnored public var connectionHealth: (@Sendable () async -> Bool?)?
+    public internal(set) var isRecoveringConnection = false
     /// Told of every audio-session event after the engine has acted on it, so a host that follows
     /// something else (Listen Together) can tell a pause the user asked for from one the system did.
     @ObservationIgnored public var onAudioSessionEvent: ((AudioSessionEvent) -> Void)?
@@ -382,6 +385,7 @@ public final class AudioPlayerEngine {
             openItem(item, at: position, reason: nil)
             return
         }
+        if isRecoveringConnection { return }
         active.play()
         crossfade.syncTransport()
         updatePlayingState()
@@ -407,6 +411,10 @@ public final class AudioPlayerEngine {
         let target = min(max(time, 0), upper)
         position = target
         hasEnded = false
+        if isRecoveringConnection, let item = currentItem {
+            openItem(item, at: target, reason: nil)
+            return
+        }
         // Sought mid-song as it was opened, this entry's clock would be off from the sound for the
         // rest of the track. Opened afresh it walks its frames first: a silent wait, once per item.
         if target > 0, let item = currentItem, let entry = active.current, entry.item.id == item.id, !entry.isPreciselyTimed {
@@ -449,6 +457,7 @@ public final class AudioPlayerEngine {
 
     /// Stops and forgets the current item, and the sleep timer with it.
     public func stop() {
+        isRecoveringConnection = false
         cancelSwap()
         crossfade.onSkipRequested()
         crossfade.release()
@@ -584,6 +593,12 @@ public final class AudioPlayerEngine {
     }
 
     func pausePlayback() {
+        if isRecoveringConnection {
+            loadGeneration += 1
+            loadTask?.cancel()
+            isRecoveringConnection = false
+            isLoadingItem = false
+        }
         endLiveSkip()
         setPlayWhenReady(false)
         active.pause()

@@ -11,6 +11,7 @@ char *YTMUWGInspect(char *text);
 int YTMUWGStart(char *text, char *user, char *pass, int listenerFD, int port);
 char *YTMUWGStatus(void);
 int YTMUWGRebind(void);
+void YTMUWGStop(void);
 char *YTMUWGLookup(char *host);
 char *YTMUWGRedact(char *text);
 void YTMUWGFree(char *p);

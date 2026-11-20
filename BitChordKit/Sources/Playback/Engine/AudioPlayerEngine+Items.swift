@@ -10,6 +10,7 @@ extension AudioPlayerEngine {
     /// Opens `item` on the session deck at `start`. `reason` nil is a retry of the same item
     /// (no announcement, and the retry budget carries over).
     func openItem(_ item: PlayableItem, at start: TimeInterval, reason: ItemChangeReason?, source: PlayableItem.Source? = nil) {
+        isRecoveringConnection = false
         loadGeneration += 1
         let generation = loadGeneration
         // The item's own preload, still opening it (a skip or a track end that came first): the load

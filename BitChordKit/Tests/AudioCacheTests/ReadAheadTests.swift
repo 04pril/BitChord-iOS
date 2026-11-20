@@ -44,6 +44,25 @@ final class ReadAheadTests: XCTestCase {
         XCTAssertEqual(AudioStreamCache.queueDepth, 4)
     }
 
+    func testAddonReadAheadRequestsOnlyEachWindowWithoutDownloadingTheRemainingFile() async throws {
+        let server = RangeServer()
+        let body = patternData(count: 5_000_000)
+        let url = URL(string: "https://bridge.example.com/track.flac")!
+        server.host(body, at: url, mimeType: "audio/flac")
+        let cache = try makeCache()
+        let key = AudioCacheKey.substitute(videoId: "bounded-addon", atmosAllowed: false)
+        var resolved = stream(url, length: body.count, mimeType: "audio/flac")
+        resolved.origin = .addon
+        let source = HTTPAudioSource(stream: resolved, session: server.session)
+        await cache.prefetch([AudioCachePrefetchItem(key: key, source: source)])
+        await eventually(timeout: 10) { await cache.isFullyCached(key) }
+        let ranges = server.ranges()
+        XCTAssertEqual(ranges, [0..<1_048_576, 1_048_576..<2_097_152,
+                                2_097_152..<4_194_304, 4_194_304..<5_000_000])
+        XCTAssertEqual(server.requestedBytes(total: Int64(body.count)), Int64(body.count),
+                       "Background HTTP requests must not repeatedly ask for overlapping file tails")
+    }
+
     /// A quick run of skips lands on a track whose URL is already minted: the warm-ups don't wait
     /// out the delay that holds the next track's bytes back from the start of the one playing.
     func testTheQueueAheadIsWarmedAtOnceWhileTheNextTracksBytesWait() async throws {

@@ -11,6 +11,7 @@
 // encodings observed in YouTube Music 9.42.2; they test the patch logic only.
 
 #import <Foundation/Foundation.h>
+#import "../../App/BitChord/ProxyNative/YTMUWGBridge.h"
 #import <Network/Network.h>
 #import <dlfcn.h>
 #import <objc/runtime.h>
@@ -297,6 +298,21 @@ static void NetworkChecks(void) {
     usleep(300000);
     r = Get(delegateSession, @"https://fixture.test/", nil);
     CHECK(r.status == 200, "after rebind: %ld %s", (long)r.status, r.error.description.UTF8String);
+    __block NSDictionary *health;
+    dispatch_semaphore_t healthDone = dispatch_semaphore_create(0);
+    YTMUWGCheckAndRecover(^(NSDictionary *result) { health = result; dispatch_semaphore_signal(healthDone); });
+    CHECK(dispatch_semaphore_wait(healthDone, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)) == 0,
+          "healthy proxy check timed out");
+    CHECK([health[@"healthy"] boolValue] && ![health[@"repaired"] boolValue], "healthy proxy restarted");
+    YTMUWGStop();
+    health = nil;
+    YTMUWGCheckAndRecover(^(NSDictionary *result) { health = result; dispatch_semaphore_signal(healthDone); });
+    CHECK(dispatch_semaphore_wait(healthDone, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC)) == 0,
+          "dead proxy repair timed out");
+    CHECK([health[@"healthy"] boolValue] && [health[@"repaired"] boolValue], "dead proxy not repaired");
+    r = Get(delegateSession, @"https://fixture.test/", nil);
+    CHECK(r.status == 200, "existing URLSession cannot use repaired proxy: %ld", (long)r.status);
+    puts("PASS local SOCKS health, dead engine repair, existing session reconnect");
     puts("PASS diagnostics counters, tunnel DNS lookup, rebind");
     printf("%s\n", report.UTF8String);
 }

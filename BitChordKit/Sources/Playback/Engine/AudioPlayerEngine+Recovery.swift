@@ -39,7 +39,72 @@ extension AudioPlayerEngine {
             }
             return
         }
+        if playWhenReady, Self.isConnectionFailure(error), let health = connectionHealth {
+            if isRecoveringConnection { return }
+            isRecoveringConnection = true
+            isLoadingItem = true
+            active.pause()
+            standby.pause()
+            updatePlayingState()
+            let generation = loadGeneration
+            loadTask = Task { [weak self] in
+                let reachable = await health()
+                guard !Task.isCancelled, let self, self.loadGeneration == generation,
+                      self.currentItem?.id == item.id else { return }
+                guard reachable == false else {
+                    self.isRecoveringConnection = false
+                    self.isLoadingItem = false
+                    self.recordFailure(item: item, error: error, at: at)
+                    return
+                }
+                self.cancelSwap()
+                self.active.clear()
+                self.standby.clear()
+                self.preloadTask?.cancel()
+                self.position = at
+                self.isRecoveringConnection = true
+                self.isLoadingItem = true
+                self.updatePlayingState()
+                PlaybackLog.info("connection unavailable; holding same track at \(at)s without skipping", about: item.trackID)
+                var checks = 0
+                while !Task.isCancelled {
+                    checks += 1
+                    do { try await Task.sleep(for: .seconds(min(20, checks * 3))) }
+                    catch { return }
+                    let ready = await health()
+                    guard !Task.isCancelled, self.loadGeneration == generation,
+                          self.currentItem?.id == item.id else { return }
+                    if ready != false {
+                        self.isRecoveringConnection = false
+                        self.isLoadingItem = false
+                        guard self.playWhenReady else { self.updatePlayingState(); return }
+                        PlaybackLog.info("connection restored; reopening same track at \(at)s", about: item.trackID)
+                        self.recovery.retryingItemID = item.id
+                        self.openItem(item, at: at, reason: nil)
+                        return
+                    }
+                }
+            }
+            return
+        }
         recordFailure(item: item, error: error, at: at)
+    }
+
+    static func isConnectionFailure(_ error: Error) -> Bool {
+        var next: Error? = error
+        for _ in 0..<8 {
+            guard let current = next else { break }
+            // HTTP refusals and decoding failures must never restart the proxy.
+            if case .httpStatus = current as? AudioCacheError { return false }
+            let ns = current as NSError
+            if ns.domain == NSURLErrorDomain,
+               [-1001, -1004, -1005, -1006, -1009].contains(ns.code) { return true }
+            next = ns.userInfo[NSUnderlyingErrorKey] as? Error
+        }
+        // Source resolution aggregates several failed clients into one typed error.
+        let message = String(describing: error)
+        return message.contains("noPlayableStream") &&
+            (message.contains("서버에 연결할 수 없습니다") || message.contains("not connected to the Internet"))
     }
 
     /// An item reported that media services were reset (`-11819`). Nothing is wrong with any copy, so

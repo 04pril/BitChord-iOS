@@ -62,6 +62,8 @@ NSDictionary *_Nullable YTMUWGStoredProfileSummary(void);
 NSDictionary *YTMUWGEngineStatus(void);
 void YTMUWGLookupInTunnel(NSString *host, void (^completion)(NSDictionary *result));
 void YTMUWGRequestRebind(NSString *reason);
+// Checks the local SOCKS protocol before repairing. Never changes port or credentials.
+void YTMUWGCheckAndRecover(void (^completion)(NSDictionary *result));
 
 // A session that goes through the tunnel (used by diagnostics). Returns nil
 // when the tunnel is not active in this launch.

@@ -153,3 +153,13 @@ func YTMUWGFree(p *C.char) { C.free(unsafe.Pointer(p)) }
 
 // main is required by -buildmode=c-archive and is never called.
 func main() {}
+
+//export YTMUWGStop
+func YTMUWGStop() {
+	bridgeMu.Lock()
+	defer bridgeMu.Unlock()
+	if current != nil {
+		current.Close()
+		current = nil
+	}
+}

@@ -981,7 +981,7 @@ public final class AppSettings {
 
         themeMode = readEnum(.themeMode, default: .dark)
         showNerdStats = readBool(.showNerdStats, default: false)
-        keepDiagnosticLog = readBool(.keepDiagnosticLog, default: false)
+        keepDiagnosticLog = readBool(.keepDiagnosticLog, default: Bundle.main.object(forInfoDictionaryKey: "BitChordTestLoggingDefault") as? Bool ?? false)
         reduceAnimation = readBool(.reduceAnimation, default: false)
         reduceDynamicBlur = readBool(.reduceDynamicBlur, default: false)
         hideVolumeBar = readBool(.hideVolumeBar, default: false)

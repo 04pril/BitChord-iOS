@@ -294,6 +294,32 @@ final class AppModel {
             remoteCommandCenter: launch.integratesWithSystem ? SystemRemoteCommandCenter(showsSkipIntervals: false, showsFeedbackCommands: true) : nil,
             artworkSession: BitChordHTTP.session
         ))
+        engine.connectionHealth = { [weak audioCache] in
+            guard YTMUWGActiveThisLaunch() else { return nil }
+            let result: [AnyHashable: Any] = await withCheckedContinuation { continuation in
+                YTMUWGCheckAndRecover { continuation.resume(returning: $0) }
+            }
+            if result["eligible"] as? Bool == true, result["healthy"] as? Bool != true {
+                await audioCache?.cancelPrefetch()
+                return false
+            }
+            // Any HTTP response proves the shared path is reachable, even a refusal.
+            var request = URLRequest(url: URL(string: "https://music.youtube.com/generate_204")!)
+            request.timeoutInterval = 5
+            request.httpMethod = "HEAD"
+            do {
+                let (_, response) = try await BitChordHTTP.session.data(for: request)
+                let reachable = response is HTTPURLResponse
+                if !reachable { await audioCache?.cancelPrefetch() }
+                TrackLog.i("ProxyRecovery", "upstream reachability=\(reachable)")
+                return reachable
+            } catch {
+                if Task.isCancelled { return nil }
+                await audioCache?.cancelPrefetch()
+                TrackLog.i("ProxyRecovery", "upstream reachability=false; waiting before retry")
+                return false
+            }
+        }
         queue = PlaybackQueueController(
             settings: settings,
             lastPlayed: .standard(),
@@ -316,6 +342,7 @@ final class AppModel {
             ceiling.refresh(from: settings)
         }
         sources.isOffline = { [network] in !network.status.isOnline }
+
         // An add-on's lossless and Atmos arrive as playlists: laid out as one file each, so the
         // cache fetches them once and keeps them.
         sources.segmented = SegmentedSources(session: BitChordHTTP.session) { SourceManifestFiles.standard.playlistText(for: $0) }
@@ -397,6 +424,15 @@ final class AppModel {
 
     /// The live app: shared settings, the Keychain, the shared InnerTube client, the disk cache.
     static func live(launch: AppLaunchOptions = .current) -> AppModel {
+        NotificationCenter.default.addObserver(forName: NSNotification.Name("BitChordProxyDiagnostic"), object: nil, queue: .main) { note in
+            if let message = note.userInfo?["message"] as? String { TrackLog.i("ProxyRecovery", message) }
+        }
+        // Turn diagnostics on once for this recovery test, including existing installations.
+        if Bundle.main.object(forInfoDictionaryKey: "BitChordTestLoggingDefault") as? Bool == true,
+           !UserDefaults.standard.bool(forKey: "proxyRecoveryTest48LogsEnabled") {
+            AppSettings.shared.keepDiagnosticLog = true
+            UserDefaults.standard.set(true, forKey: "proxyRecoveryTest48LogsEnabled")
+        }
         // Before anything that logs: the file opens with the build and the device, or stays off.
         DiagnosticLog.shared.setEnabled(AppSettings.shared.keepDiagnosticLog, header: DiagnosticLog.launchHeader(), deleteFilesWhenDisabled: false)
         // First, before any cache opens: the first launch of a new build drops what the old one

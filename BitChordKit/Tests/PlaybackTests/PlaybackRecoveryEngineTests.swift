@@ -1,4 +1,5 @@
 import AVFoundation
+import AudioCache
 import BitChordCore
 import XCTest
 @testable import Playback
@@ -9,6 +10,70 @@ import XCTest
 final class PlaybackRecoveryEngineTests: EngineTestCase {
     struct AgeGated: PermanentPlaybackError {
         var verdict: String { "age-restricted" }
+    }
+
+    func testConnectionOutageKeepsSameTrackAndPositionUntilRecovery() async throws {
+        let good = try ToneFile.tone(8, in: directory, name: "outage-resume")
+        let attempts = ConnectionAttempts()
+        let item = PlayableItem(id: "outage", title: "N", artist: "A", source: .asset {
+            if await attempts.open() == 1 { throw URLError(.cannotConnectToHost) }
+            return AVURLAsset(url: good)
+        })
+        let next = try tone(3, name: "outage-next")
+        let h = harness(queue: [item, next])
+        h.engine.connectionHealth = { await attempts.check() > 1 }
+        h.engine.load(item, startingAt: 2, playWhenReady: true)
+        await waitUntil("waiting for connection") { h.engine.isRecoveringConnection }
+        XCTAssertEqual(h.engine.currentItem?.id, item.id)
+        XCTAssertEqual(h.engine.position, 2, accuracy: 0.05)
+        XCTAssertTrue(h.delegate.failures.isEmpty)
+        await waitUntil("same track resumed", timeout: 8) { h.engine.isPlaying }
+        XCTAssertEqual(h.engine.currentItem?.id, item.id)
+        XCTAssertGreaterThanOrEqual(h.engine.position, 1.9)
+        XCTAssertFalse(h.engine.isRecoveringConnection)
+    }
+
+    func testPauseCancelsConnectionWaitWithoutLaterResuming() async throws {
+        let item = PlayableItem(id: "offline", title: "N", artist: "A", source: .asset { throw URLError(.cannotConnectToHost) })
+        let h = harness(queue: [item])
+        h.engine.connectionHealth = { false }
+        h.engine.load(item, playWhenReady: true)
+        await waitUntil("waiting") { h.engine.isRecoveringConnection }
+        h.engine.pause()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertFalse(h.engine.isRecoveringConnection)
+        XCTAssertFalse(h.engine.playWhenReady)
+        XCTAssertFalse(h.engine.isPlaying)
+        XCTAssertEqual(h.engine.currentItem?.id, item.id)
+    }
+
+    func testSkipCancelsConnectionWaitAndDoesNotReopenOldTrack() async throws {
+        let item = PlayableItem(id: "offline-skip", title: "N", artist: "A", source: .asset { throw URLError(.cannotConnectToHost) })
+        let next = try tone(5, name: "outage-skip-target")
+        let h = harness(queue: [item, next])
+        h.engine.connectionHealth = { false }
+        h.engine.load(item, playWhenReady: true)
+        await waitUntil("waiting") { h.engine.isRecoveringConnection }
+        h.engine.load(next, playWhenReady: true)
+        await waitUntil("next playing") { h.engine.isPlaying }
+        XCTAssertEqual(h.engine.currentItem?.id, next.id)
+        XCTAssertFalse(h.engine.isRecoveringConnection)
+        XCTAssertTrue(h.delegate.failures.isEmpty)
+    }
+
+    func testHTTPRefusalsDoNotQualifyForProxyRepair() {
+        for code in [401, 403, 429, 503] {
+            XCTAssertFalse(AudioPlayerEngine.isConnectionFailure(AudioCache.AudioCacheError.httpStatus(code, url: URL(string: "https://example.com")!)))
+        }
+        XCTAssertTrue(AudioPlayerEngine.isConnectionFailure(URLError(.cannotConnectToHost)))
+        XCTAssertFalse(AudioPlayerEngine.isConnectionFailure(URLError(.cancelled)))
+    }
+
+    private actor ConnectionAttempts {
+        var opens = 0
+        var checks = 0
+        func open() -> Int { opens += 1; return opens }
+        func check() -> Int { checks += 1; return checks }
     }
 
     /// A file that claims to be audio and isn't.

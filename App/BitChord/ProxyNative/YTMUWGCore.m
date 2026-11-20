@@ -12,6 +12,8 @@
 #import <sys/socket.h>
 #import <sys/utsname.h>
 #import <unistd.h>
+#import <fcntl.h>
+#import <poll.h>
 
 NSString *const YTMUWGVersion = @"1.0";
 
@@ -595,6 +597,74 @@ NSDictionary *YTMUWGEngineStatus(void) {
     return JSONFromGo(YTMUWGStatus()) ?: @{@"running": @NO};
 }
 
+static void RecoveryLog(NSString *message) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [NSNotificationCenter.defaultCenter postNotificationName:@"BitChordProxyDiagnostic" object:nil
+            userInfo:@{@"message": message}];
+    });
+}
+
+// A connect alone can succeed on a defunct listener's backlog. Require SOCKS negotiation.
+static BOOL LocalProxyHealthy(void) {
+    if (gPort <= 0) return NO;
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) return NO;
+    int noSignal = 1;
+    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, sizeof(noSignal));
+    fcntl(fd, F_SETFL, O_NONBLOCK);
+    struct sockaddr_in addr = {0}; addr.sin_len = sizeof(addr); addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK); addr.sin_port = htons(gPort);
+    connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+    struct pollfd p = {.fd = fd, .events = POLLOUT};
+    int error = 0; socklen_t size = sizeof(error);
+    BOOL ok = poll(&p, 1, 700) > 0 && getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &size) == 0 && error == 0;
+    unsigned char greeting[] = {5, 1, 2}, reply[2] = {0};
+    if (ok) ok = send(fd, greeting, sizeof(greeting), 0) == sizeof(greeting);
+    size_t count = 0;
+    while (ok && count < sizeof(reply)) {
+        p.events = POLLIN;
+        if (poll(&p, 1, 700) <= 0) { ok = NO; break; }
+        ssize_t n = recv(fd, reply + count, sizeof(reply) - count, 0);
+        if (n <= 0) { ok = NO; break; }
+        count += n;
+    }
+    close(fd);
+    return ok && reply[0] == 5 && reply[1] == 2;
+}
+
+void YTMUWGCheckAndRecover(void (^completion)(NSDictionary *)) {
+    if (!gActive || ![gKind isEqualToString:YTMUWGKindWireGuard]) {
+        completion(@{@"eligible": @NO}); return;
+    }
+    dispatch_async(gQueue, ^{
+        static CFAbsoluteTime lastRestart;
+        BOOL healthy = LocalProxyHealthy();
+        RecoveryLog([NSString stringWithFormat:@"local SOCKS check healthy=%d state=%@", healthy,
+                     YTMUWGStateDescription(YTMUWGCurrentState())]);
+        BOOL repaired = NO;
+        if (!healthy && CFAbsoluteTimeGetCurrent() - lastRestart >= 30) {
+            OSStatus status = errSecSuccess;
+            NSString *profile = ReadProfile(&status);
+            if (profile.length) {
+                lastRestart = CFAbsoluteTimeGetCurrent();
+                RecoveryLog(@"local SOCKS unavailable; repairing engine on same port");
+                YTMUWGRebind();
+                healthy = LocalProxyHealthy();
+                if (!healthy) {
+                    YTMUWGStop();
+                    atomic_store(&gState, YTMUWGStateStarting);
+                    int port = YTMUWGStart((char *)profile.UTF8String, gUser, gPass, -1, gPort);
+                    healthy = port == gPort && LocalProxyHealthy();
+                    atomic_store(&gState, healthy ? YTMUWGStateRunning : YTMUWGStateFailed);
+                }
+                repaired = healthy;
+                RecoveryLog([NSString stringWithFormat:@"engine repair completed healthy=%d", healthy]);
+            } else { RecoveryLog(@"engine repair deferred: profile unavailable"); }
+        }
+        completion(@{@"eligible": @YES, @"healthy": @(healthy), @"repaired": @(repaired)});
+    });
+}
+
 static void StartEngine(void) {
     dispatch_async(gQueue, ^{
         YTMUWGState state = YTMUWGCurrentState();
@@ -612,6 +682,7 @@ static void StartEngine(void) {
         gListenerFD = -1; // ownership moves to Go
         int port = YTMUWGStart((char *)profile.UTF8String, gUser, gPass, fd, gPort);
         atomic_store(&gState, port == gPort ? YTMUWGStateRunning : YTMUWGStateFailed);
+        RecoveryLog([NSString stringWithFormat:@"engine start state=%@", YTMUWGStateDescription(YTMUWGCurrentState())]);
     });
 }
 
@@ -622,7 +693,8 @@ void YTMUWGRequestRebind(NSString *reason) {
         if (state == YTMUWGStateWaitingProfile) {
             StartEngine();
         } else if (state == YTMUWGStateRunning) {
-            YTMUWGRebind();
+            int result = YTMUWGRebind();
+            RecoveryLog([NSString stringWithFormat:@"engine rebind reason=%@ result=%d", reason, result]);
             atomic_fetch_add(&gRebinds, 1);
         }
     });
@@ -701,6 +773,7 @@ static void ObserveLifecycle(void) {
         NSString *signature = [NSString stringWithFormat:@"%d%d%d%d", (int)nw_path_get_status(path),
             nw_path_uses_interface_type(path, nw_interface_type_wifi), nw_path_uses_interface_type(path, nw_interface_type_cellular),
             nw_path_uses_interface_type(path, nw_interface_type_wired)];
+        RecoveryLog([NSString stringWithFormat:@"network path status=%d wifi=%d cellular=%d", (int)nw_path_get_status(path), nw_path_uses_interface_type(path, nw_interface_type_wifi), nw_path_uses_interface_type(path, nw_interface_type_cellular)]);
         // Wi-Fi <-> cellular: reopen the WireGuard UDP socket on the new path.
         if (lastSignature && ![signature isEqualToString:lastSignature] && nw_path_get_status(path) == nw_path_status_satisfied)
             YTMUWGRequestRebind(@"path");

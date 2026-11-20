@@ -172,9 +172,9 @@ actor AudioCacheReadAhead {
     }
 
     /// Pulls `range` of `key` into the cache; only the gaps are fetched. Failures are logged:
-    /// expected on a skip, and never worth failing playback over. `exact` stops at the end of the
-    /// range rather than lingering on (see ``AudioCacheStore/fill(_:range:source:info:exact:)``).
-    func fetch(_ key: AudioCacheKey, range: Range<Int64>, source: any AudioRangeDataSource, exact: Bool = false) async {
+    /// expected on a skip, and never worth failing playback over. Background fills default to
+    /// the requested window, including their HTTP Range header.
+    func fetch(_ key: AudioCacheKey, range: Range<Int64>, source: any AudioRangeDataSource, exact: Bool = true) async {
         guard !range.isEmpty else { return }
         let started = ContinuousClock.now
         // Read-ahead is the app's largest consumer of bandwidth and, unlogged, its most invisible.
@@ -185,6 +185,9 @@ actor AudioCacheReadAhead {
             guard range.lowerBound < info.contentLength else { return }
             let clamped = range.lowerBound..<min(range.upperBound, info.contentLength)
             guard !clamped.isEmpty else { return }
+            // Background reads already have a bounded window. Asking for the whole remaining
+            // hole and cancelling after this window can leave excess data in flight while
+            // reopening the same file for every 2 MiB step. Ask only for bytes we will keep.
             try await store.fill(key, range: clamped, source: source, info: info, exact: exact)
             let elapsed = ContinuousClock.now - started
             TrackLog.d(AudioCacheStore.category, "read-ahead fetched \(key) [\(clamped.lowerBound), \(clamped.upperBound)) in \(elapsed.components.seconds * 1_000 + elapsed.components.attoseconds / 1_000_000_000_000_000)ms", about: key.trackID)
