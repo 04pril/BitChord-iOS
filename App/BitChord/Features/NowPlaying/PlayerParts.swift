@@ -345,7 +345,8 @@ struct PlayerActions: View {
                 onCycleRepeat: { player.cycleRepeatMode() },
                 onToggleAutoplay: { player.toggleAutoplay() },
                 onOpenOutput: { model.sheet = .output },
-                onParty: openListenTogether
+                onParty: openListenTogether,
+                outputSymbol: PlayerOutputLabel.routeSymbol(for: output.outputs.first(where: \.isActive))
             )
             PlayerOutputCaption(
                 outputName: PlayerOutputLabel.activeName(of: output.outputs, accountName: accountName),

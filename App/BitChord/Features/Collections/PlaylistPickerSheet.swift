@@ -18,6 +18,7 @@ struct PlaylistPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var creating: Bool
     @State private var selection = PlaylistPickerSelection()
+    @State private var query = ""
 
     private var store: CollectionsStore { CollectionsStore.shared(for: model) }
 
@@ -69,7 +70,14 @@ struct PlaylistPickerSheet: View {
                         .padding(.vertical, 18)
                 } else {
                     SheetDivider(vertical: 6)
-                    ForEach(store.playlists) { playlist in
+                    searchField
+                    if filteredPlaylists.isEmpty {
+                        Text(L10n.noResults)
+                            .font(CollectionsType.bodySmall)
+                            .foregroundStyle(.secondary)
+                            .padding(.vertical, 18)
+                    }
+                    ForEach(filteredPlaylists) { playlist in
                         PlaylistRow(playlist: playlist, selected: selection.isTicked(playlist.playlistId)) {
                             selection.toggle(playlist.playlistId)
                         }
@@ -92,6 +100,35 @@ struct PlaylistPickerSheet: View {
             .padding(.bottom, 24)
         }
         .scrollBounceBehavior(.basedOnSize)
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    private var filteredPlaylists: [UserPlaylist] {
+        let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !term.isEmpty else { return store.playlists }
+        return store.playlists.filter { $0.title.localizedStandardContains(term) }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            TextField(L10n.tr("search_playlists"), text: $query)
+                .submitLabel(.search)
+                .accessibilityIdentifier("picker.search")
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.clearSearch)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color(.secondarySystemFill), in: Capsule())
+        .padding(.horizontal, 22)
+        .padding(.vertical, 8)
     }
 
     /// One line for the whole batch, saying the outcome that matters most (MainActivity's `onAdd`).

@@ -1,3 +1,4 @@
+import UIKit
 import BitChordCore
 import Foundation
 import Playback
@@ -160,6 +161,30 @@ enum PlayerOutputLabel {
             .first
         if let first, !first.isEmpty { return L10n.personalPhone(String(first)) }
         return L10n.thisPhone
+    }
+
+    /// AVAudioSession exposes a user-editable port name, so an unrecognized Bluetooth
+    /// route gets the generic icon. Check symbol availability on the running OS.
+    static func routeSymbol(for device: AudioRouting.Device?) -> String {
+        guard let device, device.kind == .bluetooth || device.kind == .wired else { return "airplayaudio" }
+        let name = device.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        let airPods = name.contains("airpods") || name.contains("에어팟")
+        guard airPods else { return "headphones" }
+
+        let candidate: String
+        if ["airpods max", "에어팟 맥스", "에어팟 max"].contains(where: name.contains) {
+            candidate = "airpods.max"
+        } else if ["airpods pro", "에어팟 프로", "에어팟 pro"].contains(where: name.contains) {
+            candidate = "airpods.pro"
+        } else if ["airpods 4", "4th gen", "4세대"].contains(where: name.contains) {
+            candidate = "airpods.gen4"
+        } else if ["airpods 3", "3rd gen", "3세대"].contains(where: name.contains) {
+            candidate = "airpods.gen3"
+        } else {
+            candidate = "airpods"
+        }
+        if UIImage(systemName: candidate) != nil { return candidate }
+        return UIImage(systemName: "airpods") != nil ? "airpods" : "headphones"
     }
 
     static func symbol(for kind: AudioRouting.Kind) -> String {

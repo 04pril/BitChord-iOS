@@ -448,7 +448,8 @@ Core features come first. Each item has: what the user can do, the source files,
   - Files: `playback/PlaybackService.kt`, `res/xml/automotive_app_desc.xml`, `app/src/androidTest/.../AndroidAutoMediaLibraryTest.kt`
   - Done: see open question Q7.
   - Tests (what exists): BitChordTests/CarIntegrationTests.testTheRootHasTheAndroidAutoFoldersInOrder, BitChordTests/CarIntegrationTests.testSearchListsSongsThenPagesOnceEachAndIsCached, BitChordTests/CarIntegrationTests.testNowPlayingCarriesFavoriteShuffleRadioAndRevert, BitChordTests/CarIntegrationTests.testTheTemplatesAreBuiltForEveryFolder
-  - Gap: device-only: nothing has been run in the CarPlay simulator or a head unit, and `BitChord.entitlements` has no `com.apple.developer.carplay-audio` entitlement (Q7: request it from Apple). The browse tree, search and now-playing templates are built and tested.
+  - CarPlay Home uses BitChord's primary app icon from the iPhone bundle. The signed app must include `com.apple.developer.carplay-audio` for CarPlay to show it. With an [Apple-approved CarPlay Audio profile](https://developer.apple.com/download/files/CarPlay-Developer-Guide.pdf) for the BitChord bundle identifier, use `BITCHORD_APP_ENTITLEMENTS=Config/BitChord-CarPlay.entitlements` when signing the app target. The regular sideload build uses `Config/BitChord.entitlements`.
+  - The signed app icon and templates still need verification on a CarPlay display.
 - [ ] **Voice "play X"**
   - A spoken request plays the best match. A bare "play music" resumes.
   - Files: `playback/MusicLink.kt`

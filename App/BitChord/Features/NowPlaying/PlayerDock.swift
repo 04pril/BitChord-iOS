@@ -206,12 +206,13 @@ enum PlayerDockMotion {
         liftRate * 2 * liftEase * ((1 + max(pulled, 0) / liftEase).squareRoot() - 1)
     }
 
-    enum MiniAxis: Equatable { case pull, swipe, scroll }
+    enum MiniAxis: Equatable { case pull, swipe, dismiss, scroll }
     /// Decided once, at the slop: up and within 1.5× sideways is a pull; mostly sideways is a skip
-    /// swipe; anything else belongs to the page behind. `pullAllowed` false turns pulls into scrolls.
-    static func miniAxis(_ translation: CGSize, pullAllowed: Bool) -> MiniAxis {
+    /// swipe. A downward swipe on the collapsed player dismisses it.
+    static func miniAxis(_ translation: CGSize, pullAllowed: Bool, dismissAllowed: Bool = false) -> MiniAxis {
         let dx = abs(translation.width), dy = translation.height
         if dy < 0, dx < -dy * pullBias { return pullAllowed ? .pull : .scroll }
+        if dy > dx, dismissAllowed { return .dismiss }
         return dx > abs(dy) ? .swipe : .scroll
     }
 

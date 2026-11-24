@@ -90,6 +90,11 @@ public final class AppSettings {
         didSet { write(.downloadQuality, downloadQuality.rawValue) }
     }
 
+    /// Keeps the signed-in account's liked music available offline when enabled.
+    public var downloadLikedSongs = false {
+        didSet { write(.downloadLikedSongs, downloadLikedSongs) }
+    }
+
     /// Refuse to start a download while the connection is metered (see ``downloadsAllowed(on:)``).
     /// On by default: with Lossless downloads a tap can cost 35 MB, and of silently overspending a
     /// data plan or refusing with a sentence naming this switch, only the second is recoverable.
@@ -947,6 +952,7 @@ public final class AppSettings {
         migrateDownloadQuality()
         downloadQuality = readEnum(.downloadQuality, default: .lossless)
         wifiOnlyDownloads = readBool(.wifiOnlyDownloads, default: true)
+        downloadLikedSongs = readBool(.downloadLikedSongs, default: false)
 
         crossfadeSeconds = readInt(.crossfadeSeconds, default: 0)
         smartFadeEnabled = readBool(.smartFadeEnabled, default: false)

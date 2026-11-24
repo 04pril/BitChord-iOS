@@ -76,6 +76,7 @@ final class PlayerController {
     @ObservationIgnored let likeState: LikeState
     @ObservationIgnored let processors: [AudioDSPProcessor]
     /// Sends a rating to YouTube Music; nil keeps likes on the device (signed out, tests).
+    @ObservationIgnored var onSongLiked: ((Song) -> Void)?
     @ObservationIgnored var rate: (@Sendable (String, LikeStatus) async throws -> Void)?
     /// Finds the song ↔ music video counterpart of a track (InnerTube's resolveAudio/resolveVideo).
     @ObservationIgnored var versionFinder: (@MainActor (Song) async -> Song?)?
@@ -370,6 +371,11 @@ final class PlayerController {
     @discardableResult
     func clearQueue() -> QueueEditResult { refusalNotice(queue.clearUserQueue()) }
 
+    @discardableResult
+    func stopAndDismissMiniPlayer() -> QueueEditResult {
+        refusalNotice(queue.stopAndClear())
+    }
+
     /// A cold playback test starts without opened assets, queued downloads or forced renditions.
     /// Saved downloads and imported files live outside the playback cache and are preserved.
     @discardableResult
@@ -538,6 +544,11 @@ final class PlayerController {
         Task {
             do {
                 try await rate(videoId, status)
+                if status == .like, self.likeStatus(of: song) == .like {
+                    self.onSongLiked?(song)
+                }
+            } catch is CancellationError {
+                return
             } catch {
                 DebugLog.w("Player", "rating \(videoId) failed", error: error)
             }
@@ -881,6 +892,7 @@ final class PlayerController {
     private func queueDidChangeItem(_ change: QueueItemChange) {
         guard !isClearingPlaybackCache else { return }
         guard let song = change.song else {
+            musicOnlyHold = nil
             engine.stop()
             currentStream = nil
             heldStreams.removeAll()

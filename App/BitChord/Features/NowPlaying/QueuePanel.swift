@@ -16,6 +16,11 @@ import SwiftUI
 struct QueuePanel: View {
     @Environment(PlayerController.self) private var player
     @State private var hasScrolledOnce = false
+    @State private var selecting = false
+    @State private var selected: Set<String> = []
+    @State private var removal: PlaybackQueueController.RemovedUpcoming?
+    @State private var removalID: UUID?
+    private var upcoming: [QueueRow] { player.sections.user + player.sections.context + player.sections.autoplay }
 
     var body: some View {
         let sections = player.sections
@@ -28,9 +33,32 @@ struct QueuePanel: View {
                     .foregroundStyle(.white)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
-                if sections.canClearUserQueue {
-                    ClearQueueButton(locked: locked, font: .headline) { clear() }
+                if selecting {
+                    Button(L10n.done, action: endSelection)
+                } else if !locked {
+                    if !upcoming.isEmpty {
+                        Button(L10n.tr("select_queue_tracks")) { selecting = true }
+                            .accessibilityIdentifier("queue.select")
+                    }
+                    if sections.canClearUserQueue {
+                        ClearQueueButton(locked: locked, font: .headline) { clear() }
+                    }
                 }
+            }
+            .foregroundStyle(.white)
+            if selecting {
+                HStack {
+                    Button(L10n.selectAll) { selected = Set(upcoming.map(\.id)) }
+                    Spacer()
+                    Button(role: .destructive) { removeSelected() } label: {
+                        Label(L10n.removeFromQueue, systemImage: "trash")
+                    }
+                    .disabled(selected.isEmpty)
+                    .accessibilityIdentifier("queue.removeSelected")
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.vertical, 4)
             }
             ScrollViewReader { proxy in
                 List {
@@ -45,7 +73,7 @@ struct QueuePanel: View {
                                 .padding(.bottom, 6)
                                 .queueHeadingRow()
                             ForEach(sections.history) { row in
-                                QueueRowView(row: row, isCurrent: false, locked: locked, draggable: false,
+                                QueueRowView(row: row, isCurrent: false, locked: locked || selecting, draggable: false,
                                              onJump: { jump(row) }, onRemove: { remove(row) })
                                     .moveDisabled(true)
                             }
@@ -58,14 +86,16 @@ struct QueuePanel: View {
                                 .padding(.bottom, 6)
                                 .queueHeadingRow()
                                 .id(QueueListAnchor.top)
-                            QueueRowView(row: now, isCurrent: true, locked: locked, onJump: { jump(now) }, onRemove: { remove(now) })
+                            QueueRowView(row: now, isCurrent: true, locked: locked || selecting, onJump: { jump(now) }, onRemove: { remove(now) })
                                 .moveDisabled(true)
                         }
                     }
                     if !sections.user.isEmpty {
                         Section {
                             QueueHeading(title: L10n.nextInQueue) {
-                                ClearQueueButton(locked: locked, font: .subheadline.weight(.semibold)) { clear() }
+                                if !selecting {
+                                    ClearQueueButton(locked: locked, font: .subheadline.weight(.semibold)) { clear() }
+                                }
                             }
                             .padding(.top, 16)
                             .padding(.bottom, 6)
@@ -120,6 +150,38 @@ struct QueuePanel: View {
                     }
                 }
             }
+            if let removal, player.queue.canUndo(removal) {
+                HStack {
+                    Text(L10n.tr("queue_tracks_removed"))
+                    Spacer()
+                    Button(L10n.tr("undo_queue_removal")) {
+                        withAnimation(.easeOut(duration: 0.2)) { _ = player.queue.undo(removal) }
+                        self.removal = nil
+                        removalID = nil
+                    }
+                    .fontWeight(.semibold)
+                    .accessibilityIdentifier("queue.undoRemoval")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.white)
+                .padding(12)
+                .background(.white.opacity(0.15), in: RoundedRectangle(cornerRadius: 12))
+            }
+        }
+        .onChange(of: locked) { _, locked in if locked { endSelection() } }
+        .onChange(of: upcoming.map(\.id)) { _, ids in
+            selected.formIntersection(Set(ids))
+            if ids.isEmpty { endSelection() }
+            if let removal, !player.queue.canUndo(removal) {
+                self.removal = nil
+                removalID = nil
+            }
+        }
+        .task(id: removalID) {
+            guard removalID != nil else { return }
+            do { try await Task.sleep(for: .seconds(7)) } catch { return }
+            removal = nil
+            removalID = nil
         }
         .accessibilityIdentifier("nowPlaying.queuePanel")
     }
@@ -127,8 +189,11 @@ struct QueuePanel: View {
     @ViewBuilder
     private func rows(_ rows: [QueueRow], section: QueueSection, locked: Bool) -> some View {
         ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-            QueueRowView(row: row, isCurrent: false, locked: locked, onJump: { jump(row) }, onRemove: { remove(row) })
-                .moveDisabled(locked)
+            QueueRowView(row: row, isCurrent: false, locked: locked,
+                         selection: selecting ? selected.contains(row.id) : nil,
+                         onJump: { selecting ? toggleSelection(row) : jump(row) },
+                         onRemove: { remove(row) })
+                .moveDisabled(locked || selecting)
                 .prefetchingCovers(after: index, in: rows) { [$0.song.thumbnailUrl] }
         }
         .onMove { offsets, destination in
@@ -145,12 +210,39 @@ struct QueuePanel: View {
 
     private func remove(_ row: QueueRow) {
         Haptics.shared.play(.tap)
-        withAnimation(.easeOut(duration: 0.2)) { _ = player.remove(at: row.timelineIndex) }
+        if row.timelineIndex > player.currentIndex {
+            removeUpcoming([row.timelineIndex])
+        } else {
+            withAnimation(.easeOut(duration: 0.2)) { _ = player.remove(at: row.timelineIndex) }
+        }
     }
 
     private func clear() {
         Haptics.shared.play(.toggleOff)
-        withAnimation(.easeOut(duration: 0.2)) { _ = player.clearQueue() }
+        removeUpcoming(Set(player.sections.user.map(\.timelineIndex)))
+    }
+
+    private func toggleSelection(_ row: QueueRow) {
+        Haptics.shared.play(.select)
+        if !selected.insert(row.id).inserted { selected.remove(row.id) }
+    }
+
+    private func endSelection() {
+        selecting = false
+        selected.removeAll()
+    }
+
+    private func removeSelected() {
+        removeUpcoming(Set(upcoming.filter { selected.contains($0.id) }.map(\.timelineIndex)))
+        endSelection()
+    }
+
+    private func removeUpcoming(_ indices: Set<Int>) {
+        withAnimation(.easeOut(duration: 0.2)) {
+            guard let edit = player.queue.removeUpcoming(at: indices) else { return }
+            removal = edit
+            removalID = UUID()
+        }
     }
 
     private func move(in rows: [QueueRow], offsets: IndexSet, destination: Int) {
@@ -186,12 +278,19 @@ private struct QueueRowView: View {
     let isCurrent: Bool
     let locked: Bool
     var draggable: Bool = true
+    var selection: Bool? = nil
     let onJump: () -> Void
     let onRemove: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            if !isCurrent && !locked && draggable {
+            if let selection {
+                Image(systemName: selection ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(.white.opacity(selection ? 1 : 0.55))
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
+            } else if !isCurrent && !locked && draggable {
                 // The handle says the row can be moved; the List's reorder drag starts on a
                 // long press anywhere on the row, the handle included.
                 Image(systemName: "line.3.horizontal")
@@ -220,7 +319,7 @@ private struct QueueRowView: View {
                     .foregroundStyle(.white)
                     .accessibilityLabel(L10n.nowPlaying)
             }
-            if !locked {
+            if !locked && selection == nil {
                 Button(action: onRemove) {
                     Image(systemName: "xmark")
                         .font(.footnote.weight(.semibold))
@@ -239,9 +338,9 @@ private struct QueueRowView: View {
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
         .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction(named: Text(L10n.removeFromQueue)) { if !locked { onRemove() } }
-        .accessibilityHint(isCurrent || locked ? "" : L10n.dragToReorder)
+        .accessibilityAddTraits(selection == true ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction(named: Text(L10n.removeFromQueue)) { if !locked && selection == nil { onRemove() } }
+        .accessibilityHint(isCurrent || locked || selection != nil ? "" : L10n.dragToReorder)
         .accessibilityIdentifier(isCurrent ? "queue.nowPlaying" : "queue.row")
     }
 }

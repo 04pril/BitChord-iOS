@@ -46,7 +46,7 @@ enum SettingsRowID: String, CaseIterable, Hashable {
     // Audio quality
     case source, onWifi, onMobileData, dolbyAtmos
     // Downloads
-    case downloadQuality, downloadWifiOnly
+    case downloadQuality, downloadWifiOnly, downloadLikedSongs
     // Playback
     case preferMusicOnly, loudnessNormalization, crossfade, automix, automixPerformance, skipSilence,
          spatialAudio, equalizer
@@ -172,6 +172,7 @@ enum SettingsCatalog {
             SettingsGroupSpec(id: "downloads", header: L10n.downloads, rows: [
                 row(.downloadQuality, L10n.downloadQuality, "offline", "lossless"),
                 row(.downloadWifiOnly, L10n.downloadWifiOnly, "wi-fi", "cellular", sub: true),
+                row(.downloadLikedSongs, L10n.tr("download_liked_songs"), "liked", "offline", "좋아요"),
             ]),
             SettingsGroupSpec(id: "playback", header: L10n.playback, rows: playback),
             SettingsGroupSpec(id: "appearance", header: L10n.appearance, rows: appearance),

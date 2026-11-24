@@ -211,6 +211,9 @@ struct SettingsScreen: View {
             SettingsSubToggleRow(title: L10n.downloadWifiOnly,
                                  badge: settings.wifiOnlyDownloads && metered == true ? L10n.blocking : nil,
                                  isOn: $settings.wifiOnlyDownloads)
+        case .downloadLikedSongs:
+            SettingsToggleRow(symbol: "heart.circle", title: L10n.tr("download_liked_songs"),
+                              subtitle: L10n.tr("download_liked_songs_subtitle"), isOn: $settings.downloadLikedSongs)
 
         case .keepScreenAwakeInCarPlay:
             SettingsToggleRow(symbol: "car", title: L10n.tr("carplay_screen_awake"),

@@ -74,7 +74,9 @@ private struct OutputRow: View {
 
     var body: some View {
         HStack(spacing: 13) {
-            Image(systemName: PlayerOutputLabel.symbol(for: device.kind))
+            Image(systemName: device.kind == .bluetooth || device.kind == .wired
+                  ? PlayerOutputLabel.routeSymbol(for: device)
+                  : PlayerOutputLabel.symbol(for: device.kind))
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(.white.opacity(device.isActive ? 1 : 0.7))
                 .frame(width: 40, height: 40)

@@ -441,6 +441,61 @@ public final class PlaybackQueueController {
         return .done
     }
 
+    /// The exact entries deleted in a single edit, in their former positions.
+    public struct RemovedUpcoming {
+        fileprivate let removed: [(index: Int, song: Song)]
+        fileprivate let remaining: [String?]
+    }
+
+    /// Removes the selected upcoming entries together, so the engine sees one timeline change.
+    public func removeUpcoming(at indices: Set<Int>) -> RemovedUpcoming? {
+        guard !controlsLocked else { return nil }
+        let ordered = indices.sorted().filter { $0 > state.currentIndex && state.songs.indices.contains($0) }
+        guard !ordered.isEmpty else { return nil }
+        let removed = ordered.map { (index: $0, song: state.songs[$0]) }
+        var timeline = state.songs
+        for index in ordered.reversed() { timeline.remove(at: index) }
+        onLocalIntent?()
+        commit(timeline, currentIndex: state.currentIndex)
+        return RemovedUpcoming(removed: removed, remaining: timeline.map(\.queueEntryId))
+    }
+
+    /// Restore into the same timeline. AutoPlay may have refilled the tail while the
+    /// undo button is visible, so allow new recommendations after the surviving entries.
+    public func canUndo(_ removal: RemovedUpcoming) -> Bool {
+        let length = removal.remaining.count
+        guard !controlsLocked, state.currentIndex < length,
+              state.songs.prefix(length).map(\.queueEntryId) == removal.remaining else { return false }
+        return state.songs.dropFirst(length).allSatisfy { $0.queueTier == .autoplay }
+    }
+
+    @discardableResult
+    public func undo(_ removal: RemovedUpcoming) -> Bool {
+        guard canUndo(removal) else { return false }
+        var timeline = state.songs
+        var index = state.currentIndex
+        for entry in removal.removed {
+            timeline.insert(entry.song, at: entry.index)
+            if entry.index <= index { index += 1 }
+        }
+        onLocalIntent?()
+        commit(timeline, currentIndex: index)
+        return true
+    }
+
+    /// Stops the active player and clears the restart snapshot along with the queue.
+    @discardableResult
+    public func stopAndClear() -> QueueEditResult {
+        guard !controlsLocked else { return .refusedByHost }
+        guard !state.isEmpty else { return .ignored }
+        onLocalIntent?()
+        sleepTimer?.cancel()
+        repeatAllStash = []
+        repeatAllStashSeed = nil
+        commit([], currentIndex: 0, change: .init(reason: .queueEdit, playback: .pause, force: true))
+        return .done
+    }
+
     /// Drags queue row `from` to where row `to` is. Only within its own section: the user queue,
     /// the album or AutoPlay; the playing row doesn't move. Call once per neighbour crossed, as the
     /// row crosses it.

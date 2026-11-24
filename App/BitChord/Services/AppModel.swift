@@ -242,6 +242,7 @@ final class AppModel {
     @ObservationIgnored private var started = false
     @ObservationIgnored private var observers: [PlaybackEventObserver] = []
     @ObservationIgnored private var trackers: [ChangeTracker] = []
+    @ObservationIgnored private var likedDownloadSync: Task<Void, Never>?
     @ObservationIgnored private let artworkWarmer = PlayerArtworkWarmer()
 
     init(
@@ -415,7 +416,14 @@ final class AppModel {
         sources.canSubstitute = { [sourceResolver] request in sourceResolver.canSubstituteForYouTube(request) }
         player.rate = { [weak self] videoId, status in
             guard let self, await self.innerTube.isSignedIn else { return }
+            let listener = await self.accounts.listenerKey
             try await self.repository.rate(videoId: videoId, status: status)
+            guard await self.accounts.listenerKey == listener else { throw CancellationError() }
+        }
+        player.onSongLiked = { [weak self] song in
+            guard let self, self.settings.downloadLikedSongs, self.accounts.isSignedIn,
+                  song.localUri == nil else { return }
+            self.downloads.download([song])
         }
         player.versionFinder = { [weak self] song in await self?.otherVersion(of: song) }
         engine.transitionPlanner = automix
@@ -492,6 +500,12 @@ final class AppModel {
         guard !started else { return }
         started = true
         Self.atmosSetting.value = settings.dolbyAtmos
+        trackers.append(ChangeTracker.track({ [settings, accounts] in
+            settings.downloadLikedSongs && accounts.isSignedIn ? accounts.listenerKey : nil
+        }) { [weak self] listener in
+            self?.syncLikedDownloads(listener: listener)
+        })
+
         trackers.append(ChangeTracker.track({ [settings] in settings.dolbyAtmos }) { on in Self.atmosSetting.value = on })
         if let audioCache { _ = audioCache.followLimit(of: settings) }
         trackers.append(ChangeTracker.track({ [settings] in settings.keepScreenAwakeInCarPlay }) { [weak self] _ in
@@ -573,6 +587,24 @@ final class AppModel {
         }
         Task.detached(priority: .utility) { [streamResolver] in
             await streamResolver.prewarm()
+        }
+    }
+
+    private func syncLikedDownloads(listener: String?) {
+        likedDownloadSync?.cancel()
+        likedDownloadSync = nil
+        guard let listener else { return }
+        likedDownloadSync = Task { [weak self, repository] in
+            do {
+                let songs = try await repository.allSongs(browseId: YTMusicRepository.likedMusicBrowseId)
+                guard let self, !Task.isCancelled, self.settings.downloadLikedSongs,
+                      self.accounts.isSignedIn, self.accounts.listenerKey == listener else { return }
+                self.downloads.download(songs)
+            } catch {
+                if !Task.isCancelled {
+                    DebugLog.d("Downloads", "Liked Music download lookup did not return tracks")
+                }
+            }
         }
     }
 

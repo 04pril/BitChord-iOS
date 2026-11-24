@@ -13,6 +13,7 @@ extension AppSettings {
         case upgradeLengthSlackSeconds = "upgrade_length_slack_seconds"
         case downloadQuality = "audio_quality_download"
         case wifiOnlyDownloads = "wifi_only_downloads"
+        case downloadLikedSongs = "download_liked_songs"
 
         // Playback
         case crossfadeSeconds = "crossfade_seconds"

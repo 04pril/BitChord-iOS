@@ -37,6 +37,9 @@ struct MiniPlayer: View {
     @Environment(AppSettings.self) private var settings
 
     @State private var dragOffset: CGFloat = 0
+    @State private var dismissOffset: CGFloat = 0
+    @State private var finishingDismiss = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// How far a pull has raised the bar (a rubber band on the finger's travel).
     @State private var lift: CGFloat = 0
     @State private var axis: PlayerDockMotion.MiniAxis?
@@ -121,12 +124,16 @@ struct MiniPlayer: View {
             guard !now, let cancelled = axis else { return }
             cancelDrag(cancelled)
         }
-        .offset(y: -lift)
+        .scaleEffect(1 - dismissOffset * 0.003, anchor: .bottom)
+        .opacity(1 - dismissOffset * 0.007)
+        .offset(y: dismissOffset - lift)
+        .allowsHitTesting(!finishingDismiss)
         .padding(.horizontal, AppTheme.gutter)
         .frame(maxWidth: AppTheme.floatingBarMaxWidth)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("miniPlayer")
         .accessibilityAction(named: Text(L10n.nowPlaying)) { router.nowPlaying.open() }
+        .accessibilityAction(named: Text(L10n.tr("stop_playback"))) { dismissPlayer() }
     }
 
     @ViewBuilder
@@ -158,12 +165,15 @@ struct MiniPlayer: View {
             .onChanged { value in
                 let dock = router.nowPlaying
                 if axis == nil {
-                    axis = PlayerDockMotion.miniAxis(value.translation, pullAllowed: dock.allowsPull)
+                    axis = PlayerDockMotion.miniAxis(value.translation, pullAllowed: dock.allowsPull,
+                                                         dismissAllowed: !dock.isPresented)
                     slop = (value.translation.height, value.time)
                 }
                 switch axis {
                 case .swipe:
                     dragOffset = value.translation.width
+                case .dismiss:
+                    if !reduceMotion { dismissOffset = min(48, max(0, value.translation.height * 0.65)) }
                 case .pull:
                     dock.hold(offset: PlayerDockMotion.pullOffset(
                         value.translation.height, from: value.startLocation.y, travel: dock.travel))
@@ -184,6 +194,13 @@ struct MiniPlayer: View {
                     ))
                 case .pull:
                     endPull(value)
+                case .dismiss:
+                    let translation = value.translation
+                    if translation.height >= 36, translation.height > abs(translation.width) {
+                        dismissPlayer()
+                    } else {
+                        springBackDismiss()
+                    }
                 case .scroll, nil:
                     break
                 }
@@ -200,8 +217,34 @@ struct MiniPlayer: View {
             router.nowPlaying.abandonHold()
         case .swipe:
             withAnimation(.spring(duration: 0.25)) { dragOffset = 0 }
+        case .dismiss:
+            springBackDismiss()
         case .scroll:
             break
+        }
+    }
+
+    private func springBackDismiss() {
+        withAnimation(.spring(duration: 0.25)) { dismissOffset = 0 }
+    }
+
+    private func dismissPlayer() {
+        guard !finishingDismiss else { return }
+        guard !player.controlsLocked, !reduceMotion else {
+            _ = player.stopAndDismissMiniPlayer()
+            springBackDismiss()
+            return
+        }
+        let entry = player.currentSong?.queueEntryId
+        finishingDismiss = true
+        withAnimation(.spring(duration: 0.23), completionCriteria: .logicallyComplete) {
+            dismissOffset = 64
+        } completion: {
+            finishingDismiss = false
+            if entry == player.currentSong?.queueEntryId {
+                _ = player.stopAndDismissMiniPlayer()
+            }
+            springBackDismiss()
         }
     }
 

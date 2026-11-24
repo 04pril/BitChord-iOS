@@ -479,6 +479,7 @@ struct PlayerActionRow: View {
     var onToggleAutoplay: () -> Void
     var onOpenOutput: () -> Void
     var onParty: () -> Void
+    var outputSymbol = "airplayaudio"
 
     @State private var shuffleTaps = PlayerTapThrottle(window: PlayerTapThrottle.shuffle)
     @State private var autoplayTaps = PlayerTapThrottle(window: PlayerTapThrottle.autoplay)
@@ -582,11 +583,7 @@ struct PlayerActionRow: View {
 
     private var outputPill: some View {
         Pill {
-            PillSegment(symbol: "headphones", highlighted: false, width: 64, label: L10n.audioOutput) {
-                Haptics.shared.play(.tap)
-                onOpenOutput()
-            }
-            .accessibilityIdentifier("nowPlaying.output")
+            outputButton.frame(width: 64)
             PillDivider()
             PillSegment(symbol: "person.fill", highlighted: party.inParty, width: 64,
                         trailing: party.inParty ? "\(party.members)" : nil,
@@ -598,11 +595,19 @@ struct PlayerActionRow: View {
     }
 
     private var outputButton: some View {
-        BottomGlyph(symbol: "headphones", label: L10n.audioOutput) {
-            Haptics.shared.play(.tap)
-            onOpenOutput()
-        }
-        .accessibilityIdentifier("nowPlaying.output")
+        Image(systemName: outputSymbol)
+            .font(.system(size: 24, weight: .medium))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(.white.opacity(0.65))
+            .contentTransition(.symbolEffect(.replace))
+            .frame(width: 44, height: 44)
+            .accessibilityHidden(true)
+            .overlay {
+                PlayerRoutePicker(invisible: true)
+                    .accessibilityLabel(L10n.audioOutput)
+                    .accessibilityIdentifier("nowPlaying.output")
+            }
+            .accessibilityAction(named: Text(L10n.audioOutput), onOpenOutput)
     }
 
 }

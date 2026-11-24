@@ -510,5 +510,33 @@
   "app_icon_monochrome_dark": {
     "en": "Monochrome Dark",
     "ko": "단색 다크"
+  },
+  "search_playlists": {
+    "en": "Search playlists",
+    "ko": "재생목록 검색"
+  },
+  "select_queue_tracks": {
+    "en": "Select",
+    "ko": "선택"
+  },
+  "queue_tracks_removed": {
+    "en": "Removed from queue",
+    "ko": "재생 대기열에서 삭제했어요"
+  },
+  "undo_queue_removal": {
+    "en": "Undo",
+    "ko": "실행 취소"
+  },
+  "stop_playback": {
+    "en": "Stop playback",
+    "ko": "재생 종료"
+  },
+  "download_liked_songs": {
+    "en": "Automatically download liked songs",
+    "ko": "좋아요한 곡 자동 다운로드"
+  },
+  "download_liked_songs_subtitle": {
+    "en": "Keep liked songs available offline using your download settings.",
+    "ko": "다운로드 설정에 따라 좋아요한 곡을 오프라인에 저장합니다."
   }
 }
