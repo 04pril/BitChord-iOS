@@ -12,7 +12,7 @@ python3 scripts/apply-korean.py
 MIN_IOS=17.0 SDK_NAME=iphoneos bash WireGuard/build-ios.sh
 
 DERIVED=.derived-release
-xcodebuild build -workspace BitChord.xcworkspace -scheme BitChord -configuration Release \
+env -u LASTFM_API_KEY -u LASTFM_API_SECRET xcodebuild build -workspace BitChord.xcworkspace -scheme BitChord -configuration Release \
   -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" -jobs "${JOBS:-3}" -quiet \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
@@ -26,6 +26,28 @@ trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/Payload"
 cp -R "$APP" "$STAGE/Payload/"
 STAGED="$STAGE/Payload/BitChord.app"
+
+# Optional Last.fm credentials belong in the signed bundle. Keep them out of
+# command arguments and Xcode's build settings output.
+python3 - "$STAGED/Info.plist" <<'PYPLIST'
+import os
+import plistlib
+import sys
+from pathlib import Path
+
+names = ("LASTFM_API_KEY", "LASTFM_API_SECRET")
+values = {name: os.environ.get(name, "").strip() for name in names}
+if any(values.values()):
+    if not all(values.values()):
+        raise SystemExit("Both Last.fm credentials are required.")
+    info = Path(sys.argv[1])
+    with info.open("rb") as source:
+        plist = plistlib.load(source)
+    plist.update(values)
+    with info.open("wb") as destination:
+        plistlib.dump(plist, destination, fmt=plistlib.FMT_BINARY)
+    print("Last.fm credentials included in the IPA.")
+PYPLIST
 
 # A prior build-for-testing can leave a test bundle in the shared product directory.
 # It must never ship in a sideload IPA, even when a normal build did not clean it up.

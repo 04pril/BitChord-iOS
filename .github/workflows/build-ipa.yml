@@ -1,24 +1,61 @@
 name: Build IPA
 on:
   workflow_dispatch:
+    inputs:
+      recipient_certificate:
+        description: PEM certificate for an encrypted IPA with Last.fm enabled (optional)
+        type: string
+        default: ''
 permissions:
   contents: read
 jobs:
   build:
     runs-on: xcode-27
     timeout-minutes: 90
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: WireGuard/go.mod
           cache-dependency-path: WireGuard/go.sum
+      - name: Select the runner's Xcode
+        run: |
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+          xcodebuild -version
       - name: Build proxy engine and package IPA
+        if: inputs.recipient_certificate == ''
         run: scripts/make-ipa.sh
+      - name: Build and encrypt the IPA with Last.fm credentials
+        if: inputs.recipient_certificate != ''
+        env:
+          RECIPIENT_CERTIFICATE: \${{ inputs.recipient_certificate }}
+          LASTFM_API_KEY: \${{ secrets.LASTFM_API_KEY }}
+          LASTFM_API_SECRET: \${{ secrets.LASTFM_API_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$LASTFM_API_KEY" ] || [ -z "$LASTFM_API_SECRET" ]; then
+            echo "The Last.fm API key and secret must both be configured." >&2
+            exit 1
+          fi
+          cert="$RUNNER_TEMP/ipa-recipient.pem"
+          printf '%s\n' "$RECIPIENT_CERTIFICATE" > "$cert"
+          openssl x509 -in "$cert" -noout
+          scripts/make-ipa.sh
+          mkdir -p encrypted
+          for ipa in build/BitChord-*.ipa; do
+            openssl cms -encrypt -binary -aes-256-cbc -outform DER \
+              -in "$ipa" -out "encrypted/$(basename "$ipa").cms" "$cert"
+          done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.recipient_certificate == ''
         with:
           name: BitChord-IPA
           path: build/BitChord-*.ipa
           if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.recipient_certificate != ''
+        with:
+          name: BitChord-IPA-encrypted
+          path: encrypted/*.ipa.cms
+          if-no-files-found: error
+          retention-days: 1
